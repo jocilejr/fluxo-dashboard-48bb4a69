@@ -23,7 +23,7 @@ interface UseWhatsAppExtensionReturn {
   retryConnection: () => void;
 }
 
-const EXTENSION_TIMEOUT = 15000;
+const EXTENSION_TIMEOUT = 30000;
 
 export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus>("connecting");
@@ -82,12 +82,12 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
       console.log("[WhatsApp Extension] Sending command:", action, data, "requestId:", requestId);
       
       const handleResponse = (event: MessageEvent) => {
-        console.log("[WhatsApp Extension] Response received:", event.data);
-        // Aceita ambos os tipos de resposta
-        if (
-          (event.data?.type === "WHATSAPP_EXTENSION_RESPONSE" || event.data?.type === "WHATSAPP_RESPONSE") &&
-          event.data?.requestId === requestId
-        ) {
+        // Verifica se é uma resposta para este comando
+        const isResponse = event.data?.type === "WHATSAPP_EXTENSION_RESPONSE" || event.data?.type === "WHATSAPP_RESPONSE";
+        const matchesRequestId = event.data?.requestId === requestId;
+        
+        if (isResponse && matchesRequestId) {
+          console.log("[WhatsApp Extension] Response matched:", event.data);
           window.removeEventListener("message", handleResponse);
           const success = event.data.success === true || event.data.payload?.success === true;
           console.log("[WhatsApp Extension] Command success:", success);
