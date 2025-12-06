@@ -118,11 +118,20 @@ const ProductsTab = () => {
     }).format(value);
   };
 
+  const normalizeText = (text: string) => {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, "");
+  };
+
   const filteredProducts = useMemo(() => {
     if (!products) return [];
     if (!searchTerm.trim()) return products;
+    const normalizedSearch = normalizeText(searchTerm);
     return products.filter((p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase())
+      normalizeText(p.name).includes(normalizedSearch)
     );
   }, [products, searchTerm]);
 
