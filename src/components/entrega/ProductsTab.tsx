@@ -31,6 +31,7 @@ interface DeliveryProduct {
   page_logo: string | null;
   redirect_delay: number;
   is_active: boolean;
+  value: number;
   created_at: string;
 }
 

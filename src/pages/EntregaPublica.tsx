@@ -9,6 +9,7 @@ interface ProductInfo {
   page_message: string;
   page_logo: string | null;
   redirect_delay: number;
+  value: number;
 }
 
 interface PixelInfo {
@@ -55,7 +56,7 @@ const EntregaPublica = () => {
 
         // Fire pixels if first access
         if (!data.already_accessed && data.pixels?.length > 0) {
-          firePixels(data.pixels);
+          firePixels(data.pixels, data.product.value || 0);
         }
 
         setLoading(false);
@@ -69,41 +70,56 @@ const EntregaPublica = () => {
     processAccess();
   }, [slug, telefone]);
 
-  // Fire tracking pixels
-  const firePixels = (pixels: PixelInfo[]) => {
+  // Fire tracking pixels with value
+  const firePixels = (pixels: PixelInfo[], value: number) => {
     pixels.forEach((pixel) => {
       try {
         switch (pixel.platform) {
           case "meta":
             if (typeof (window as any).fbq === "function") {
-              (window as any).fbq("track", pixel.event_name || "Purchase");
-              console.log(`[Pixel] Meta ${pixel.event_name} fired`);
+              (window as any).fbq("track", pixel.event_name || "Purchase", {
+                value: value,
+                currency: "BRL",
+              });
+              console.log(`[Pixel] Meta ${pixel.event_name} fired with value ${value}`);
             }
             break;
           case "tiktok":
             if (typeof (window as any).ttq === "object") {
-              (window as any).ttq.track(pixel.event_name || "CompletePayment");
-              console.log(`[Pixel] TikTok ${pixel.event_name} fired`);
+              (window as any).ttq.track(pixel.event_name || "CompletePayment", {
+                value: value,
+                currency: "BRL",
+              });
+              console.log(`[Pixel] TikTok ${pixel.event_name} fired with value ${value}`);
             }
             break;
           case "google":
             if (typeof (window as any).gtag === "function") {
               (window as any).gtag("event", "conversion", {
                 send_to: pixel.pixel_id,
+                value: value,
+                currency: "BRL",
               });
-              console.log(`[Pixel] Google conversion fired`);
+              console.log(`[Pixel] Google conversion fired with value ${value}`);
             }
             break;
           case "pinterest":
             if (typeof (window as any).pintrk === "function") {
-              (window as any).pintrk("track", pixel.event_name || "checkout");
-              console.log(`[Pixel] Pinterest ${pixel.event_name} fired`);
+              (window as any).pintrk("track", pixel.event_name || "checkout", {
+                value: value,
+                currency: "BRL",
+              });
+              console.log(`[Pixel] Pinterest ${pixel.event_name} fired with value ${value}`);
             }
             break;
           case "taboola":
             if (typeof (window as any)._tfa === "object") {
-              (window as any)._tfa.push({ notify: "event", name: pixel.event_name || "purchase" });
-              console.log(`[Pixel] Taboola ${pixel.event_name} fired`);
+              (window as any)._tfa.push({ 
+                notify: "event", 
+                name: pixel.event_name || "purchase",
+                revenue: value,
+              });
+              console.log(`[Pixel] Taboola ${pixel.event_name} fired with value ${value}`);
             }
             break;
         }

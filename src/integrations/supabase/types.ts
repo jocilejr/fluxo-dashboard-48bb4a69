@@ -322,6 +322,7 @@ export type Database = {
           redirect_delay: number | null
           slug: string
           updated_at: string
+          value: number | null
           whatsapp_message: string | null
           whatsapp_number: string | null
         }
@@ -337,6 +338,7 @@ export type Database = {
           redirect_delay?: number | null
           slug: string
           updated_at?: string
+          value?: number | null
           whatsapp_message?: string | null
           whatsapp_number?: string | null
         }
@@ -352,6 +354,7 @@ export type Database = {
           redirect_delay?: number | null
           slug?: string
           updated_at?: string
+          value?: number | null
           whatsapp_message?: string | null
           whatsapp_number?: string | null
         }

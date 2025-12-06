@@ -135,6 +135,7 @@ serve(async (req) => {
           page_message: product.page_message,
           page_logo: product.page_logo,
           redirect_delay: product.redirect_delay,
+          value: product.value || 0,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
