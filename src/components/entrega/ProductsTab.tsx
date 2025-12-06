@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Link as LinkIcon, Trash2, Copy } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Plus, Edit, Link as LinkIcon, Trash2, Copy, Search } from "lucide-react";
 import { toast } from "sonner";
 import ProductForm from "./ProductForm";
 import LinkGenerator from "./LinkGenerator";
@@ -42,6 +43,7 @@ const ProductsTab = () => {
   const [editingProduct, setEditingProduct] = useState<DeliveryProduct | null>(null);
   const [linkProduct, setLinkProduct] = useState<DeliveryProduct | null>(null);
   const [deleteProduct, setDeleteProduct] = useState<DeliveryProduct | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["delivery-products"],
@@ -116,6 +118,14 @@ const ProductsTab = () => {
     }).format(value);
   };
 
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    if (!searchTerm.trim()) return products;
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [products, searchTerm]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -125,17 +135,25 @@ const ProductsTab = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-lg font-semibold">Produtos</h2>
-          <p className="text-sm text-muted-foreground">
-            {products?.length || 0} produto(s) cadastrado(s)
-          </p>
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 h-9"
+            />
+          </div>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {filteredProducts.length} de {products?.length || 0}
+          </span>
         </div>
-        <Button onClick={() => setShowForm(true)} className="gap-2">
+        <Button onClick={() => setShowForm(true)} size="sm" className="gap-1.5">
           <Plus className="h-4 w-4" />
-          Novo Produto
+          Novo
         </Button>
       </div>
 
@@ -149,69 +167,53 @@ const ProductsTab = () => {
             </Button>
           </CardContent>
         </Card>
+      ) : filteredProducts.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p className="text-muted-foreground text-sm">Nenhum produto encontrado.</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {products?.map((product) => (
-            <Card key={product.id} className="relative">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-base font-medium truncate pr-2">
-                    {product.name}
-                  </CardTitle>
-                  <Badge variant={product.is_active ? "default" : "secondary"}>
-                    {product.is_active ? "Ativo" : "Inativo"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Slug</p>
-                  <code className="text-xs bg-muted px-2 py-1 rounded block truncate">
-                    /e/{product.slug}
-                  </code>
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Valor</p>
-                  <p className="text-sm font-medium">{formatCurrency(product.value || 0)}</p>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 gap-1"
-                    onClick={() => setLinkProduct(product)}
-                  >
-                    <LinkIcon className="h-3.5 w-3.5" />
-                    Link
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => duplicateMutation.mutate(product)}
-                    title="Duplicar"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(product)}
-                    title="Editar"
-                  >
-                    <Edit className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setDeleteProduct(product)}
-                    title="Excluir"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
-                </div>
-              </CardContent>
+        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {filteredProducts.map((product) => (
+            <Card key={product.id} className="p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-sm font-medium truncate flex-1" title={product.name}>
+                  {product.name}
+                </span>
+                <Badge 
+                  variant={product.is_active ? "default" : "secondary"} 
+                  className="text-[10px] px-1.5 py-0 h-5"
+                >
+                  {product.is_active ? "Ativo" : "Off"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <code className="bg-muted px-1 py-0.5 rounded truncate max-w-[60%]" title={`/e/${product.slug}`}>
+                  {product.slug}
+                </code>
+                <span className="font-medium text-foreground">{formatCurrency(product.value || 0)}</span>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 h-7 text-xs gap-1"
+                  onClick={() => setLinkProduct(product)}
+                >
+                  <LinkIcon className="h-3 w-3" />
+                  Link
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => duplicateMutation.mutate(product)} title="Duplicar">
+                  <Copy className="h-3 w-3" />
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => handleEdit(product)} title="Editar">
+                  <Edit className="h-3 w-3" />
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => setDeleteProduct(product)} title="Excluir">
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
+              </div>
             </Card>
           ))}
         </div>
