@@ -73,29 +73,25 @@ function formatPhone(phone) {
   return cleaned;
 }
 
-// Insere texto no elemento contenteditable com quebras de linha usando Shift+Enter
-async function insertTextWithLineBreaks(element, text) {
+// Insere texto simples
+function simulateTyping(el, text) {
+  el.focus();
+  el.textContent = '';
+  document.execCommand('insertText', false, text);
+  el.dispatchEvent(new InputEvent('input', { bubbles: true }));
+}
+
+// Insere texto com quebras de linha
+function insertTextWithLineBreaks(element, text) {
   element.focus();
   element.textContent = '';
   
   const lines = text.split('\n');
-  
   for (let i = 0; i < lines.length; i++) {
-    // Insere a linha
     document.execCommand('insertText', false, lines[i]);
-    
-    // Se não for a última linha, simula Shift+Enter
     if (i < lines.length - 1) {
-      element.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'Enter',
-        code: 'Enter',
-        shiftKey: true,
-        bubbles: true
-      }));
       document.execCommand('insertLineBreak');
     }
-    
-    await new Promise(r => setTimeout(r, 10));
   }
   
   element.dispatchEvent(new InputEvent('input', { bubbles: true }));
