@@ -174,48 +174,40 @@ const ProductsTab = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {filteredProducts.map((product) => (
-            <Card key={product.id} className="p-3">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="text-sm font-medium truncate flex-1" title={product.name}>
-                  {product.name}
-                </span>
+        <div className="border rounded-lg overflow-hidden">
+          <div className="divide-y">
+            {filteredProducts.map((product) => (
+              <div key={product.id} className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50">
                 <Badge 
                   variant={product.is_active ? "default" : "secondary"} 
-                  className="text-[10px] px-1.5 py-0 h-5"
+                  className="text-[10px] px-1.5 py-0 h-5 shrink-0"
                 >
                   {product.is_active ? "Ativo" : "Off"}
                 </Badge>
-              </div>
-              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                <code className="bg-muted px-1 py-0.5 rounded truncate max-w-[60%]" title={`/e/${product.slug}`}>
+                <span className="text-sm font-medium truncate min-w-0 flex-1" title={product.name}>
+                  {product.name}
+                </span>
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded truncate max-w-32 hidden sm:block" title={`/e/${product.slug}`}>
                   {product.slug}
                 </code>
-                <span className="font-medium text-foreground">{formatCurrency(product.value || 0)}</span>
+                <span className="text-xs font-medium shrink-0 w-20 text-right">{formatCurrency(product.value || 0)}</span>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setLinkProduct(product)} title="Gerar Link">
+                    <LinkIcon className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => duplicateMutation.mutate(product)} title="Duplicar">
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEdit(product)} title="Editar">
+                    <Edit className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setDeleteProduct(product)} title="Excluir">
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-7 text-xs gap-1"
-                  onClick={() => setLinkProduct(product)}
-                >
-                  <LinkIcon className="h-3 w-3" />
-                  Link
-                </Button>
-                <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => duplicateMutation.mutate(product)} title="Duplicar">
-                  <Copy className="h-3 w-3" />
-                </Button>
-                <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => handleEdit(product)} title="Editar">
-                  <Edit className="h-3 w-3" />
-                </Button>
-                <Button variant="outline" size="sm" className="h-7 w-7 p-0" onClick={() => setDeleteProduct(product)} title="Excluir">
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-              </div>
-            </Card>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
