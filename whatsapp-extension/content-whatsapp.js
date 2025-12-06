@@ -162,10 +162,31 @@ async function sendText(phone, text) {
       5000
     );
 
-    // Cola a mensagem
+    // Cola a mensagem preservando quebras de linha
     messageInput.focus();
-    await navigator.clipboard.writeText(text);
-    document.execCommand('paste');
+    
+    // Divide o texto por quebras de linha e insere cada parte
+    const lines = text.split('\n');
+    
+    for (let i = 0; i < lines.length; i++) {
+      // Insere a linha
+      if (lines[i]) {
+        await navigator.clipboard.writeText(lines[i]);
+        document.execCommand('paste');
+      }
+      
+      // Se não for a última linha, adiciona quebra de linha (Shift+Enter)
+      if (i < lines.length - 1) {
+        messageInput.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          shiftKey: true,
+          bubbles: true
+        }));
+        // Também insere uma quebra de linha no contenteditable
+        document.execCommand('insertLineBreak');
+      }
+    }
     
     await new Promise(resolve => setTimeout(resolve, 300));
 
