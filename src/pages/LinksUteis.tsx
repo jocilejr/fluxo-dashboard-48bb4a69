@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ExternalLink, Plus, Trash2, GripVertical, Pencil, Loader2, Link as LinkIcon } from "lucide-react";
+import { ExternalLink, Plus, Trash2, Pencil, Loader2, Link as LinkIcon, Copy, Check } from "lucide-react";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
 import {
   Dialog,
@@ -33,6 +33,14 @@ const LinksUteis = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<UsefulLink | null>(null);
   const [form, setForm] = useState({ title: "", url: "", description: "" });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const copyToClipboard = async (url: string, id: string) => {
+    await navigator.clipboard.writeText(url);
+    setCopiedId(id);
+    toast.success("Link copiado!");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const { data: links, isLoading } = useQuery({
     queryKey: ["useful-links"],
@@ -206,43 +214,61 @@ const LinksUteis = () => {
           {links.map((link) => (
             <Card
               key={link.id}
-              className={`p-4 flex items-center gap-4 transition-all ${!link.is_active ? "opacity-50" : ""}`}
+              className={`p-4 transition-all ${!link.is_active ? "opacity-50" : ""}`}
             >
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <ExternalLink className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-sm hover:text-primary transition-colors truncate block"
-                >
-                  {link.title}
-                </a>
-                {link.description && (
-                  <p className="text-xs text-muted-foreground truncate">{link.description}</p>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm">{link.title}</p>
+                  {link.description && (
+                    <p className="text-xs text-muted-foreground">{link.description}</p>
+                  )}
+                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Switch
+                      checked={link.is_active}
+                      onCheckedChange={(checked) => toggleActive.mutate({ id: link.id, is_active: checked })}
+                    />
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(link)} className="h-8 w-8 p-0">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteLink.mutate(link.id)}
+                      className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 )}
               </div>
-              {isAdmin && (
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Switch
-                    checked={link.is_active}
-                    onCheckedChange={(checked) => toggleActive.mutate({ id: link.id, is_active: checked })}
-                  />
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(link)} className="h-8 w-8 p-0">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteLink.mutate(link.id)}
-                    className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+              
+              <div className="mt-3 flex items-center gap-2">
+                <div className="flex-1 bg-secondary/30 rounded-lg px-3 py-2 text-xs text-muted-foreground truncate font-mono">
+                  {link.url}
                 </div>
-              )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(link.url, link.id)}
+                  className="h-8 px-3 flex-shrink-0"
+                >
+                  {copiedId === link.id ? (
+                    <Check className="h-3.5 w-3.5 text-green-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(link.url, "_blank")}
+                  className="h-8 px-3 flex-shrink-0"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </Card>
           ))}
         </div>
