@@ -40,8 +40,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// Aguarda elemento aparecer no DOM
-function waitForElement(selector, timeout = 10000) {
+// Aguarda elemento aparecer no DOM (timeout reduzido)
+function waitForElement(selector, timeout = 1500) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
     
@@ -53,7 +53,7 @@ function waitForElement(selector, timeout = 10000) {
       }
       
       if (Date.now() - startTime > timeout) {
-        reject(new Error(`Timeout esperando elemento: ${selector}`));
+        reject(new Error(`Timeout: ${selector}`));
         return;
       }
       
@@ -64,156 +64,114 @@ function waitForElement(selector, timeout = 10000) {
   });
 }
 
-// Simula digitação no input
-function typeText(element, text) {
-  element.focus();
-  
-  // Usa execCommand para inserir texto
-  document.execCommand('insertText', false, text);
-  
-  // Dispara eventos
-  element.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
-}
-
 // Formata número de telefone para WhatsApp
 function formatPhone(phone) {
-  // Remove tudo que não é número
   let cleaned = phone.replace(/\D/g, '');
-  
-  // Se não começar com código do país, adiciona 55 (Brasil)
   if (!cleaned.startsWith('55') && cleaned.length <= 11) {
     cleaned = '55' + cleaned;
   }
-  
   return cleaned;
+}
+
+// Insere texto no elemento contenteditable com quebras de linha
+function insertTextWithLineBreaks(element, text) {
+  element.focus();
+  element.innerHTML = '';
+  
+  // Substitui \n por <br> para contenteditable
+  const htmlContent = text
+    .split('\n')
+    .map(line => line || '<br>')
+    .join('<br>');
+  
+  element.innerHTML = htmlContent;
+  
+  // Dispara eventos para o WhatsApp detectar a mudança
+  element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+  element.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 // Abre uma conversa com o número especificado
 async function openChat(phone) {
   const formattedPhone = formatPhone(phone);
-  console.log('[WhatsApp Extension] Abrindo chat com:', formattedPhone);
+  console.log('[WhatsApp] Abrindo chat:', formattedPhone);
 
   try {
     // Clica no botão "Nova conversa"
-    const newChatButton = await waitForElement('[data-tab="2"], [aria-label="Nova conversa"], [aria-label="New chat"]', 5000);
-    newChatButton.click();
+    const newChatBtn = document.querySelector('[data-tab="2"]') 
+      || document.querySelector('[aria-label="Nova conversa"]')
+      || document.querySelector('[aria-label="New chat"]')
+      || document.querySelector('span[data-icon="new-chat-outline"]')?.parentElement;
     
-    await new Promise(resolve => setTimeout(resolve, 500));
+    if (!newChatBtn) throw new Error('Botão nova conversa não encontrado');
+    newChatBtn.click();
+    
+    await new Promise(r => setTimeout(r, 300));
 
     // Encontra o campo de busca
-    const searchInput = await waitForElement('[data-tab="3"], [aria-label="Pesquisar ou começar uma nova conversa"], [aria-label="Search input textbox"]', 5000);
-    
-    // Limpa e digita o número
+    const searchInput = await waitForElement('[data-tab="3"]', 1000);
     searchInput.focus();
-    searchInput.textContent = '';
+    searchInput.textContent = formattedPhone;
+    searchInput.dispatchEvent(new InputEvent('input', { bubbles: true }));
     
-    // Usa clipboard para colar o número (mais confiável)
-    await navigator.clipboard.writeText(formattedPhone);
-    document.execCommand('paste');
+    await new Promise(r => setTimeout(r, 500));
+
+    // Clica no primeiro resultado
+    const result = document.querySelector('[data-testid="cell-frame-container"]')
+      || document.querySelector('._ajvq')
+      || document.querySelector('[data-testid="chat-list"] [role="listitem"]');
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Clica no resultado (primeiro contato ou "Conversar com +55...")
-    const resultSelectors = [
-      '[data-testid="cell-frame-container"]',
-      '._ajvq',
-      '[data-testid="chat-list"] [role="listitem"]',
-      'span[title*="' + formattedPhone.slice(-8) + '"]'
-    ];
-
-    for (const selector of resultSelectors) {
-      try {
-        const result = await waitForElement(selector, 2000);
-        if (result) {
-          result.click();
-          console.log('[WhatsApp Extension] Chat aberto com sucesso');
-          return;
-        }
-      } catch {
-        continue;
-      }
+    if (result) {
+      result.click();
+    } else {
+      // Fallback: Enter para abrir
+      searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
     }
-
-    // Fallback: tenta pressionar Enter para abrir o chat
-    searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
     
-    await new Promise(resolve => setTimeout(resolve, 500));
-    console.log('[WhatsApp Extension] Chat aberto (fallback)');
+    await new Promise(r => setTimeout(r, 300));
+    console.log('[WhatsApp] Chat aberto');
     
   } catch (error) {
-    console.error('[WhatsApp Extension] Erro ao abrir chat:', error);
+    console.error('[WhatsApp] Erro:', error);
     throw error;
   }
 }
 
 // Envia mensagem de texto
 async function sendText(phone, text) {
-  console.log('[WhatsApp Extension] Enviando texto para:', phone);
+  console.log('[WhatsApp] Enviando texto para:', phone);
 
-  // Primeiro abre o chat
   await openChat(phone);
-  
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(r => setTimeout(r, 400));
 
   try {
     // Encontra o campo de mensagem
-    const messageInput = await waitForElement(
-      '[data-tab="10"], [data-testid="conversation-compose-box-input"], [contenteditable="true"][data-tab="10"]',
-      5000
-    );
+    const messageInput = document.querySelector('[data-tab="10"]')
+      || document.querySelector('[data-testid="conversation-compose-box-input"]')
+      || document.querySelector('footer div[contenteditable="true"]');
 
-    // Cola a mensagem preservando quebras de linha
-    messageInput.focus();
-    
-    // Divide o texto por quebras de linha e insere cada parte
-    const lines = text.split('\n');
-    
-    for (let i = 0; i < lines.length; i++) {
-      // Insere a linha
-      if (lines[i]) {
-        await navigator.clipboard.writeText(lines[i]);
-        document.execCommand('paste');
-      }
-      
-      // Se não for a última linha, adiciona quebra de linha (Shift+Enter)
-      if (i < lines.length - 1) {
-        messageInput.dispatchEvent(new KeyboardEvent('keydown', {
-          key: 'Enter',
-          code: 'Enter',
-          shiftKey: true,
-          bubbles: true
-        }));
-        // Também insere uma quebra de linha no contenteditable
-        document.execCommand('insertLineBreak');
-      }
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 300));
+    if (!messageInput) throw new Error('Campo de mensagem não encontrado');
 
-    // Nota: Não envia automaticamente - deixa o usuário revisar e enviar
-    console.log('[WhatsApp Extension] Mensagem preparada (aguardando envio manual)');
+    // Insere texto com quebras de linha
+    insertTextWithLineBreaks(messageInput, text);
+    
+    await new Promise(r => setTimeout(r, 200));
+    console.log('[WhatsApp] Mensagem preparada');
     
   } catch (error) {
-    console.error('[WhatsApp Extension] Erro ao preparar mensagem:', error);
+    console.error('[WhatsApp] Erro:', error);
     throw error;
   }
 }
 
 // Prepara para enviar imagem
 async function sendImage(phone, imageUrl) {
-  console.log('[WhatsApp Extension] Preparando imagem para:', phone);
-
-  // Primeiro abre o chat
+  console.log('[WhatsApp] Preparando imagem para:', phone);
   await openChat(phone);
-  
-  await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // Nota: Não é possível enviar imagem automaticamente por restrições de segurança
-  // O usuário precisará fazer drag-and-drop manualmente
-  console.log('[WhatsApp Extension] Chat aberto - arraste a imagem para enviar');
+  console.log('[WhatsApp] Chat aberto - arraste a imagem para enviar');
 }
 
-// Verifica periodicamente se ainda está na página do WhatsApp
+// Verifica periodicamente se ainda está na página
 setInterval(() => {
   if (document.visibilityState === 'visible') {
     chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' });
