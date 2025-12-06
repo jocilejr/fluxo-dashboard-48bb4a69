@@ -73,22 +73,32 @@ function formatPhone(phone) {
   return cleaned;
 }
 
-// Insere texto no elemento contenteditable com quebras de linha
-function insertTextWithLineBreaks(element, text) {
+// Insere texto no elemento contenteditable com quebras de linha usando Shift+Enter
+async function insertTextWithLineBreaks(element, text) {
   element.focus();
-  element.innerHTML = '';
+  element.textContent = '';
   
-  // Substitui \n por <br> para contenteditable
-  const htmlContent = text
-    .split('\n')
-    .map(line => line || '<br>')
-    .join('<br>');
+  const lines = text.split('\n');
   
-  element.innerHTML = htmlContent;
+  for (let i = 0; i < lines.length; i++) {
+    // Insere a linha
+    document.execCommand('insertText', false, lines[i]);
+    
+    // Se não for a última linha, simula Shift+Enter
+    if (i < lines.length - 1) {
+      element.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        shiftKey: true,
+        bubbles: true
+      }));
+      document.execCommand('insertLineBreak');
+    }
+    
+    await new Promise(r => setTimeout(r, 10));
+  }
   
-  // Dispara eventos para o WhatsApp detectar a mudança
-  element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
-  element.dispatchEvent(new Event('change', { bubbles: true }));
+  element.dispatchEvent(new InputEvent('input', { bubbles: true }));
 }
 
 // Abre uma conversa com o número especificado
