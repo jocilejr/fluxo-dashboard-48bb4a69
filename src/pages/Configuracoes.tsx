@@ -30,10 +30,13 @@ interface WirePusherTemplate {
 }
 
 const AVAILABLE_PERMISSIONS = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "transacoes", label: "Transações" },
-  { key: "recuperacao", label: "Recuperação" },
-  { key: "gerar_boleto", label: "Gerar Boleto" },
+  { key: "dashboard", label: "Dashboard", description: "Métricas e visão geral" },
+  { key: "transacoes", label: "Transações", description: "Lista de transações" },
+  { key: "recuperacao", label: "Recuperação", description: "Recuperação de boletos" },
+  { key: "entrega", label: "Entrega", description: "Produtos digitais" },
+  { key: "projetos", label: "Quadros", description: "Gestão de projetos" },
+  { key: "gerar_boleto", label: "Gerar Boleto", description: "Geração manual de boletos" },
+  { key: "links_uteis", label: "Links Úteis", description: "Links compartilhados" },
 ];
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -549,36 +552,59 @@ const Configuracoes = () => {
 
         <TabsContent value="permissions">
           <div className="bg-card/60 border border-border/30 rounded-xl p-5 lg:p-6">
-            <div className="mb-5">
-              <h3 className="text-sm font-semibold text-foreground">Permissões por Usuário</h3>
-              <p className="text-xs text-muted-foreground">Configure quais abas cada usuário pode acessar</p>
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-foreground">Controle de Acesso</h3>
+              <p className="text-xs text-muted-foreground">Defina quais seções cada colaborador pode acessar na sidebar</p>
             </div>
-            <div className="space-y-4">
-              {usersWithPermissions?.filter(u => u.role !== "admin").map((user) => (
-                <div key={user.user_id} className="p-4 rounded-lg bg-secondary/20 border border-border/20">
-                  <h4 className="font-medium text-sm mb-3">{user.email}</h4>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    {AVAILABLE_PERMISSIONS.map((perm) => (
-                      <div key={perm.key} className="flex items-center justify-between">
-                        <Label htmlFor={`${user.user_id}-${perm.key}`} className="text-xs text-muted-foreground">
-                          {perm.label}
-                        </Label>
-                        <Switch
-                          id={`${user.user_id}-${perm.key}`}
-                          checked={getUserPermission(user, perm.key)}
-                          onCheckedChange={(checked) => 
-                            updatePermission.mutate({ userId: user.user_id, permissionKey: perm.key, isAllowed: checked })
-                          }
-                        />
+            
+            {(!usersWithPermissions || usersWithPermissions.filter(u => u.role !== "admin").length === 0) ? (
+              <p className="text-muted-foreground text-center py-8 text-sm">Nenhum colaborador cadastrado</p>
+            ) : (
+              <div className="space-y-6">
+                {usersWithPermissions?.filter(u => u.role !== "admin").map((user) => (
+                  <div key={user.user_id} className="p-4 rounded-xl bg-secondary/20 border border-border/20">
+                    <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border/20">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-primary">
+                          {user.email.charAt(0).toUpperCase()}
+                        </span>
                       </div>
-                    ))}
+                      <div>
+                        <h4 className="font-medium text-sm">{user.email}</h4>
+                        <span className="text-xs text-muted-foreground">Colaborador</span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {AVAILABLE_PERMISSIONS.map((perm) => (
+                        <div 
+                          key={perm.key} 
+                          className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                            getUserPermission(user, perm.key) 
+                              ? "bg-primary/5 border-primary/20" 
+                              : "bg-secondary/30 border-border/20"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 mr-3">
+                            <Label htmlFor={`${user.user_id}-${perm.key}`} className="text-xs font-medium cursor-pointer">
+                              {perm.label}
+                            </Label>
+                            <p className="text-[10px] text-muted-foreground truncate">{perm.description}</p>
+                          </div>
+                          <Switch
+                            id={`${user.user_id}-${perm.key}`}
+                            checked={getUserPermission(user, perm.key)}
+                            onCheckedChange={(checked) => 
+                              updatePermission.mutate({ userId: user.user_id, permissionKey: perm.key, isAllowed: checked })
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-              {(!usersWithPermissions || usersWithPermissions.filter(u => u.role !== "admin").length === 0) && (
-                <p className="text-muted-foreground text-center py-8 text-sm">Nenhum usuário (não-admin) cadastrado</p>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
 

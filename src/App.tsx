@@ -15,6 +15,7 @@ import GerarBoleto from "./pages/GerarBoleto";
 import Configuracoes from "./pages/Configuracoes";
 import Entrega from "./pages/Entrega";
 import EntregaPublica from "./pages/EntregaPublica";
+import LinksUteis from "./pages/LinksUteis";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -117,6 +118,16 @@ const App = () => (
               <ProtectedRoute>
                 <ResponsiveLayout>
                   <Entrega />
+                </ResponsiveLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/links-uteis"
+            element={
+              <ProtectedRoute>
+                <ResponsiveLayout>
+                  <LinksUteis />
                 </ResponsiveLayout>
               </ProtectedRoute>
             }
