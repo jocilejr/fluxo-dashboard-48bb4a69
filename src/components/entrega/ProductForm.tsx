@@ -14,7 +14,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import PixelConfig from "./PixelConfig";
 
 interface DeliveryProduct {
   id: string;
@@ -23,6 +22,7 @@ interface DeliveryProduct {
   whatsapp_number: string;
   whatsapp_message: string | null;
   delivery_webhook_url: string | null;
+  redirect_url: string | null;
   page_title: string;
   page_message: string;
   page_logo: string | null;
@@ -47,6 +47,7 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
     whatsapp_number: "",
     whatsapp_message: "",
     delivery_webhook_url: "",
+    redirect_url: "",
     page_title: "Preparando sua entrega...",
     page_message: "Você será redirecionado em instantes",
     page_logo: "",
@@ -63,6 +64,7 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
         whatsapp_number: product.whatsapp_number,
         whatsapp_message: product.whatsapp_message || "",
         delivery_webhook_url: product.delivery_webhook_url || "",
+        redirect_url: product.redirect_url || "",
         page_title: product.page_title,
         page_message: product.page_message,
         page_logo: product.page_logo || "",
@@ -77,6 +79,7 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
         whatsapp_number: "",
         whatsapp_message: "",
         delivery_webhook_url: "",
+        redirect_url: "",
         page_title: "Preparando sua entrega...",
         page_message: "Você será redirecionado em instantes",
         page_logo: "",
@@ -110,6 +113,7 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
         ...formData,
         whatsapp_message: formData.whatsapp_message || null,
         delivery_webhook_url: formData.delivery_webhook_url || null,
+        redirect_url: formData.redirect_url || null,
         page_logo: formData.page_logo || null,
       };
 
@@ -144,6 +148,10 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
       toast.error("Preencha os campos obrigatórios");
       return;
     }
+    if (!formData.redirect_url) {
+      toast.error("URL de redirecionamento é obrigatória");
+      return;
+    }
     saveMutation.mutate();
   };
 
@@ -158,9 +166,8 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="basic">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="basic">Básico</TabsTrigger>
-              <TabsTrigger value="pixels">Pixels</TabsTrigger>
               <TabsTrigger value="page">Página</TabsTrigger>
             </TabsList>
 
@@ -192,6 +199,21 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="redirect_url">URL de Redirecionamento *</Label>
+                  <Input
+                    id="redirect_url"
+                    value={formData.redirect_url}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, redirect_url: e.target.value }))
+                    }
+                    placeholder="https://wa.me/5511999999999 ou https://seusite.com/obrigado"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    URL para onde o usuário será redirecionado após o delay
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="value">Valor do Produto (R$)</Label>
                   <Input
                     id="value"
@@ -209,22 +231,6 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
                   />
                   <p className="text-xs text-muted-foreground">
                     Este valor será enviado no disparo do pixel
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="message">Mensagem WhatsApp (opcional)</Label>
-                  <Textarea
-                    id="message"
-                    value={formData.whatsapp_message}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, whatsapp_message: e.target.value }))
-                    }
-                    placeholder="Olá! Vim receber meu produto..."
-                    rows={3}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Será enviada para o número do lead (via URL)
                   </p>
                 </div>
 
@@ -259,16 +265,6 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
                   />
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="pixels" className="mt-4">
-              {isEditing ? (
-                <PixelConfig productId={product.id} />
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Salve o produto primeiro para configurar os pixels.</p>
-                </div>
-              )}
             </TabsContent>
 
             <TabsContent value="page" className="space-y-4 mt-4">

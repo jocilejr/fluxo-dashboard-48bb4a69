@@ -320,6 +320,7 @@ export type Database = {
           page_message: string | null
           page_title: string | null
           redirect_delay: number | null
+          redirect_url: string | null
           slug: string
           updated_at: string
           value: number | null
@@ -336,6 +337,7 @@ export type Database = {
           page_message?: string | null
           page_title?: string | null
           redirect_delay?: number | null
+          redirect_url?: string | null
           slug: string
           updated_at?: string
           value?: number | null
@@ -352,6 +354,7 @@ export type Database = {
           page_message?: string | null
           page_title?: string | null
           redirect_delay?: number | null
+          redirect_url?: string | null
           slug?: string
           updated_at?: string
           value?: number | null
@@ -399,6 +402,36 @@ export type Database = {
           id?: string
           tax_rate?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      global_delivery_pixels: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          event_name: string | null
+          id: string
+          is_active: boolean | null
+          pixel_id: string
+          platform: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          event_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          pixel_id: string
+          platform: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          event_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          pixel_id?: string
+          platform?: string
         }
         Relationships: []
       }
