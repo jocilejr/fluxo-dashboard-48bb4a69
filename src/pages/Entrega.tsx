@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, History, Globe } from "lucide-react";
+import { Package, History, Globe, Zap } from "lucide-react";
 import ProductsTab from "@/components/entrega/ProductsTab";
 import AccessesTab from "@/components/entrega/AccessesTab";
 import DomainSettings from "@/components/entrega/DomainSettings";
+import GlobalPixelsConfig from "@/components/entrega/GlobalPixelsConfig";
 
 const Entrega = () => {
   const [activeTab, setActiveTab] = useState("produtos");
@@ -23,6 +24,10 @@ const Entrega = () => {
             <Package className="h-4 w-4" />
             Produtos
           </TabsTrigger>
+          <TabsTrigger value="pixels" className="gap-2">
+            <Zap className="h-4 w-4" />
+            Pixels
+          </TabsTrigger>
           <TabsTrigger value="acessos" className="gap-2">
             <History className="h-4 w-4" />
             Acessos
@@ -35,6 +40,10 @@ const Entrega = () => {
 
         <TabsContent value="produtos" className="mt-6">
           <ProductsTab />
+        </TabsContent>
+
+        <TabsContent value="pixels" className="mt-6">
+          <GlobalPixelsConfig />
         </TabsContent>
 
         <TabsContent value="acessos" className="mt-6">

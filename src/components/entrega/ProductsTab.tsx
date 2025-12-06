@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Link as LinkIcon, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Edit, Link as LinkIcon, Trash2, Copy } from "lucide-react";
 import { toast } from "sonner";
 import ProductForm from "./ProductForm";
 import LinkGenerator from "./LinkGenerator";
@@ -26,6 +26,7 @@ interface DeliveryProduct {
   whatsapp_number: string;
   whatsapp_message: string | null;
   delivery_webhook_url: string | null;
+  redirect_url: string | null;
   page_title: string;
   page_message: string;
   page_logo: string | null;
@@ -70,6 +71,34 @@ const ProductsTab = () => {
     },
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: async (product: DeliveryProduct) => {
+      const newSlug = `${product.slug}-copia-${Date.now()}`;
+      const { error } = await supabase.from("delivery_products").insert({
+        name: `${product.name} (Cópia)`,
+        slug: newSlug,
+        whatsapp_number: product.whatsapp_number,
+        whatsapp_message: product.whatsapp_message,
+        delivery_webhook_url: product.delivery_webhook_url,
+        redirect_url: product.redirect_url,
+        page_title: product.page_title,
+        page_message: product.page_message,
+        page_logo: product.page_logo,
+        redirect_delay: product.redirect_delay,
+        is_active: false,
+        value: product.value,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["delivery-products"] });
+      toast.success("Produto duplicado! Edite o slug e ative quando pronto.");
+    },
+    onError: () => {
+      toast.error("Erro ao duplicar produto");
+    },
+  });
+
   const handleEdit = (product: DeliveryProduct) => {
     setEditingProduct(product);
     setShowForm(true);
@@ -78,6 +107,13 @@ const ProductsTab = () => {
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingProduct(null);
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
   };
 
   if (isLoading) {
@@ -136,8 +172,8 @@ const ProductsTab = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">WhatsApp</p>
-                  <p className="text-sm font-mono">{product.whatsapp_number}</p>
+                  <p className="text-xs text-muted-foreground">Valor</p>
+                  <p className="text-sm font-medium">{formatCurrency(product.value || 0)}</p>
                 </div>
 
                 <div className="flex gap-2 pt-2">
@@ -148,12 +184,21 @@ const ProductsTab = () => {
                     onClick={() => setLinkProduct(product)}
                   >
                     <LinkIcon className="h-3.5 w-3.5" />
-                    Gerar Link
+                    Link
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => duplicateMutation.mutate(product)}
+                    title="Duplicar"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleEdit(product)}
+                    title="Editar"
                   >
                     <Edit className="h-3.5 w-3.5" />
                   </Button>
@@ -161,6 +206,7 @@ const ProductsTab = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setDeleteProduct(product)}
+                    title="Excluir"
                   >
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>

@@ -33,7 +33,7 @@ serve(async (req) => {
     // Get product by slug
     const { data: product, error: productError } = await supabase
       .from("delivery_products")
-      .select("*, delivery_pixels(*)")
+      .select("*")
       .eq("slug", slug)
       .eq("is_active", true)
       .maybeSingle();
@@ -46,6 +46,12 @@ serve(async (req) => {
       );
     }
 
+    // Get global pixels
+    const { data: globalPixels } = await supabase
+      .from("global_delivery_pixels")
+      .select("*")
+      .eq("is_active", true);
+
     // Check if phone already accessed this product
     const { data: existingAccess } = await supabase
       .from("delivery_accesses")
@@ -54,24 +60,22 @@ serve(async (req) => {
       .eq("phone", normalizedPhone)
       .maybeSingle();
 
-    // Build WhatsApp redirect URL (phone from URL is the destination)
-    let whatsappUrl = `https://api.whatsapp.com/send?phone=${normalizedPhone}`;
-    if (product.whatsapp_message) {
-      whatsappUrl += `&text=${encodeURIComponent(product.whatsapp_message)}`;
-    }
+    // Use redirect_url from product
+    const redirectUrl = product.redirect_url || "";
 
     if (existingAccess) {
       console.log(`[delivery-access] Phone ${normalizedPhone} already accessed product ${product.name}`);
       return new Response(
         JSON.stringify({
           already_accessed: true,
-          redirect_url: whatsappUrl,
+          redirect_url: redirectUrl,
           product: {
             name: product.name,
             page_title: product.page_title,
             page_message: product.page_message,
             page_logo: product.page_logo,
             redirect_delay: product.redirect_delay,
+            value: product.value || 0,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -115,15 +119,15 @@ serve(async (req) => {
       }
     }
 
-    // Get active pixels for this product
-    const activePixels = (product.delivery_pixels || []).filter((p: any) => p.is_active);
+    // Use global pixels
+    const activePixels = (globalPixels || []);
 
-    console.log(`[delivery-access] First access for ${normalizedPhone}, returning ${activePixels.length} pixels`);
+    console.log(`[delivery-access] First access for ${normalizedPhone}, returning ${activePixels.length} global pixels`);
 
     return new Response(
       JSON.stringify({
         already_accessed: false,
-        redirect_url: whatsappUrl,
+        redirect_url: redirectUrl,
         pixels: activePixels.map((p: any) => ({
           platform: p.platform,
           pixel_id: p.pixel_id,
