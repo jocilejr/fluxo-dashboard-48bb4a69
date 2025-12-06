@@ -83,13 +83,15 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
       
       const handleResponse = (event: MessageEvent) => {
         console.log("[WhatsApp Extension] Response received:", event.data);
+        // Aceita ambos os tipos de resposta
         if (
-          event.data?.type === "WHATSAPP_EXTENSION_RESPONSE" &&
+          (event.data?.type === "WHATSAPP_EXTENSION_RESPONSE" || event.data?.type === "WHATSAPP_RESPONSE") &&
           event.data?.requestId === requestId
         ) {
           window.removeEventListener("message", handleResponse);
-          console.log("[WhatsApp Extension] Command success:", event.data.success);
-          resolve(event.data.success === true);
+          const success = event.data.success === true || event.data.payload?.success === true;
+          console.log("[WhatsApp Extension] Command success:", success);
+          resolve(success);
         }
       };
 
@@ -101,12 +103,12 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
         resolve(false);
       }, EXTENSION_TIMEOUT);
 
+      // Envia no formato que o content-dashboard.js espera
       window.postMessage(
         {
-          type: "WHATSAPP_EXTENSION_COMMAND",
-          action,
+          type: `WHATSAPP_${action}`,
           requestId,
-          ...data,
+          payload: data,
         },
         "*"
       );
