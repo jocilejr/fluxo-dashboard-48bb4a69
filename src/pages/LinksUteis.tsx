@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ExternalLink, Plus, Trash2, Pencil, Loader2, Link as LinkIcon, Copy, Check } from "lucide-react";
+import { ExternalLink, Plus, Trash2, Pencil, Loader2, Link as LinkIcon, Copy, Check, Search } from "lucide-react";
 import { useAdminCheck } from "@/hooks/useAdminCheck";
 import {
   Dialog,
@@ -34,6 +34,15 @@ const LinksUteis = () => {
   const [editingLink, setEditingLink] = useState<UsefulLink | null>(null);
   const [form, setForm] = useState({ title: "", url: "", description: "" });
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const normalizeText = (text: string) => {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, "");
+  };
 
   const copyToClipboard = async (url: string, id: string) => {
     await navigator.clipboard.writeText(url);
@@ -53,6 +62,17 @@ const LinksUteis = () => {
       return data as UsefulLink[];
     },
   });
+
+  const filteredLinks = useMemo(() => {
+    if (!links) return [];
+    if (!searchTerm.trim()) return links;
+    const normalizedSearch = normalizeText(searchTerm);
+    return links.filter((link) =>
+      normalizeText(link.title).includes(normalizedSearch) ||
+      normalizeText(link.description || "").includes(normalizedSearch) ||
+      normalizeText(link.url).includes(normalizedSearch)
+    );
+  }, [links, searchTerm]);
 
   const createLink = useMutation({
     mutationFn: async (data: { title: string; url: string; description: string }) => {
@@ -148,8 +168,8 @@ const LinksUteis = () => {
 
   return (
     <div className="p-4 lg:p-6 animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
-        <div>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="flex-1">
           <h1 className="text-lg font-semibold">Links Úteis</h1>
           <p className="text-sm text-muted-foreground">Acesse recursos e ferramentas importantes</p>
         </div>
@@ -158,7 +178,7 @@ const LinksUteis = () => {
             <DialogTrigger asChild>
               <Button size="sm" className="h-9">
                 <Plus className="h-4 w-4 mr-2" />
-                Adicionar Link
+                Adicionar
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -203,15 +223,33 @@ const LinksUteis = () => {
         )}
       </div>
 
+      {links && links.length > 0 && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar links..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 bg-secondary/30 border-border/30 h-9"
+          />
+        </div>
+      )}
+
       {(!links || links.length === 0) ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <LinkIcon className="h-12 w-12 text-muted-foreground/50 mb-4" />
           <p className="text-muted-foreground">Nenhum link cadastrado</p>
-          {isAdmin && <p className="text-sm text-muted-foreground">Clique em "Adicionar Link" para começar</p>}
+          {isAdmin && <p className="text-sm text-muted-foreground">Clique em "Adicionar" para começar</p>}
+        </div>
+      ) : filteredLinks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <Search className="h-12 w-12 text-muted-foreground/50 mb-4" />
+          <p className="text-muted-foreground">Nenhum link encontrado</p>
+          <p className="text-sm text-muted-foreground">Tente buscar por outro termo</p>
         </div>
       ) : (
         <div className="grid gap-3">
-          {links.map((link) => (
+          {filteredLinks.map((link) => (
             <Card
               key={link.id}
               className={`p-4 transition-all ${!link.is_active ? "opacity-50" : ""}`}
