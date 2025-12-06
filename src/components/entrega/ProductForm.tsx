@@ -28,6 +28,7 @@ interface DeliveryProduct {
   page_logo: string | null;
   redirect_delay: number;
   is_active: boolean;
+  value: number;
 }
 
 interface ProductFormProps {
@@ -51,6 +52,7 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
     page_logo: "",
     redirect_delay: 3,
     is_active: true,
+    value: 0,
   });
 
   useEffect(() => {
@@ -66,6 +68,7 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
         page_logo: product.page_logo || "",
         redirect_delay: product.redirect_delay,
         is_active: product.is_active,
+        value: product.value || 0,
       });
     } else {
       setFormData({
@@ -79,6 +82,7 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
         page_logo: "",
         redirect_delay: 3,
         is_active: true,
+        value: 0,
       });
     }
   }, [product, open]);
@@ -185,6 +189,27 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
                       placeholder="manuscrito-do-arcanjo-miguel"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="value">Valor do Produto (R$)</Label>
+                  <Input
+                    id="value"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={formData.value}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        value: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    placeholder="97.00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Este valor será enviado no disparo do pixel
+                  </p>
                 </div>
 
                 <div className="space-y-2">
