@@ -482,52 +482,6 @@ export default function Clientes() {
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground text-sm">Visualização unificada de todos os leads</p>
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="p-3 rounded-lg bg-secondary/20 border border-border/30">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Users className="h-4 w-4" />
-              <span className="text-xs">Clientes</span>
-            </div>
-            <p className="text-lg font-bold">{stats.totalCustomers}</p>
-          </div>
-          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-            <div className="flex items-center gap-2 text-primary mb-1">
-              <Zap className="h-4 w-4" />
-              <span className="text-xs">Leads</span>
-            </div>
-            <p className="text-lg font-bold text-primary">{stats.totalLeads}</p>
-          </div>
-          <div className="p-3 rounded-lg bg-accent/10 border border-accent/20">
-            <div className="flex items-center gap-2 text-foreground mb-1">
-              <Banknote className="h-4 w-4" />
-              <span className="text-xs">Valor Total</span>
-            </div>
-            <p className="text-lg font-bold">{formatCurrency(stats.totalValue)}</p>
-          </div>
-          <div className="p-3 rounded-lg bg-success/10 border border-success/20">
-            <div className="flex items-center gap-2 text-success mb-1">
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="text-xs">Pago</span>
-            </div>
-            <p className="text-lg font-bold text-success">{formatCurrency(stats.totalPaid)}</p>
-          </div>
-          <div className="p-3 rounded-lg bg-info/10 border border-info/20">
-            <div className="flex items-center gap-2 text-info mb-1">
-              <Clock className="h-4 w-4" />
-              <span className="text-xs">Pendente</span>
-            </div>
-            <p className="text-lg font-bold text-info">{formatCurrency(stats.totalPending)}</p>
-          </div>
-          <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
-            <div className="flex items-center gap-2 text-warning mb-1">
-              <ShoppingCart className="h-4 w-4" />
-              <span className="text-xs">Abandonos</span>
-            </div>
-            <p className="text-lg font-bold text-warning">{stats.totalAbandoned}</p>
-          </div>
-        </div>
       </div>
 
       {/* Search and Filters */}
