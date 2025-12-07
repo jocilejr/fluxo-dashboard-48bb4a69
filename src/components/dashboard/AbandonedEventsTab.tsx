@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2, Search, ShoppingCart, AlertTriangle, Phone, MessageSquare, Users, Clock, AlertCircle, RefreshCw } from "lucide-react";
+import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAbandonedEvents, AbandonedEvent } from "@/hooks/useAbandonedEvents";
@@ -57,6 +58,7 @@ const VIEWED_ABANDONED_KEY = "viewed_abandoned_events";
 
 export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps) {
   const { events, isLoading, deleteEvent } = useAbandonedEvents();
+  const { openChat, extensionStatus } = useWhatsAppExtension();
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(15);
   const [viewedIds, setViewedIds] = useState<string[]>(() => {
@@ -168,14 +170,30 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
       .replace(/{valor}/g, amount);
   };
 
-  const openWhatsApp = (event: AbandonedEvent) => {
+  const openWhatsApp = async (event: AbandonedEvent) => {
     if (!event.customer_phone) {
       toast.error("Cliente sem telefone cadastrado");
       return;
     }
+
+    if (extensionStatus !== "connected") {
+      toast.error("Extensão WhatsApp não detectada");
+      return;
+    }
+
+    // Primeiro copia a mensagem
+    const message = prepareRecoveryMessage(event);
+    await navigator.clipboard.writeText(message);
+
+    // Depois abre o chat
     const phone = event.customer_phone.replace(/\D/g, '');
-    const message = encodeURIComponent(prepareRecoveryMessage(event));
-    window.open(`https://wa.me/55${phone}?text=${message}`, '_blank');
+    const success = await openChat(phone);
+
+    if (success) {
+      toast.success("Mensagem copiada! Cole com Ctrl+V");
+    } else {
+      toast.error("Erro ao abrir conversa");
+    }
   };
 
   const copyMessage = (event: AbandonedEvent) => {
