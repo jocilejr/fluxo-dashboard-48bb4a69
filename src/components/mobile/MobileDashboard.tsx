@@ -6,18 +6,23 @@ import {
   TrendingUp,
   RefreshCw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Users,
+  ArrowUpRight,
+  ArrowDownRight,
+  Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { startOfDay, endOfDay, subDays, format, parseISO } from "date-fns";
+import { startOfDay, endOfDay, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar } from "recharts";
 
 export function MobileDashboard() {
   const { transactions, isLoading, refetch } = useTransactions();
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [daysBack, setDaysBack] = useState(7);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     const checkRole = async () => {
@@ -36,94 +41,103 @@ export function MobileDashboard() {
     checkRole();
   }, []);
 
-  const { data: financialSettings } = useQuery({
-    queryKey: ["financial-settings"],
+  // Fetch groups data
+  const { data: groups = [] } = useQuery({
+    queryKey: ["groups"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("financial_settings")
+        .from("groups")
         .select("*")
-        .maybeSingle();
+        .order("name");
       if (error) throw error;
       return data;
     },
-    enabled: isRealAdmin === true,
   });
 
-  // Chart data with daily revenue and hourly breakdown
-  const chartData = useMemo(() => {
-    const now = new Date();
-    const data: { date: string; label: string; revenue: number; count: number; transactions: any[] }[] = [];
-    
-    for (let i = daysBack - 1; i >= 0; i--) {
-      const dayStart = startOfDay(subDays(now, i));
-      const dayEnd = endOfDay(subDays(now, i));
-      
-      const dayTransactions = transactions.filter((t) => {
-        if (t.status !== "pago") return false;
-        const dateStr = t.paid_at || t.created_at;
-        const date = new Date(dateStr);
-        return date >= dayStart && date <= dayEnd;
-      });
-      
-      const revenue = dayTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-      
-      data.push({
-        date: format(dayStart, "yyyy-MM-dd"),
-        label: i === 0 ? "Hoje" : i === 1 ? "Ontem" : format(dayStart, "dd/MM", { locale: ptBR }),
-        revenue,
-        count: dayTransactions.length,
-        transactions: dayTransactions,
-      });
-    }
-    
-    return data;
-  }, [transactions, daysBack]);
+  // Fetch group history for today
+  const { data: groupHistory = [] } = useQuery({
+    queryKey: ["group-history-today"],
+    queryFn: async () => {
+      const today = format(new Date(), "yyyy-MM-dd");
+      const { data, error } = await supabase
+        .from("group_statistics_history")
+        .select("*, groups(name)")
+        .eq("date", today);
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  // Total revenue for period
-  const totalRevenue = useMemo(() => {
-    return chartData.reduce((sum, d) => sum + d.revenue, 0);
-  }, [chartData]);
-
-  const totalSales = useMemo(() => {
-    return chartData.reduce((sum, d) => sum + d.count, 0);
-  }, [chartData]);
-
-  // Today's hourly breakdown
-  const todayHourlyData = useMemo(() => {
-    const today = chartData.find(d => d.label === "Hoje");
-    if (!today) return [];
+  // Today's revenue data
+  const todayData = useMemo(() => {
+    const dayStart = startOfDay(selectedDate);
+    const dayEnd = endOfDay(selectedDate);
     
+    const dayTransactions = transactions.filter((t) => {
+      if (t.status !== "pago") return false;
+      const dateStr = t.paid_at || t.created_at;
+      const date = new Date(dateStr);
+      return date >= dayStart && date <= dayEnd;
+    });
+    
+    const revenue = dayTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    // Hourly breakdown
     const hourlyMap: Record<number, { hour: string; revenue: number; count: number }> = {};
-    
     for (let h = 0; h < 24; h++) {
       hourlyMap[h] = { hour: `${h.toString().padStart(2, "0")}h`, revenue: 0, count: 0 };
     }
     
-    today.transactions.forEach((t) => {
+    dayTransactions.forEach((t) => {
       const date = new Date(t.paid_at || t.created_at);
       const hour = date.getHours();
       hourlyMap[hour].revenue += Number(t.amount);
       hourlyMap[hour].count += 1;
     });
     
-    return Object.values(hourlyMap).filter(h => h.count > 0);
-  }, [chartData]);
+    const hourlyData = Object.values(hourlyMap).filter(h => h.count > 0);
+    
+    return {
+      revenue,
+      count: dayTransactions.length,
+      transactions: dayTransactions,
+      hourlyData,
+    };
+  }, [transactions, selectedDate]);
+
+  // Group totals
+  const groupTotals = useMemo(() => {
+    const totalMembers = groups.reduce((sum, g) => sum + (g.current_members || 0), 0);
+    const totalEntries = groupHistory.reduce((sum, h) => sum + (h.entries || 0), 0);
+    const totalExits = groupHistory.reduce((sum, h) => sum + (h.exits || 0), 0);
+    return { totalMembers, totalEntries, totalExits };
+  }, [groups, groupHistory]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  };
-
-  const formatCompact = (value: number) => {
-    if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}k`;
-    }
-    return value.toFixed(0);
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refetch();
     setTimeout(() => setIsRefreshing(false), 500);
+  };
+
+  const changeDate = (direction: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + direction);
+    if (newDate <= new Date()) {
+      setSelectedDate(newDate);
+    }
+  };
+
+  const isToday = format(selectedDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+  const isYesterday = format(selectedDate, "yyyy-MM-dd") === format(subDays(new Date(), 1), "yyyy-MM-dd");
+
+  const getDateLabel = () => {
+    if (isToday) return "Hoje";
+    if (isYesterday) return "Ontem";
+    return format(selectedDate, "dd/MM", { locale: ptBR });
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -161,104 +175,160 @@ export function MobileDashboard() {
         </button>
       </div>
 
-      {/* Revenue Chart Card - Admin only */}
+      {/* Main Revenue Card - Admin only */}
       {isRealAdmin && (
-        <div className="rounded-2xl bg-gradient-to-br from-card to-card/80 border border-border/50 overflow-hidden">
-          {/* Header with total */}
+        <div className="rounded-2xl bg-gradient-to-br from-success/10 via-card to-card border border-success/20 overflow-hidden">
+          {/* Header with date selector */}
           <div className="p-4 pb-2">
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-muted-foreground font-medium">Faturamento</p>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 bg-secondary/50 rounded-full px-1">
                 <button 
-                  onClick={() => setDaysBack(Math.max(3, daysBack - 3))}
-                  className="p-1 hover:bg-secondary/50 rounded"
+                  onClick={() => changeDate(-1)}
+                  className="p-1.5 hover:bg-secondary rounded-full transition-colors"
                 >
                   <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
-                <span className="text-[10px] text-muted-foreground w-12 text-center">{daysBack} dias</span>
+                <span className="text-xs font-medium text-foreground min-w-[50px] text-center">
+                  {getDateLabel()}
+                </span>
                 <button 
-                  onClick={() => setDaysBack(Math.min(30, daysBack + 3))}
-                  className="p-1 hover:bg-secondary/50 rounded"
+                  onClick={() => changeDate(1)}
+                  disabled={isToday}
+                  className={cn(
+                    "p-1.5 hover:bg-secondary rounded-full transition-colors",
+                    isToday && "opacity-30 cursor-not-allowed"
+                  )}
                 >
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </div>
             </div>
-            <p className="text-2xl font-bold text-success tracking-tight">
-              {formatCurrency(totalRevenue)}
+            
+            <p className="text-3xl font-bold text-success tracking-tight">
+              {formatCurrency(todayData.revenue)}
             </p>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex items-center gap-1 px-2 py-0.5 bg-success/10 rounded-full text-[10px] text-success font-medium">
                 <TrendingUp className="h-3 w-3" />
-                <span>{totalSales} vendas</span>
+                <span>{todayData.count} vendas</span>
               </div>
             </div>
           </div>
 
-          {/* Chart */}
-          <div className="h-32 px-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis 
-                  dataKey="label" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
-                  interval="preserveStartEnd"
-                />
-                <YAxis 
-                  hide 
-                  domain={[0, 'auto']}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="hsl(var(--success))"
-                  strokeWidth={2}
-                  fill="url(#revenueGradient)"
-                  dot={false}
-                  activeDot={{ r: 4, fill: "hsl(var(--success))", strokeWidth: 0 }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Hourly Chart */}
+          {todayData.hourlyData.length > 0 && (
+            <div className="h-24 px-2 pb-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={todayData.hourlyData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="revenueGradientMobile" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="hour" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="hsl(var(--success))"
+                    strokeWidth={2}
+                    fill="url(#revenueGradientMobile)"
+                    dot={{ r: 3, fill: "hsl(var(--success))", strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: "hsl(var(--success))", strokeWidth: 0 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {todayData.hourlyData.length === 0 && (
+            <div className="px-4 pb-4">
+              <p className="text-xs text-muted-foreground text-center py-4">
+                Nenhuma venda {isToday ? "hoje" : "neste dia"}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Today's Sales Timeline - Admin only */}
-      {isRealAdmin && todayHourlyData.length > 0 && (
-        <div className="rounded-2xl bg-card border border-border/50 p-4">
-          <p className="text-xs text-muted-foreground font-medium mb-3">Vendas de Hoje por Hora</p>
-          <div className="h-20">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={todayHourlyData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                <XAxis 
-                  dataKey="hour" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: "hsl(var(--primary))", strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: "hsl(var(--primary))", strokeWidth: 0 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+      {/* Group Members Card */}
+      <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Users className="h-4 w-4 text-primary" />
+              </div>
+              <p className="text-sm font-medium text-foreground">Membros no Grupo Hoje</p>
+            </div>
           </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-secondary/30 rounded-xl p-3 text-center">
+              <p className="text-xl font-bold text-foreground">{groupTotals.totalMembers}</p>
+              <p className="text-[10px] text-muted-foreground font-medium">Total</p>
+            </div>
+            <div className="bg-success/10 rounded-xl p-3 text-center">
+              <div className="flex items-center justify-center gap-1">
+                <ArrowUpRight className="h-3.5 w-3.5 text-success" />
+                <p className="text-xl font-bold text-success">{groupTotals.totalEntries}</p>
+              </div>
+              <p className="text-[10px] text-muted-foreground font-medium">Entradas</p>
+            </div>
+            <div className="bg-destructive/10 rounded-xl p-3 text-center">
+              <div className="flex items-center justify-center gap-1">
+                <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
+                <p className="text-xl font-bold text-destructive">{groupTotals.totalExits}</p>
+              </div>
+              <p className="text-[10px] text-muted-foreground font-medium">Saídas</p>
+            </div>
+          </div>
+
+          {/* Individual Groups */}
+          {groups.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {groups.slice(0, 3).map((group) => {
+                const history = groupHistory.find((h: any) => h.group_id === group.id);
+                return (
+                  <div 
+                    key={group.id}
+                    className="flex items-center justify-between py-2 px-3 bg-secondary/20 rounded-lg"
+                  >
+                    <p className="text-xs font-medium text-foreground truncate flex-1">
+                      {group.name}
+                    </p>
+                    <div className="flex items-center gap-3 text-[10px]">
+                      <span className="text-muted-foreground">
+                        {group.current_members} membros
+                      </span>
+                      {history && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-success">+{history.entries}</span>
+                          <span className="text-destructive">-{history.exits}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {groups.length === 0 && (
+            <p className="text-xs text-muted-foreground text-center py-4 mt-2">
+              Nenhum grupo configurado
+            </p>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Recent Sales - Shows for everyone */}
       <div className="rounded-2xl bg-card border border-border/50 p-4">
