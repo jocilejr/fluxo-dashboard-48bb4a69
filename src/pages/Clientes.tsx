@@ -1,18 +1,16 @@
 import { useState, useMemo } from "react";
-import { useCustomers, useCustomerEvents, Customer, CustomerEvent } from "@/hooks/useCustomers";
+import { useCustomers, useCustomerEvents, Customer, CustomerEvent, CustomerStats } from "@/hooks/useCustomers";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Search, 
   Users, 
   Phone, 
   Mail, 
-  Calendar, 
-  DollarSign, 
   ShoppingCart, 
   AlertTriangle,
   CheckCircle2,
@@ -20,10 +18,16 @@ import {
   XCircle,
   CreditCard,
   FileText,
-  Zap
+  Zap,
+  Banknote,
+  QrCode,
+  User,
+  Copy,
+  ExternalLink
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 const formatCurrency = (value: number | null) => {
   if (value === null) return "-";
@@ -34,57 +38,42 @@ const formatDate = (dateStr: string) => {
   return format(new Date(dateStr), "dd/MM/yy HH:mm", { locale: ptBR });
 };
 
-const formatRelativeDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffDays === 0) return "Hoje";
-  if (diffDays === 1) return "Ontem";
-  if (diffDays < 7) return `${diffDays}d atrás`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} sem atrás`;
-  return format(date, "dd/MM/yy", { locale: ptBR });
+const getPaymentMethodIcon = (type?: string) => {
+  switch (type) {
+    case "boleto": return Banknote;
+    case "pix": return QrCode;
+    case "cartao": return CreditCard;
+    default: return FileText;
+  }
 };
 
-function CustomerTimeline({ normalizedPhone }: { normalizedPhone: string }) {
-  const { events, isLoading } = useCustomerEvents(normalizedPhone);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full" />
-        ))}
-      </div>
-    );
+const getPaymentMethodLabel = (type?: string) => {
+  switch (type) {
+    case "boleto": return "Boleto";
+    case "pix": return "PIX";
+    case "cartao": return "Cartão";
+    default: return "Transação";
   }
+};
 
-  if (events.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
-        <p>Nenhum evento encontrado</p>
-      </div>
-    );
-  }
+function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+  const { events, stats, isLoading } = useCustomerEvents(customer.normalized_phone);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copiado!`);
+  };
 
   const getEventIcon = (event: CustomerEvent) => {
     if (event.type === "abandoned") {
       return event.event_type === "cart_abandoned" ? ShoppingCart : AlertTriangle;
     }
-    switch (event.status) {
-      case "pago": return CheckCircle2;
-      case "pendente": return Clock;
-      case "gerado": return FileText;
-      case "cancelado": case "expirado": return XCircle;
-      default: return CreditCard;
-    }
+    return getPaymentMethodIcon(event.transaction_type);
   };
 
   const getEventColor = (event: CustomerEvent) => {
     if (event.type === "abandoned") {
-      return event.event_type === "cart_abandoned" ? "text-warning" : "text-destructive";
+      return "text-warning";
     }
     switch (event.status) {
       case "pago": return "text-success";
@@ -94,10 +83,11 @@ function CustomerTimeline({ normalizedPhone }: { normalizedPhone: string }) {
     }
   };
 
-  const getEventLabel = (event: CustomerEvent) => {
+  const getStatusLabel = (event: CustomerEvent) => {
     if (event.type === "abandoned") {
-      return event.event_type === "cart_abandoned" ? "Carrinho Abandonado" : "Falha Boleto";
+      return event.event_type === "cart_abandoned" ? "Carrinho Abandonado" : "Falha";
     }
+    const methodLabel = getPaymentMethodLabel(event.transaction_type);
     const statusMap: Record<string, string> = {
       pago: "Pago",
       pendente: "Pendente",
@@ -105,60 +95,318 @@ function CustomerTimeline({ normalizedPhone }: { normalizedPhone: string }) {
       cancelado: "Cancelado",
       expirado: "Expirado",
     };
-    return statusMap[event.status || ""] || event.status;
+    return `${methodLabel} ${statusMap[event.status || ""] || event.status}`;
   };
 
   return (
-    <div className="relative">
-      {/* Timeline line */}
-      <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
-
-      <div className="space-y-4">
-        {events.map((event) => {
-          const Icon = getEventIcon(event);
-          const color = getEventColor(event);
-
-          return (
-            <div key={`${event.type}-${event.id}`} className="relative pl-10">
-              {/* Timeline dot */}
-              <div className={`absolute left-2 top-2 h-5 w-5 rounded-full bg-background border-2 border-border flex items-center justify-center`}>
-                <Icon className={`h-3 w-3 ${color}`} />
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-3 border-b border-border/30">
+          <DialogTitle className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-lg">{customer.name || "Sem nome"}</p>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                {customer.display_phone && (
+                  <button 
+                    onClick={() => copyToClipboard(customer.display_phone!, "Telefone")}
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  >
+                    <Phone className="h-3 w-3" />
+                    {customer.display_phone}
+                    <Copy className="h-3 w-3 opacity-50" />
+                  </button>
+                )}
+                {customer.email && (
+                  <button 
+                    onClick={() => copyToClipboard(customer.email!, "Email")}
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  >
+                    <Mail className="h-3 w-3" />
+                    <span className="truncate max-w-[150px]">{customer.email}</span>
+                    <Copy className="h-3 w-3 opacity-50" />
+                  </button>
+                )}
               </div>
+              {customer.document && (
+                <p className="text-xs text-muted-foreground mt-1">CPF: {customer.document}</p>
+              )}
+            </div>
+          </DialogTitle>
+        </DialogHeader>
 
-              <div className="p-3 rounded-lg border border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-colors">
-                <div className="flex items-center justify-between mb-1">
-                  <Badge variant="outline" className={`text-xs ${color}`}>
-                    {getEventLabel(event)}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">{formatDate(event.created_at)}</span>
+        <Tabs defaultValue="resumo" className="flex-1">
+          <TabsList className="w-full rounded-none border-b border-border/30 bg-transparent h-auto p-0">
+            <TabsTrigger value="resumo" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">
+              Resumo
+            </TabsTrigger>
+            <TabsTrigger value="transacoes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">
+              Transações ({events.filter(e => e.type === "transaction").length})
+            </TabsTrigger>
+            <TabsTrigger value="abandonos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">
+              Abandonos ({events.filter(e => e.type === "abandoned").length})
+            </TabsTrigger>
+          </TabsList>
+
+          <ScrollArea className="max-h-[60vh]">
+            {/* Resumo Tab */}
+            <TabsContent value="resumo" className="p-4 m-0">
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
                 </div>
+              ) : stats ? (
+                <div className="space-y-4">
+                  {/* Payment Methods Breakdown */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {/* Boleto */}
+                    <div className="p-3 rounded-lg border border-border/30 bg-secondary/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Banknote className="h-4 w-4 text-amber-500" />
+                        <span className="text-sm font-medium">Boleto</span>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total:</span>
+                          <span>{stats.boleto.count}</span>
+                        </div>
+                        <div className="flex justify-between text-success">
+                          <span>Pagos:</span>
+                          <span>{stats.boleto.paid}</span>
+                        </div>
+                        <div className="flex justify-between text-info">
+                          <span>Pendentes:</span>
+                          <span>{stats.boleto.pending}</span>
+                        </div>
+                        <div className="pt-1 border-t border-border/30 mt-1">
+                          <div className="flex justify-between text-success font-medium">
+                            <span>Pago:</span>
+                            <span>{formatCurrency(stats.boleto.totalPaid)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold">{formatCurrency(event.amount)}</span>
-                  {event.paid_at && (
-                    <span className="text-xs text-success">
-                      Pago em {formatDate(event.paid_at)}
-                    </span>
+                    {/* PIX */}
+                    <div className="p-3 rounded-lg border border-border/30 bg-secondary/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <QrCode className="h-4 w-4 text-emerald-500" />
+                        <span className="text-sm font-medium">PIX</span>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total:</span>
+                          <span>{stats.pix.count}</span>
+                        </div>
+                        <div className="flex justify-between text-success">
+                          <span>Pagos:</span>
+                          <span>{stats.pix.paid}</span>
+                        </div>
+                        <div className="flex justify-between text-info">
+                          <span>Pendentes:</span>
+                          <span>{stats.pix.pending}</span>
+                        </div>
+                        <div className="pt-1 border-t border-border/30 mt-1">
+                          <div className="flex justify-between text-success font-medium">
+                            <span>Pago:</span>
+                            <span>{formatCurrency(stats.pix.totalPaid)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cartão */}
+                    <div className="p-3 rounded-lg border border-border/30 bg-secondary/10">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CreditCard className="h-4 w-4 text-purple-500" />
+                        <span className="text-sm font-medium">Cartão</span>
+                      </div>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Total:</span>
+                          <span>{stats.cartao.count}</span>
+                        </div>
+                        <div className="flex justify-between text-success">
+                          <span>Pagos:</span>
+                          <span>{stats.cartao.paid}</span>
+                        </div>
+                        <div className="flex justify-between text-info">
+                          <span>Pendentes:</span>
+                          <span>{stats.cartao.pending}</span>
+                        </div>
+                        <div className="pt-1 border-t border-border/30 mt-1">
+                          <div className="flex justify-between text-success font-medium">
+                            <span>Pago:</span>
+                            <span>{formatCurrency(stats.cartao.totalPaid)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Totals */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 rounded-lg bg-success/10 border border-success/20">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CheckCircle2 className="h-5 w-5 text-success" />
+                        <span className="text-sm font-medium">Total Pago</span>
+                      </div>
+                      <p className="text-2xl font-bold text-success">
+                        {formatCurrency(Number(customer.total_paid))}
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-lg bg-info/10 border border-info/20">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Clock className="h-5 w-5 text-info" />
+                        <span className="text-sm font-medium">Pendente</span>
+                      </div>
+                      <p className="text-2xl font-bold text-info">
+                        {formatCurrency(Number(customer.total_pending))}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Abandonos Summary */}
+                  {stats.abandoned.count > 0 && (
+                    <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+                      <div className="flex items-center gap-2 mb-1">
+                        <ShoppingCart className="h-4 w-4 text-warning" />
+                        <span className="text-sm font-medium text-warning">Abandonos</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>{stats.abandoned.count} evento(s)</span>
+                        <span className="font-medium">{formatCurrency(stats.abandoned.totalAmount)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Customer Info */}
+                  <div className="p-3 rounded-lg border border-border/30 bg-secondary/5 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-muted-foreground/60">Primeiro contato:</span>
+                        <p>{formatDate(customer.first_seen_at)}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground/60">Último contato:</span>
+                        <p>{formatDate(customer.last_seen_at)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </TabsContent>
+
+            {/* Transações Tab */}
+            <TabsContent value="transacoes" className="p-4 m-0">
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {events.filter(e => e.type === "transaction").length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p>Nenhuma transação encontrada</p>
+                    </div>
+                  ) : (
+                    events.filter(e => e.type === "transaction").map((event) => {
+                      const Icon = getEventIcon(event);
+                      const color = getEventColor(event);
+                      
+                      return (
+                        <div key={event.id} className="p-3 rounded-lg border border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-colors">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <Icon className={`h-4 w-4 ${color}`} />
+                              <Badge variant="outline" className={`text-xs ${color}`}>
+                                {getStatusLabel(event)}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground">{formatDate(event.created_at)}</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold">{formatCurrency(event.amount)}</span>
+                            {event.paid_at && (
+                              <span className="text-xs text-success flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Pago {formatDate(event.paid_at)}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {event.description && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate">{event.description}</p>
+                          )}
+                          
+                          {event.external_id && event.transaction_type === "boleto" && (
+                            <p className="text-[10px] text-muted-foreground/60 mt-1 font-mono truncate">
+                              Cód: {event.external_id}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })
                   )}
                 </div>
+              )}
+            </TabsContent>
 
-                {(event.description || event.product_name) && (
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {event.description || event.product_name}
-                  </p>
-                )}
-
-                {event.error_message && (
-                  <p className="text-xs text-destructive/80 mt-1 truncate">
-                    {event.error_message}
-                  </p>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+            {/* Abandonos Tab */}
+            <TabsContent value="abandonos" className="p-4 m-0">
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {events.filter(e => e.type === "abandoned").length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p>Nenhum abandono registrado</p>
+                    </div>
+                  ) : (
+                    events.filter(e => e.type === "abandoned").map((event) => (
+                      <div key={event.id} className="p-3 rounded-lg border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            {event.event_type === "cart_abandoned" ? (
+                              <ShoppingCart className="h-4 w-4 text-warning" />
+                            ) : (
+                              <AlertTriangle className="h-4 w-4 text-warning" />
+                            )}
+                            <Badge variant="outline" className="text-xs text-warning border-warning/30">
+                              {event.event_type === "cart_abandoned" ? "Carrinho Abandonado" : "Falha"}
+                            </Badge>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{formatDate(event.created_at)}</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-warning">{formatCurrency(event.amount)}</span>
+                        </div>
+                        
+                        {event.product_name && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">{event.product_name}</p>
+                        )}
+                        
+                        {event.error_message && (
+                          <p className="text-xs text-destructive/80 mt-1 truncate">{event.error_message}</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </ScrollArea>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -169,8 +417,6 @@ export default function Clientes() {
 
   const filteredCustomers = useMemo(() => {
     let result = [...customers];
-    
-    // Sort by highest spenders first
     result.sort((a, b) => Number(b.total_paid) - Number(a.total_paid));
     
     if (!searchQuery.trim()) return result;
@@ -204,7 +450,7 @@ export default function Clientes() {
       <div className="p-6 space-y-4">
         <Skeleton className="h-10 w-full" />
         {[...Array(5)].map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full" />
+          <Skeleton key={i} className="h-16 w-full" />
         ))}
       </div>
     );
@@ -310,52 +556,12 @@ export default function Clientes() {
       </div>
 
       {/* Customer Details Modal */}
-      <Dialog open={!!selectedCustomer} onOpenChange={() => setSelectedCustomer(null)}>
-        <DialogContent className="max-w-lg max-h-[85vh] p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-3 border-b border-border/30">
-            <DialogTitle className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-semibold">{selectedCustomer?.name || "Sem nome"}</p>
-                <p className="text-xs text-muted-foreground font-normal">
-                  {selectedCustomer?.display_phone || selectedCustomer?.normalized_phone}
-                </p>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedCustomer && (
-            <>
-              {/* Quick Stats */}
-              <div className="grid grid-cols-3 gap-2 p-4 border-b border-border/30">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-success">{formatCurrency(Number(selectedCustomer.total_paid))}</p>
-                  <p className="text-xs text-muted-foreground">Pago</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-info">{formatCurrency(Number(selectedCustomer.total_pending))}</p>
-                  <p className="text-xs text-muted-foreground">Pendente</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold">{selectedCustomer.total_transactions}</p>
-                  <p className="text-xs text-muted-foreground">Transações</p>
-                </div>
-              </div>
-
-              {/* Timeline */}
-              <ScrollArea className="flex-1 p-4 max-h-[50vh]">
-                <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-primary" />
-                  Histórico de Interações
-                </h4>
-                <CustomerTimeline normalizedPhone={selectedCustomer.normalized_phone} />
-              </ScrollArea>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {selectedCustomer && (
+        <CustomerDetailedModal 
+          customer={selectedCustomer} 
+          onClose={() => setSelectedCustomer(null)} 
+        />
+      )}
     </div>
   );
 }
