@@ -75,8 +75,13 @@ Deno.serve(async (req) => {
         )
       }
 
-      // Log daily statistics history
-      const today = new Date().toISOString().split('T')[0]
+      // Log daily statistics history - use Brazil timezone (UTC-3)
+      const now = new Date()
+      const brazilOffset = -3 * 60 // UTC-3 in minutes
+      const brazilTime = new Date(now.getTime() + brazilOffset * 60000)
+      const today = brazilTime.toISOString().split('T')[0]
+      console.log('Using Brazil date for history:', today)
+      
       const dailyEntries = entries !== undefined ? entries : (event_type === 'entry' ? 1 : 0)
       const dailyExits = exits !== undefined ? exits : (event_type === 'exit' ? 1 : 0)
       const finalMembers = updateData.current_members ?? existingGroup.current_members
