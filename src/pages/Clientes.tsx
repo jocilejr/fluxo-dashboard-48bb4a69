@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
-import { useCustomers, useCustomerEvents, Customer, CustomerEvent, CustomerStats } from "@/hooks/useCustomers";
+import { useCustomers, useCustomerEvents, useCustomerPaymentMethods, Customer, CustomerEvent, CustomerStats } from "@/hooks/useCustomers";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -412,12 +413,22 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
 
 export default function Clientes() {
   const { customers, isLoading } = useCustomers();
+  const { paymentMethodsByPhone } = useCustomerPaymentMethods();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "pix" | "boleto" | "cartao">("all");
 
   const filteredCustomers = useMemo(() => {
     let result = [...customers];
     result.sort((a, b) => Number(b.total_paid) - Number(a.total_paid));
+    
+    // Filtro por método de pagamento
+    if (paymentFilter !== "all") {
+      result = result.filter((c) => {
+        const methods = paymentMethodsByPhone[c.normalized_phone] || [];
+        return methods.includes(paymentFilter);
+      });
+    }
     
     if (!searchQuery.trim()) return result;
     const query = searchQuery.toLowerCase().trim();
@@ -435,7 +446,7 @@ export default function Clientes() {
         document.includes(query)
       );
     });
-  }, [customers, searchQuery]);
+  }, [customers, searchQuery, paymentFilter, paymentMethodsByPhone]);
 
   const stats = useMemo(() => {
     const totalCustomers = customers.length;
@@ -514,15 +525,56 @@ export default function Clientes() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nome, telefone, email, CPF..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, telefone, email, CPF..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        
+        {/* Payment Method Filters */}
+        <div className="flex gap-1.5">
+          <Button
+            variant={paymentFilter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPaymentFilter("all")}
+            className="text-xs"
+          >
+            Todos
+          </Button>
+          <Button
+            variant={paymentFilter === "pix" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPaymentFilter("pix")}
+            className={`text-xs gap-1.5 ${paymentFilter === "pix" ? "" : "text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10"}`}
+          >
+            <QrCode className="h-3.5 w-3.5" />
+            PIX
+          </Button>
+          <Button
+            variant={paymentFilter === "boleto" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPaymentFilter("boleto")}
+            className={`text-xs gap-1.5 ${paymentFilter === "boleto" ? "" : "text-amber-500 border-amber-500/30 hover:bg-amber-500/10"}`}
+          >
+            <Banknote className="h-3.5 w-3.5" />
+            Boleto
+          </Button>
+          <Button
+            variant={paymentFilter === "cartao" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setPaymentFilter("cartao")}
+            className={`text-xs gap-1.5 ${paymentFilter === "cartao" ? "" : "text-purple-500 border-purple-500/30 hover:bg-purple-500/10"}`}
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            Cartão
+          </Button>
+        </div>
       </div>
 
       {/* Customer List */}
@@ -531,7 +583,12 @@ export default function Clientes() {
           <div className="text-center py-12 text-muted-foreground">
             <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">Nenhum cliente encontrado</p>
-            <p className="text-sm">Os clientes aparecerão aqui quando receberem transações</p>
+            <p className="text-sm">
+              {paymentFilter !== "all" 
+                ? `Nenhum cliente com pagamento via ${paymentFilter === "pix" ? "PIX" : paymentFilter === "boleto" ? "Boleto" : "Cartão"}`
+                : "Os clientes aparecerão aqui quando receberem transações"
+              }
+            </p>
           </div>
         ) : (
           filteredCustomers.map((customer) => (

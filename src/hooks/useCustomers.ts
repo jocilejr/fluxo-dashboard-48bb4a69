@@ -57,6 +57,41 @@ export function useCustomers() {
   return { customers, isLoading, refetch };
 }
 
+// Buscar métodos de pagamento por cliente (para filtros)
+export function useCustomerPaymentMethods() {
+  const { data = {}, isLoading } = useQuery({
+    queryKey: ["customer-payment-methods"],
+    queryFn: async () => {
+      const { data: transactions, error } = await supabase
+        .from("transactions")
+        .select("normalized_phone, type")
+        .not("normalized_phone", "is", null);
+
+      if (error) throw error;
+
+      // Agrupar por telefone normalizado
+      const methodsByPhone: Record<string, Set<string>> = {};
+      (transactions || []).forEach((t) => {
+        if (!t.normalized_phone) return;
+        if (!methodsByPhone[t.normalized_phone]) {
+          methodsByPhone[t.normalized_phone] = new Set();
+        }
+        methodsByPhone[t.normalized_phone].add(t.type);
+      });
+
+      // Converter Sets para arrays
+      const result: Record<string, string[]> = {};
+      Object.entries(methodsByPhone).forEach(([phone, methods]) => {
+        result[phone] = Array.from(methods);
+      });
+
+      return result;
+    },
+  });
+
+  return { paymentMethodsByPhone: data, isLoading };
+}
+
 export function useCustomerEvents(normalizedPhone: string | null) {
   const { data, isLoading } = useQuery({
     queryKey: ["customer-events", normalizedPhone],
