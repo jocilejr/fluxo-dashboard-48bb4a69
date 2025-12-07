@@ -85,44 +85,32 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
         payment_method: method,
       });
 
-      // 2. Se for PIX, buscar valor do produto e adicionar ao cliente
+      // 2. Se for PIX, criar transação de PIX pago
       if (method === "pix" && product?.id) {
-        // Buscar o valor do produto
+        // Buscar dados do produto
         const { data: productData } = await supabase
           .from("delivery_products")
-          .select("value")
+          .select("value, name")
           .eq("id", product.id)
           .single();
         
         const productValue = productData?.value || 0;
+        const productName = productData?.name || product?.name;
         
-        const { data: existingCustomer } = await supabase
-          .from("customers")
-          .select("id, pix_payment_count, total_pending")
-          .eq("normalized_phone", normalizedPhone)
-          .maybeSingle();
-
-        if (existingCustomer) {
-          // Incrementa contador e adiciona valor
-          await supabase
-            .from("customers")
-            .update({ 
-              pix_payment_count: (existingCustomer.pix_payment_count || 0) + 1,
-              total_pending: (Number(existingCustomer.total_pending) || 0) + productValue,
-              last_seen_at: new Date().toISOString()
-            })
-            .eq("id", existingCustomer.id);
-        } else {
-          // Cria cliente com contador = 1 e valor do produto
-          await supabase.from("customers").insert({
-            normalized_phone: normalizedPhone,
-            display_phone: phone,
-            pix_payment_count: 1,
-            total_pending: productValue,
-          });
-        }
+        // Criar transação de PIX pago
+        const now = new Date().toISOString();
+        await supabase.from("transactions").insert({
+          type: "pix",
+          status: "pago",
+          amount: productValue,
+          customer_phone: phone,
+          normalized_phone: normalizedPhone,
+          description: productName,
+          paid_at: now,
+          webhook_source: "manual_delivery_link",
+        });
         
-        toast.success("Pagamento PIX registrado");
+        toast.success("PIX pago registrado para o cliente");
       } else {
         // Cartão/Boleto: apenas registra a métrica (já feito acima)
         toast.success("Link gerado");
