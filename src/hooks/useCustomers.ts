@@ -118,6 +118,19 @@ export function useCustomers() {
   });
 
   const updateCustomer = async (customerId: string, updates: { name?: string; email?: string; document?: string }) => {
+    // Get customer to find normalized_phone
+    const { data: customer, error: fetchError } = await supabase
+      .from("customers")
+      .select("normalized_phone, merged_phones:normalized_phone")
+      .eq("id", customerId)
+      .single();
+    
+    if (fetchError) {
+      toast.error("Erro ao buscar cliente");
+      throw fetchError;
+    }
+
+    // Update customer record
     const { error } = await supabase
       .from("customers")
       .update(updates)
@@ -128,8 +141,28 @@ export function useCustomers() {
       throw error;
     }
     
+    // If name was updated, also update transactions table for sync
+    if (updates.name !== undefined && customer?.normalized_phone) {
+      const phoneVariations = generatePhoneVariations(customer.normalized_phone);
+      
+      // Update customer_name in transactions table
+      await supabase
+        .from("transactions")
+        .update({ customer_name: updates.name })
+        .in("normalized_phone", phoneVariations);
+      
+      // Update customer_name in abandoned_events table
+      await supabase
+        .from("abandoned_events")
+        .update({ customer_name: updates.name })
+        .in("normalized_phone", phoneVariations);
+    }
+    
     toast.success("Cliente atualizado");
     queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] });
   };
 
   const deleteTransaction = async (transactionId: string) => {
