@@ -5,10 +5,11 @@ import { MobileDashboard } from "./mobile/MobileDashboard";
 import { MobileTransactions } from "./mobile/MobileTransactions";
 import { MobileProfile } from "./mobile/MobileProfile";
 import { MobileClientes } from "./mobile/MobileClientes";
+import { MobileEntrega } from "./mobile/MobileEntrega";
 
 interface ResponsiveLayoutProps {
   children: React.ReactNode;
-  mobileComponent?: "dashboard" | "transactions" | "profile" | "clientes";
+  mobileComponent?: "dashboard" | "transactions" | "profile" | "clientes" | "entrega";
 }
 
 export function ResponsiveLayout({ children, mobileComponent }: ResponsiveLayoutProps) {
@@ -29,6 +30,9 @@ export function ResponsiveLayout({ children, mobileComponent }: ResponsiveLayout
         break;
       case "clientes":
         MobileContent = <MobileClientes />;
+        break;
+      case "entrega":
+        MobileContent = <MobileEntrega />;
         break;
       default:
         MobileContent = children;
