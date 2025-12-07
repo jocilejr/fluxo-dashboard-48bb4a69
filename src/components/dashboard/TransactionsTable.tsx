@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2, Download, Search, ChevronDown, ChevronUp, Users, Clock, CheckCircle2, AlertCircle, RefreshCw, CalendarIcon, MessageSquare, Settings2, ShoppingCart, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -361,6 +362,8 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
     }
   };
 
+  const queryClient = useQueryClient();
+
   const handleDelete = async (id: string) => {
     try {
       const { error } = await supabase
@@ -372,6 +375,9 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
 
       toast.success("Transação removida");
       onDelete?.();
+      // Invalidate customers to sync unified data
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customer-events"] });
     } catch (error: any) {
       toast.error("Erro ao remover transação");
       console.error(error);
