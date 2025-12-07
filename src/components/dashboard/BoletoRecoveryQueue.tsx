@@ -35,7 +35,7 @@ export function BoletoRecoveryQueue({
 }: BoletoRecoveryQueueProps) {
   const { toast } = useToast();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { extensionStatus, openChat } = useWhatsAppExtension();
+  const { extensionStatus, openChat, fallbackOpenWhatsApp } = useWhatsAppExtension();
 
   useEffect(() => {
     if (open) {
@@ -68,26 +68,29 @@ export function BoletoRecoveryQueue({
       return;
     }
 
-    if (extensionStatus !== "connected") {
-      toast({ title: "Erro", description: "Extensão WhatsApp não detectada", variant: "destructive" });
-      return;
-    }
-
     // Primeiro copia a mensagem para a área de transferência
     if (currentBoleto.formattedMessage) {
       await navigator.clipboard.writeText(currentBoleto.formattedMessage);
     }
 
-    // Depois abre o chat sem enviar mensagem
     const phone = normalizePhone(currentBoleto.customer_phone);
-    const success = await openChat(phone);
 
-    if (success) {
-      toast({ title: "Mensagem copiada!", description: "Cole com Ctrl+V no WhatsApp" });
+    // Tenta usar a extensão, se não estiver conectada usa fallback
+    if (extensionStatus === "connected") {
+      const success = await openChat(phone);
+      if (success) {
+        toast({ title: "Mensagem copiada!", description: "Cole com Ctrl+V no WhatsApp" });
+      } else {
+        // Fallback se a extensão falhar
+        fallbackOpenWhatsApp(phone);
+        toast({ title: "Mensagem copiada!", description: "Cole com Ctrl+V no WhatsApp" });
+      }
     } else {
-      toast({ title: "Erro", description: "Erro ao abrir conversa", variant: "destructive" });
+      // Usa fallback direto quando extensão não está conectada
+      fallbackOpenWhatsApp(phone);
+      toast({ title: "Mensagem copiada!", description: "Cole com Ctrl+V no WhatsApp" });
     }
-  }, [currentBoleto, extensionStatus, openChat, toast]);
+  }, [currentBoleto, extensionStatus, openChat, fallbackOpenWhatsApp, toast]);
 
   const handleMarkContacted = useCallback(() => {
     if (!currentBoleto) return;
