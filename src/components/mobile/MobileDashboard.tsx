@@ -5,12 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { 
   TrendingUp,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
   Users,
   ArrowUpRight,
-  ArrowDownRight,
-  Calendar
+  ArrowDownRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { startOfDay, endOfDay, subDays, format } from "date-fns";
@@ -21,8 +18,6 @@ export function MobileDashboard() {
   const { transactions, isLoading, refetch } = useTransactions();
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     const checkRole = async () => {
@@ -70,42 +65,56 @@ export function MobileDashboard() {
     },
   });
 
-  // Today's revenue data
+  // Today's revenue data (Brazil timezone)
   const todayData = useMemo(() => {
-    const dayStart = startOfDay(selectedDate);
-    const dayEnd = endOfDay(selectedDate);
+    const nowBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const dayStart = startOfDay(nowBrazil);
+    const dayEnd = endOfDay(nowBrazil);
     
     const dayTransactions = transactions.filter((t) => {
       if (t.status !== "pago") return false;
       const dateStr = t.paid_at || t.created_at;
-      const date = new Date(dateStr);
+      const date = new Date(new Date(dateStr).toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
       return date >= dayStart && date <= dayEnd;
     });
     
     const revenue = dayTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
     
-    // Hourly breakdown
-    const hourlyMap: Record<number, { hour: string; revenue: number; count: number }> = {};
-    for (let h = 0; h < 24; h++) {
-      hourlyMap[h] = { hour: `${h.toString().padStart(2, "0")}h`, revenue: 0, count: 0 };
-    }
-    
-    dayTransactions.forEach((t) => {
-      const date = new Date(t.paid_at || t.created_at);
-      const hour = date.getHours();
-      hourlyMap[hour].revenue += Number(t.amount);
-      hourlyMap[hour].count += 1;
-    });
-    
-    const hourlyData = Object.values(hourlyMap).filter(h => h.count > 0);
-    
     return {
       revenue,
       count: dayTransactions.length,
-      transactions: dayTransactions,
-      hourlyData,
     };
-  }, [transactions, selectedDate]);
+  }, [transactions]);
+
+  // Last 7 days chart data
+  const last7DaysData = useMemo(() => {
+    const nowBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+    const days = [];
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = subDays(nowBrazil, i);
+      const dayStart = startOfDay(date);
+      const dayEnd = endOfDay(date);
+      
+      const dayTransactions = transactions.filter((t) => {
+        if (t.status !== "pago") return false;
+        const dateStr = t.paid_at || t.created_at;
+        const tDate = new Date(new Date(dateStr).toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+        return tDate >= dayStart && tDate <= dayEnd;
+      });
+      
+      const revenue = dayTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+      
+      days.push({
+        day: format(date, "EEE", { locale: ptBR }),
+        date: format(date, "dd/MM"),
+        revenue,
+        count: dayTransactions.length,
+      });
+    }
+    
+    return days;
+  }, [transactions]);
 
   // Group totals
   const groupTotals = useMemo(() => {
@@ -123,23 +132,6 @@ export function MobileDashboard() {
     setIsRefreshing(true);
     await refetch();
     setTimeout(() => setIsRefreshing(false), 500);
-  };
-
-  const changeDate = (direction: number) => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + direction);
-    if (newDate <= new Date()) {
-      setSelectedDate(newDate);
-    }
-  };
-
-  const isToday = format(selectedDate, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-  const isYesterday = format(selectedDate, "yyyy-MM-dd") === format(subDays(new Date(), 1), "yyyy-MM-dd");
-
-  const getDateLabel = () => {
-    if (isToday) return "Hoje";
-    if (isYesterday) return "Ontem";
-    return format(selectedDate, "dd/MM", { locale: ptBR });
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -180,31 +172,11 @@ export function MobileDashboard() {
       {/* Main Revenue Card - Admin only */}
       {isRealAdmin && (
         <div className="rounded-2xl bg-gradient-to-br from-success/10 via-card to-card border border-success/20 overflow-hidden">
-          {/* Header with date selector */}
+          {/* Header */}
           <div className="p-4 pb-2">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-muted-foreground font-medium">Faturamento</p>
-              <div className="flex items-center gap-1 bg-secondary/50 rounded-full px-1">
-                <button 
-                  onClick={() => changeDate(-1)}
-                  className="p-1.5 hover:bg-secondary rounded-full transition-colors"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-                <span className="text-xs font-medium text-foreground min-w-[50px] text-center">
-                  {getDateLabel()}
-                </span>
-                <button 
-                  onClick={() => changeDate(1)}
-                  disabled={isToday}
-                  className={cn(
-                    "p-1.5 hover:bg-secondary rounded-full transition-colors",
-                    isToday && "opacity-30 cursor-not-allowed"
-                  )}
-                >
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              </div>
+              <p className="text-xs text-muted-foreground font-medium">Faturamento Hoje</p>
+              <span className="text-[10px] text-muted-foreground">Últimos 7 dias</span>
             </div>
             
             <p className="text-3xl font-bold text-success tracking-tight">
@@ -213,50 +185,40 @@ export function MobileDashboard() {
             <div className="flex items-center gap-2 mt-1">
               <div className="flex items-center gap-1 px-2 py-0.5 bg-success/10 rounded-full text-[10px] text-success font-medium">
                 <TrendingUp className="h-3 w-3" />
-                <span>{todayData.count} vendas</span>
+                <span>{todayData.count} vendas hoje</span>
               </div>
             </div>
           </div>
 
-          {/* Hourly Chart */}
-          {todayData.hourlyData.length > 0 && (
-            <div className="h-24 px-2 pb-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={todayData.hourlyData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="revenueGradientMobile" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="hour" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="hsl(var(--success))"
-                    strokeWidth={2}
-                    fill="url(#revenueGradientMobile)"
-                    dot={{ r: 3, fill: "hsl(var(--success))", strokeWidth: 0 }}
-                    activeDot={{ r: 5, fill: "hsl(var(--success))", strokeWidth: 0 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          {todayData.hourlyData.length === 0 && (
-            <div className="px-4 pb-4">
-              <p className="text-xs text-muted-foreground text-center py-4">
-                Nenhuma venda {isToday ? "hoje" : "neste dia"}
-              </p>
-            </div>
-          )}
+          {/* 7 Days Chart */}
+          <div className="h-28 px-2 pb-3">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={last7DaysData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="revenueGradientMobile" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis 
+                  dataKey="day" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="hsl(var(--success))"
+                  strokeWidth={2}
+                  fill="url(#revenueGradientMobile)"
+                  dot={{ r: 3, fill: "hsl(var(--success))", strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: "hsl(var(--success))", strokeWidth: 0 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
 
