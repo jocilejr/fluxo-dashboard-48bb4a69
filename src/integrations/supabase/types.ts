@@ -244,6 +244,7 @@ export type Database = {
           last_seen_at: string
           name: string | null
           normalized_phone: string
+          pix_payment_count: number
           total_abandoned_events: number
           total_paid: number
           total_pending: number
@@ -260,6 +261,7 @@ export type Database = {
           last_seen_at?: string
           name?: string | null
           normalized_phone: string
+          pix_payment_count?: number
           total_abandoned_events?: number
           total_paid?: number
           total_pending?: number
@@ -276,6 +278,7 @@ export type Database = {
           last_seen_at?: string
           name?: string | null
           normalized_phone?: string
+          pix_payment_count?: number
           total_abandoned_events?: number
           total_paid?: number
           total_pending?: number
@@ -315,6 +318,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "delivery_accesses_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_link_generations: {
+        Row: {
+          created_at: string
+          id: string
+          normalized_phone: string
+          payment_method: string
+          phone: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          normalized_phone: string
+          payment_method: string
+          phone: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          normalized_phone?: string
+          payment_method?: string
+          phone?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_link_generations_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "delivery_products"

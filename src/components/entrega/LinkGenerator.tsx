@@ -74,30 +74,46 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const handleSelectPayment = async (method: PaymentMethod) => {
     setPaymentMethod(method);
     
-    // Registrar no banco de dados para métricas
-    if (method === "pix" && cleanPhone) {
-      try {
-        // Atualiza ou cria o cliente com indicação de pagamento PIX
-        const normalizedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-        
+    const normalizedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    
+    try {
+      // 1. Registrar a geração do link
+      await supabase.from("delivery_link_generations").insert({
+        product_id: product?.id,
+        phone: phone,
+        normalized_phone: normalizedPhone,
+        payment_method: method,
+      });
+
+      // 2. Se for PIX, incrementar contador no cliente
+      if (method === "pix") {
         const { data: existingCustomer } = await supabase
           .from("customers")
-          .select("id")
+          .select("id, pix_payment_count")
           .eq("normalized_phone", normalizedPhone)
           .maybeSingle();
 
-        if (!existingCustomer) {
-          // Cria cliente se não existir
+        if (existingCustomer) {
+          // Incrementa contador
+          await supabase
+            .from("customers")
+            .update({ pix_payment_count: (existingCustomer.pix_payment_count || 0) + 1 })
+            .eq("id", existingCustomer.id);
+        } else {
+          // Cria cliente com contador = 1
           await supabase.from("customers").insert({
             normalized_phone: normalizedPhone,
             display_phone: phone,
+            pix_payment_count: 1,
           });
         }
         
-        toast.success("Cliente marcado como pagamento PIX");
-      } catch (error) {
-        console.error("Erro ao registrar pagamento:", error);
+        toast.success("Pagamento PIX registrado");
+      } else {
+        toast.success("Link gerado");
       }
+    } catch (error) {
+      console.error("Erro ao registrar:", error);
     }
     
     setStep("link");
