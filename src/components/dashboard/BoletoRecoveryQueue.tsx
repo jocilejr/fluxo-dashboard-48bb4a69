@@ -84,8 +84,6 @@ export function BoletoRecoveryQueue({
 
     if (success) {
       toast({ title: "Mensagem copiada!", description: "Cole com Ctrl+V no WhatsApp" });
-    } else {
-      toast({ title: "Erro", description: "Erro ao abrir conversa", variant: "destructive" });
     }
   }, [currentBoleto, extensionStatus, openChat, toast]);
 
