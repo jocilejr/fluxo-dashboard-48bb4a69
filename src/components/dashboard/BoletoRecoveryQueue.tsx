@@ -35,7 +35,7 @@ export function BoletoRecoveryQueue({
 }: BoletoRecoveryQueueProps) {
   const { toast } = useToast();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { extensionStatus, sendText } = useWhatsAppExtension();
+  const { extensionStatus, openChat } = useWhatsAppExtension();
 
   useEffect(() => {
     if (open) {
@@ -73,15 +73,21 @@ export function BoletoRecoveryQueue({
       return;
     }
 
+    // Primeiro copia a mensagem para a área de transferência
+    if (currentBoleto.formattedMessage) {
+      await navigator.clipboard.writeText(currentBoleto.formattedMessage);
+    }
+
+    // Depois abre o chat sem enviar mensagem
     const phone = normalizePhone(currentBoleto.customer_phone);
-    const success = await sendText(phone, currentBoleto.formattedMessage || "");
+    const success = await openChat(phone);
 
     if (success) {
-      toast({ title: "Sucesso", description: "Mensagem preparada no WhatsApp" });
+      toast({ title: "Mensagem copiada!", description: "Cole com Ctrl+V no WhatsApp" });
     } else {
-      toast({ title: "Erro", description: "Erro ao preparar mensagem", variant: "destructive" });
+      toast({ title: "Erro", description: "Erro ao abrir conversa", variant: "destructive" });
     }
-  }, [currentBoleto, extensionStatus, sendText, toast]);
+  }, [currentBoleto, extensionStatus, openChat, toast]);
 
   const handleMarkContacted = useCallback(() => {
     if (!currentBoleto) return;
