@@ -25,11 +25,25 @@ import {
   QrCode,
   User,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Pencil,
+  Trash2,
+  Check,
+  X
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const formatCurrency = (value: number | null) => {
   if (value === null) return "-";
@@ -59,11 +73,35 @@ const getPaymentMethodLabel = (type?: string) => {
 };
 
 function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
-  const { events, stats, isLoading } = useCustomerEvents(customer.normalized_phone, customer.merged_phones);
+  const { events, stats, isLoading, refetch } = useCustomerEvents(customer.normalized_phone, customer.merged_phones);
+  const { updateCustomer, deleteTransaction, deleteAbandonedEvent } = useCustomers();
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editName, setEditName] = useState(customer.name || "");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: "transaction" | "abandoned" } | null>(null);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copiado!`);
+  };
+
+  const handleSaveName = async () => {
+    await updateCustomer(customer.id, { name: editName.trim() || null });
+    setIsEditingName(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      if (deleteTarget.type === "transaction") {
+        await deleteTransaction(deleteTarget.id);
+      } else {
+        await deleteAbandonedEvent(deleteTarget.id);
+      }
+      refetch();
+    } catch (e) {
+      // Error toast already shown
+    }
+    setDeleteTarget(null);
   };
 
   const getEventIcon = (event: CustomerEvent) => {
@@ -101,6 +139,7 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
   };
 
   return (
+    <>
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
         <DialogHeader className="p-4 pb-3 border-b border-border/30">
@@ -109,7 +148,30 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
               <User className="h-6 w-6 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-lg">{customer.name || "Sem nome"}</p>
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="h-8 text-lg font-semibold"
+                    autoFocus
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleSaveName}>
+                    <Check className="h-4 w-4 text-success" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setIsEditingName(false)}>
+                    <X className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-lg">{customer.name || "Sem nome"}</p>
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setEditName(customer.name || ""); setIsEditingName(true); }}>
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </div>
+              )}
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 {customer.display_phone && (
                   <button 
@@ -320,7 +382,7 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                       const color = getEventColor(event);
                       
                       return (
-                        <div key={event.id} className="p-3 rounded-lg border border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-colors">
+                        <div key={event.id} className="p-3 rounded-lg border border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-colors group">
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
                               <Icon className={`h-4 w-4 ${color}`} />
@@ -328,7 +390,19 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                                 {getStatusLabel(event)}
                               </Badge>
                             </div>
-                            <span className="text-xs text-muted-foreground">{formatDate(event.created_at)}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{formatDate(event.created_at)}</span>
+                              {event.type === "transaction" && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                                  onClick={() => setDeleteTarget({ id: event.id, type: "transaction" })}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           
                           <div className="flex items-center justify-between">
@@ -373,7 +447,7 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                     </div>
                   ) : (
                     events.filter(e => e.type === "abandoned").map((event) => (
-                      <div key={event.id} className="p-3 rounded-lg border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors">
+                      <div key={event.id} className="p-3 rounded-lg border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors group">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             {event.event_type === "cart_abandoned" ? (
@@ -385,7 +459,17 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                               {event.event_type === "cart_abandoned" ? "Carrinho Abandonado" : "Falha"}
                             </Badge>
                           </div>
-                          <span className="text-xs text-muted-foreground">{formatDate(event.created_at)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{formatDate(event.created_at)}</span>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                              onClick={() => setDeleteTarget({ id: event.id, type: "abandoned" })}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="flex items-center justify-between">
@@ -409,6 +493,25 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
         </Tabs>
       </DialogContent>
     </Dialog>
+    
+    {/* Delete confirmation dialog */}
+    <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir {deleteTarget?.type === "transaction" ? "transação" : "evento"}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
