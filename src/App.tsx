@@ -16,6 +16,7 @@ import Configuracoes from "./pages/Configuracoes";
 import Entrega from "./pages/Entrega";
 import EntregaPublica from "./pages/EntregaPublica";
 import LinksUteis from "./pages/LinksUteis";
+import Clientes from "./pages/Clientes";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -132,8 +133,18 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/clientes"
+            element={
+              <ProtectedRoute>
+                <ResponsiveLayout>
+                  <Clientes />
+                </ResponsiveLayout>
+              </ProtectedRoute>
+            }
+          />
           {/* Rota pública para página de entrega - sem autenticação */}
-          <Route path="/:slug" element={<EntregaPublica />} />
+          <Route path="/e/:slug" element={<EntregaPublica />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

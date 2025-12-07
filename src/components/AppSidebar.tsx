@@ -13,6 +13,7 @@ import {
   Brain,
   Package,
   Link,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/", permissionKey: "dashboard" },
   { title: "Transações", icon: List, path: "/transacoes", permissionKey: "transacoes" },
+  { title: "Clientes", icon: Users, path: "/clientes", permissionKey: "clientes", desktopOnly: true },
   { title: "Recuperação", icon: RefreshCcw, path: "/recuperacao", permissionKey: "recuperacao", desktopOnly: true },
   { title: "Entrega", icon: Package, path: "/entrega", permissionKey: "entrega", desktopOnly: true },
   { title: "Quadros", icon: Brain, path: "/projetos", permissionKey: "projetos", desktopOnly: true },
