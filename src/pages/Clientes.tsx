@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useCustomers, useCustomerEvents, useCustomerPaymentMethods, Customer, CustomerEvent, CustomerStats } from "@/hooks/useCustomers";
+import { normalizePhoneForMatching } from "@/lib/phoneNormalization";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ const getPaymentMethodLabel = (type?: string) => {
 };
 
 function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
-  const { events, stats, isLoading } = useCustomerEvents(customer.normalized_phone);
+  const { events, stats, isLoading } = useCustomerEvents(customer.normalized_phone, customer.merged_phones);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -422,10 +423,11 @@ export default function Clientes() {
     let result = [...customers];
     result.sort((a, b) => Number(b.total_paid) - Number(a.total_paid));
     
-    // Filtro por método de pagamento
+    // Filtro por método de pagamento (use normalized phone key for matching)
     if (paymentFilter !== "all") {
       result = result.filter((c) => {
-        const methods = paymentMethodsByPhone[c.normalized_phone] || [];
+        const normalizedKey = normalizePhoneForMatching(c.normalized_phone) || c.normalized_phone;
+        const methods = paymentMethodsByPhone[normalizedKey] || [];
         return methods.includes(paymentFilter);
       });
     }
@@ -438,12 +440,15 @@ export default function Clientes() {
       const normalizedPhone = c.normalized_phone?.toLowerCase() || "";
       const email = c.email?.toLowerCase() || "";
       const document = c.document?.toLowerCase() || "";
+      // Also search in all merged phone variations
+      const mergedPhones = c.merged_phones?.map(p => p.toLowerCase()).join(" ") || "";
       return (
         name.includes(query) ||
         phone.includes(query) ||
         normalizedPhone.includes(query) ||
         email.includes(query) ||
-        document.includes(query)
+        document.includes(query) ||
+        mergedPhones.includes(query)
       );
     });
   }, [customers, searchQuery, paymentFilter, paymentMethodsByPhone]);
