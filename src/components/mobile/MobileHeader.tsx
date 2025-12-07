@@ -29,7 +29,7 @@ export function MobileHeader({ title, userName, isAdmin, notificationCount = 0 }
             </span>
           </div>
           <div>
-            <h1 className="text-base font-bold text-foreground">{title}</h1>
+            <h1 className="text-base font-bold text-foreground">{userName}</h1>
             <p className="text-[10px] text-muted-foreground capitalize font-medium">
               {isAdmin ? "Admin" : "Colaborador"}
             </p>
