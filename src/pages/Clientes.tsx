@@ -442,7 +442,9 @@ export default function Clientes() {
     const totalPaid = customers.reduce((sum, c) => sum + Number(c.total_paid), 0);
     const totalPending = customers.reduce((sum, c) => sum + Number(c.total_pending), 0);
     const totalAbandoned = customers.reduce((sum, c) => sum + c.total_abandoned_events, 0);
-    return { totalCustomers, totalPaid, totalPending, totalAbandoned };
+    const totalLeads = customers.reduce((sum, c) => sum + c.total_transactions + c.total_abandoned_events, 0);
+    const totalValue = totalPaid + totalPending;
+    return { totalCustomers, totalPaid, totalPending, totalAbandoned, totalLeads, totalValue };
   }, [customers]);
 
   if (isLoading) {
@@ -466,18 +468,32 @@ export default function Clientes() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div className="p-3 rounded-lg bg-secondary/20 border border-border/30">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Users className="h-4 w-4" />
-              <span className="text-xs">Total Clientes</span>
+              <span className="text-xs">Clientes</span>
             </div>
             <p className="text-lg font-bold">{stats.totalCustomers}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <div className="flex items-center gap-2 text-primary mb-1">
+              <Zap className="h-4 w-4" />
+              <span className="text-xs">Leads</span>
+            </div>
+            <p className="text-lg font-bold text-primary">{stats.totalLeads}</p>
+          </div>
+          <div className="p-3 rounded-lg bg-accent/10 border border-accent/20">
+            <div className="flex items-center gap-2 text-foreground mb-1">
+              <Banknote className="h-4 w-4" />
+              <span className="text-xs">Valor Total</span>
+            </div>
+            <p className="text-lg font-bold">{formatCurrency(stats.totalValue)}</p>
           </div>
           <div className="p-3 rounded-lg bg-success/10 border border-success/20">
             <div className="flex items-center gap-2 text-success mb-1">
               <CheckCircle2 className="h-4 w-4" />
-              <span className="text-xs">Total Pago</span>
+              <span className="text-xs">Pago</span>
             </div>
             <p className="text-lg font-bold text-success">{formatCurrency(stats.totalPaid)}</p>
           </div>
@@ -545,9 +561,12 @@ export default function Clientes() {
 
                 <div className="text-right shrink-0">
                   <p className="font-bold text-success">{formatCurrency(Number(customer.total_paid))}</p>
-                  {customer.total_abandoned_events > 0 && (
-                    <span className="text-[10px] text-warning">{customer.total_abandoned_events} aband.</span>
-                  )}
+                  <div className="flex items-center gap-2 justify-end text-[10px] text-muted-foreground">
+                    <span className="text-primary">{customer.total_transactions + customer.total_abandoned_events} leads</span>
+                    {customer.total_abandoned_events > 0 && (
+                      <span className="text-warning">{customer.total_abandoned_events} aband.</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
