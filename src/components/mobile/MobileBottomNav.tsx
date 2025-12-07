@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, List, User, Users } from "lucide-react";
+import { LayoutDashboard, List, User, Users, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -11,6 +11,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: List, label: "Transações", path: "/transacoes" },
+  { icon: Package, label: "Entrega", path: "/entrega" },
   { icon: Users, label: "Clientes", path: "/clientes" },
   { icon: User, label: "Perfil", path: "/perfil" },
 ];

@@ -186,7 +186,11 @@ const ProductsTab = () => {
         <div className="border rounded-lg overflow-hidden">
           <div className="divide-y">
             {filteredProducts.map((product) => (
-              <div key={product.id} className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50">
+              <div 
+                key={product.id} 
+                className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
+                onClick={() => setLinkProduct(product)}
+              >
                 <Badge 
                   variant={product.is_active ? "default" : "secondary"} 
                   className="text-[10px] px-1.5 py-0 h-5 shrink-0"
@@ -200,10 +204,7 @@ const ProductsTab = () => {
                   {product.slug}
                 </code>
                 <span className="text-xs font-medium shrink-0 w-20 text-right">{formatCurrency(product.value || 0)}</span>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setLinkProduct(product)} title="Gerar Link">
-                    <LinkIcon className="h-3.5 w-3.5" />
-                  </Button>
+                <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => duplicateMutation.mutate(product)} title="Duplicar">
                     <Copy className="h-3.5 w-3.5" />
                   </Button>

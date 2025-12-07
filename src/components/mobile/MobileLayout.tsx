@@ -16,6 +16,7 @@ const pageConfig: Record<string, string> = {
   "/": "Dashboard",
   "/transacoes": "Transações",
   "/clientes": "Clientes",
+  "/entrega": "Entrega",
   "/perfil": "Perfil",
 };
 
