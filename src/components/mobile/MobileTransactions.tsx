@@ -259,37 +259,30 @@ export function MobileTransactions() {
             filteredAbandoned.map((event) => (
               <div 
                 key={event.id}
-                className="bg-card border-l-2 border-l-destructive rounded-lg p-3"
+                className="bg-card border-l-2 border-l-destructive rounded-lg p-2.5"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-destructive/10 flex items-center justify-center">
-                      <AlertTriangle className="h-4 w-4 text-destructive" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-foreground truncate max-w-[140px]">
-                        {event.customer_name || "Sem nome"}
-                      </p>
-                      <p className="text-[9px] text-muted-foreground">
-                        {formatTime(event.created_at)} • {event.event_type === "cart_abandoned" ? "Carrinho" : "Falha"}
-                      </p>
-                      {event.customer_document && (
-                        <p className="text-[9px] text-info font-medium mt-0.5">
-                          CPF: {event.customer_document}
-                        </p>
-                      )}
-                    </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-destructive/10 flex-shrink-0 flex items-center justify-center">
+                    <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">
+                      {event.customer_name || "Sem nome"}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground">
+                      {formatTime(event.created_at)} • {event.event_type === "cart_abandoned" ? "Carrinho" : "Falha"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     <p className="text-xs font-bold text-destructive">
                       {event.amount ? formatCurrency(event.amount) : "-"}
                     </p>
                     {event.customer_phone && (
                       <button
                         onClick={() => openWhatsAppBusiness(event.customer_phone)}
-                        className="h-9 w-9 rounded-lg bg-success/15 flex items-center justify-center text-success"
+                        className="h-8 w-8 rounded-lg bg-success/15 flex items-center justify-center text-success"
                       >
-                        <MessageSquare className="h-4 w-4" />
+                        <MessageSquare className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
@@ -313,33 +306,31 @@ export function MobileTransactions() {
                 <div 
                   key={transaction.id}
                   className={cn(
-                    "bg-card border-l-2 rounded-lg p-3",
+                    "bg-card border-l-2 rounded-lg p-2.5",
                     isPaid ? "border-l-success" : "border-l-warning"
                   )}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        "h-9 w-9 rounded-lg flex items-center justify-center",
-                        isPaid ? "bg-success/10" : "bg-warning/10"
-                      )}>
-                        <Icon className={cn(
-                          "h-4 w-4",
-                          isPaid ? "text-success" : "text-warning"
-                        )} />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-foreground truncate max-w-[130px]">
-                          {transaction.customer_name || "Cliente"}
-                        </p>
-                        <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                          <span className="uppercase">{transaction.type}</span>
-                          <span>•</span>
-                          <span>{formatTime(displayDate)}</span>
-                        </div>
+                  <div className="flex items-center gap-2">
+                    <div className={cn(
+                      "h-8 w-8 rounded-lg flex-shrink-0 flex items-center justify-center",
+                      isPaid ? "bg-success/10" : "bg-warning/10"
+                    )}>
+                      <Icon className={cn(
+                        "h-3.5 w-3.5",
+                        isPaid ? "text-success" : "text-warning"
+                      )} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">
+                        {transaction.customer_name || "Cliente"}
+                      </p>
+                      <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                        <span className="uppercase">{transaction.type}</span>
+                        <span>•</span>
+                        <span>{formatTime(displayDate)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
                       <div className="text-right">
                         <p className={cn(
                           "text-xs font-bold",
@@ -347,22 +338,22 @@ export function MobileTransactions() {
                         )}>
                           {formatCurrency(Number(transaction.amount))}
                         </p>
-                        <div className={cn(
-                          "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold",
+                        <span className={cn(
+                          "inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-semibold",
                           isPaid 
                             ? "bg-success/15 text-success" 
                             : "bg-warning/15 text-warning"
                         )}>
-                          {isPaid ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Clock className="h-2.5 w-2.5" />}
-                          {isPaid ? "Pago" : "Pendente"}
-                        </div>
+                          {isPaid ? <CheckCircle2 className="h-2 w-2" /> : <Clock className="h-2 w-2" />}
+                          {isPaid ? "Pago" : "Pend."}
+                        </span>
                       </div>
                       {!isPaid && transaction.customer_phone && (
                         <button
                           onClick={() => openWhatsAppBusiness(transaction.customer_phone)}
-                          className="h-9 w-9 rounded-lg bg-success/15 flex items-center justify-center text-success"
+                          className="h-8 w-8 rounded-lg bg-success/15 flex items-center justify-center text-success"
                         >
-                          <MessageSquare className="h-4 w-4" />
+                          <MessageSquare className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>

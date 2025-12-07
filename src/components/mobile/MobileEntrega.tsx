@@ -36,6 +36,7 @@ export function MobileEntrega() {
   const [selectedProduct, setSelectedProduct] = useState<DeliveryProduct | null>(null);
   const [phoneInput, setPhoneInput] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "boleto" | "cartao">("pix");
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["delivery-products"],
@@ -86,9 +87,10 @@ export function MobileEntrega() {
       product_id: selectedProduct.id,
       phone: phoneInput,
       normalized_phone: normalizedPhone,
-      payment_method: "pix",
+      payment_method: paymentMethod,
     }).then(() => {
       queryClient.invalidateQueries({ queryKey: ["delivery-link-generations"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
     });
 
     setTimeout(() => setCopiedLink(false), 2000);
@@ -108,6 +110,18 @@ export function MobileEntrega() {
     const message = selectedProduct.whatsapp_message 
       ? selectedProduct.whatsapp_message.replace("{link}", link)
       : `Olá! Segue o link de acesso: ${link}`;
+
+    // Log the link generation
+    const normalizedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    supabase.from("delivery_link_generations").insert({
+      product_id: selectedProduct.id,
+      phone: phoneInput,
+      normalized_phone: normalizedPhone,
+      payment_method: paymentMethod,
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["delivery-link-generations"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+    });
     
     window.open(`https://api.whatsapp.com/send?phone=${formatted}&text=${encodeURIComponent(message)}`, "_blank");
   };
@@ -159,38 +173,37 @@ export function MobileEntrega() {
                   setSelectedProduct(product);
                   setPhoneInput("");
                   setCopiedLink(false);
+                  setPaymentMethod("pix");
                 }}
-                className="w-full bg-card/50 border border-border/30 rounded-xl p-4 text-left transition-all active:scale-[0.98]"
+                className="w-full bg-card/50 border border-border/30 rounded-xl p-3 text-left transition-all active:scale-[0.98]"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                    "w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center",
                     product.is_active ? "bg-success/20" : "bg-muted"
                   )}>
                     <Package className={cn(
-                      "h-5 w-5",
+                      "h-4 w-4",
                       product.is_active ? "text-success" : "text-muted-foreground"
                     )} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm truncate">{product.name}</p>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-xs truncate max-w-[120px]">{product.name}</p>
                       <Badge 
                         variant={product.is_active ? "default" : "secondary"}
-                        className="text-[10px] px-1.5 py-0 h-4"
+                        className="text-[8px] px-1 py-0 h-3.5 flex-shrink-0"
                       >
                         {product.is_active ? "Ativo" : "Off"}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-[10px] text-muted-foreground truncate">
                       /e/{product.slug}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold">
-                      {formatCurrency(product.value || 0)}
-                    </p>
-                  </div>
+                  <p className="text-xs font-semibold text-foreground flex-shrink-0">
+                    {formatCurrency(product.value || 0)}
+                  </p>
                 </div>
               </button>
             ))
@@ -218,6 +231,29 @@ export function MobileEntrega() {
               </SheetHeader>
 
               <div className="space-y-3">
+                {/* Payment Method Selector */}
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">
+                    Método de Pagamento
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["pix", "boleto", "cartao"] as const).map((method) => (
+                      <button
+                        key={method}
+                        onClick={() => setPaymentMethod(method)}
+                        className={cn(
+                          "py-2 px-3 rounded-lg text-xs font-medium transition-all border",
+                          paymentMethod === method
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-secondary/50 text-muted-foreground border-border/30"
+                        )}
+                      >
+                        {method === "pix" ? "PIX" : method === "boleto" ? "Boleto" : "Cartão"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-xs text-muted-foreground mb-1.5 block">
                     Telefone do Cliente
