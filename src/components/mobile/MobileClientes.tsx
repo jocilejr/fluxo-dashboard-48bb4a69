@@ -191,18 +191,6 @@ function CustomerDetails({ customer, onCopy, onWhatsApp, formatCurrency }: Custo
 
         <ScrollArea className="flex-1 mt-4">
           <TabsContent value="resumo" className="mt-0 space-y-3">
-            {/* Stats cards */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-success/10 border border-success/30 rounded-lg p-3">
-                <p className="text-xs text-success/80">Total Pago</p>
-                <p className="text-lg font-bold text-success">{formatCurrency(customer.total_paid)}</p>
-              </div>
-              <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
-                <p className="text-xs text-warning/80">Pendente</p>
-                <p className="text-lg font-bold text-warning">{formatCurrency(customer.total_pending)}</p>
-              </div>
-            </div>
-
             {stats && (
               <div className="space-y-2">
                 {stats.pix.paid > 0 && (
