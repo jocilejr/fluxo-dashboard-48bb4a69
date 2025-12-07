@@ -54,11 +54,13 @@ export function MobileDashboard() {
     },
   });
 
-  // Fetch group history for today
+  // Fetch group history for today (Brazil timezone)
   const { data: groupHistory = [] } = useQuery({
     queryKey: ["group-history-today"],
     queryFn: async () => {
-      const today = format(new Date(), "yyyy-MM-dd");
+      // Get current date in Brazil timezone (UTC-3)
+      const nowBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+      const today = format(nowBrazil, "yyyy-MM-dd");
       const { data, error } = await supabase
         .from("group_statistics_history")
         .select("*, groups(name)")
