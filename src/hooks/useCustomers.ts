@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizePhoneForMatching, generatePhoneVariations } from "@/lib/phoneNormalization";
+import { toast } from "sonner";
 
 export interface Customer {
   id: string;
@@ -18,13 +19,12 @@ export interface Customer {
   created_at: string;
   updated_at: string;
   pix_payment_count: number;
-  // Merged data from multiple phone variations
   merged_phones?: string[];
 }
 
 export interface CustomerEvent {
   id: string;
-  type: "transaction" | "abandoned" | "pix_link";
+  type: "transaction" | "abandoned" | "pix_link" | "delivery_access";
   event_type?: string;
   status?: string;
   transaction_type?: "boleto" | "pix" | "cartao";
@@ -35,7 +35,7 @@ export interface CustomerEvent {
   created_at: string;
   paid_at?: string | null;
   external_id?: string | null;
-  original_phone?: string; // Track which phone variation this came from
+  original_phone?: string;
 }
 
 export interface CustomerStats {
@@ -43,13 +43,12 @@ export interface CustomerStats {
   pix: { count: number; paid: number; pending: number; totalPaid: number; totalPending: number };
   cartao: { count: number; paid: number; pending: number; totalPaid: number; totalPending: number };
   abandoned: { count: number; totalAmount: number };
+  deliveryAccesses: number;
 }
 
-// Merge multiple customer records that have the same normalized phone
 function mergeCustomerRecords(customers: Customer[]): Customer[] {
   const phoneGroups = new Map<string, Customer[]>();
   
-  // Group by normalized phone
   for (const customer of customers) {
     const normalizedKey = normalizePhoneForMatching(customer.normalized_phone);
     if (!normalizedKey) continue;
@@ -62,39 +61,32 @@ function mergeCustomerRecords(customers: Customer[]): Customer[] {
     }
   }
   
-  // Merge each group into a single customer
   const mergedCustomers: Customer[] = [];
   
-  for (const [normalizedKey, group] of phoneGroups) {
+  for (const [, group] of phoneGroups) {
     if (group.length === 1) {
       mergedCustomers.push({
         ...group[0],
         merged_phones: [group[0].normalized_phone]
       });
     } else {
-      // Sort by last_seen_at to get most recent info
       group.sort((a, b) => new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime());
       const primary = group[0];
       
-      // Merge data from all records
       const merged: Customer = {
         ...primary,
-        // Use most recent name/email/document if primary doesn't have it
         name: primary.name || group.find(c => c.name)?.name || null,
         email: primary.email || group.find(c => c.email)?.email || null,
         document: primary.document || group.find(c => c.document)?.document || null,
         display_phone: primary.display_phone || group.find(c => c.display_phone)?.display_phone || null,
-        // Get earliest first_seen
         first_seen_at: group.reduce((earliest, c) => 
           new Date(c.first_seen_at) < new Date(earliest) ? c.first_seen_at : earliest
         , primary.first_seen_at),
-        // Sum up all totals
         total_transactions: group.reduce((sum, c) => sum + c.total_transactions, 0),
         total_paid: group.reduce((sum, c) => sum + Number(c.total_paid), 0),
         total_pending: group.reduce((sum, c) => sum + Number(c.total_pending), 0),
         total_abandoned_events: group.reduce((sum, c) => sum + c.total_abandoned_events, 0),
         pix_payment_count: group.reduce((sum, c) => sum + c.pix_payment_count, 0),
-        // Track all phone variations
         merged_phones: group.map(c => c.normalized_phone)
       };
       
@@ -106,6 +98,8 @@ function mergeCustomerRecords(customers: Customer[]): Customer[] {
 }
 
 export function useCustomers() {
+  const queryClient = useQueryClient();
+  
   const { data: customers = [], isLoading, refetch } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
@@ -116,20 +110,65 @@ export function useCustomers() {
 
       if (error) throw error;
       
-      // Merge customers with the same normalized phone
       const merged = mergeCustomerRecords(data as Customer[]);
-      
-      // Sort by total_paid descending
       merged.sort((a, b) => Number(b.total_paid) - Number(a.total_paid));
       
       return merged;
     },
   });
 
-  return { customers, isLoading, refetch };
+  const updateCustomer = async (customerId: string, updates: { name?: string; email?: string; document?: string }) => {
+    const { error } = await supabase
+      .from("customers")
+      .update(updates)
+      .eq("id", customerId);
+    
+    if (error) {
+      toast.error("Erro ao atualizar cliente");
+      throw error;
+    }
+    
+    toast.success("Cliente atualizado");
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+  };
+
+  const deleteTransaction = async (transactionId: string) => {
+    const { error } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("id", transactionId);
+    
+    if (error) {
+      toast.error("Erro ao excluir transação");
+      throw error;
+    }
+    
+    toast.success("Transação excluída");
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+  };
+
+  const deleteAbandonedEvent = async (eventId: string) => {
+    const { error } = await supabase
+      .from("abandoned_events")
+      .delete()
+      .eq("id", eventId);
+    
+    if (error) {
+      toast.error("Erro ao excluir evento");
+      throw error;
+    }
+    
+    toast.success("Evento excluído");
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
+    queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] });
+  };
+
+  return { customers, isLoading, refetch, updateCustomer, deleteTransaction, deleteAbandonedEvent };
 }
 
-// Buscar métodos de pagamento por cliente (para filtros)
 export function useCustomerPaymentMethods() {
   const { data = {}, isLoading } = useQuery({
     queryKey: ["customer-payment-methods"],
@@ -141,7 +180,6 @@ export function useCustomerPaymentMethods() {
 
       if (error) throw error;
 
-      // Agrupar por telefone normalizado (using our normalization)
       const methodsByPhone: Record<string, Set<string>> = {};
       (transactions || []).forEach((t) => {
         if (!t.normalized_phone) return;
@@ -152,7 +190,6 @@ export function useCustomerPaymentMethods() {
         methodsByPhone[normalizedKey].add(t.type);
       });
 
-      // Converter Sets para arrays
       const result: Record<string, string[]> = {};
       Object.entries(methodsByPhone).forEach(([phone, methods]) => {
         result[phone] = Array.from(methods);
@@ -166,23 +203,21 @@ export function useCustomerPaymentMethods() {
 }
 
 export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?: string[]) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["customer-events", normalizedPhone, mergedPhones],
     enabled: !!normalizedPhone,
     queryFn: async () => {
       if (!normalizedPhone) return { events: [], stats: null };
 
-      // Get all phone variations to search for
       const phonesToSearch = mergedPhones && mergedPhones.length > 0 
         ? mergedPhones 
         : generatePhoneVariations(normalizedPhone);
       
-      // Also include the original normalized phone
       if (!phonesToSearch.includes(normalizedPhone)) {
         phonesToSearch.push(normalizedPhone);
       }
 
-      // Fetch transactions for all phone variations
+      // Fetch transactions
       const { data: transactions, error: txError } = await supabase
         .from("transactions")
         .select("id, type, status, amount, description, created_at, paid_at, external_id, normalized_phone")
@@ -191,7 +226,7 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
 
       if (txError) throw txError;
 
-      // Fetch abandoned events for all phone variations
+      // Fetch abandoned events
       const { data: abandonedEvents, error: abError } = await supabase
         .from("abandoned_events")
         .select("id, event_type, amount, product_name, error_message, created_at, normalized_phone")
@@ -200,7 +235,7 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
 
       if (abError) throw abError;
 
-      // Fetch PIX link generations for all phone variations
+      // Fetch PIX link generations
       const { data: pixLinks, error: pixError } = await supabase
         .from("delivery_link_generations")
         .select("id, created_at, product_id, payment_method, normalized_phone")
@@ -210,8 +245,29 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
 
       if (pixError) throw pixError;
 
-      // Fetch product info for PIX links
-      const productIds = [...new Set((pixLinks || []).map(p => p.product_id))];
+      // Fetch delivery accesses (to track when user accessed PIX link)
+      const { data: deliveryAccesses, error: daError } = await supabase
+        .from("delivery_accesses")
+        .select("id, phone, product_id, accessed_at, pixel_fired")
+        .order("accessed_at", { ascending: false });
+
+      if (daError) throw daError;
+
+      // Filter delivery accesses by normalized phone
+      const filteredAccesses = (deliveryAccesses || []).filter(da => {
+        const normalizedAccessPhone = da.phone.replace(/\D/g, '');
+        return phonesToSearch.some(p => {
+          const normalizedSearch = p.replace(/\D/g, '');
+          return normalizedAccessPhone.includes(normalizedSearch) || normalizedSearch.includes(normalizedAccessPhone);
+        });
+      });
+
+      // Fetch product info
+      const productIds = [...new Set([
+        ...(pixLinks || []).map(p => p.product_id),
+        ...filteredAccesses.map(a => a.product_id)
+      ])];
+      
       let productsMap: Record<string, { name: string; value: number }> = {};
       if (productIds.length > 0) {
         const { data: products } = await supabase
@@ -224,12 +280,13 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
         });
       }
 
-      // Calculate stats by payment method
+      // Calculate stats
       const stats: CustomerStats = {
         boleto: { count: 0, paid: 0, pending: 0, totalPaid: 0, totalPending: 0 },
         pix: { count: 0, paid: 0, pending: 0, totalPaid: 0, totalPending: 0 },
         cartao: { count: 0, paid: 0, pending: 0, totalPaid: 0, totalPending: 0 },
         abandoned: { count: abandonedEvents?.length || 0, totalAmount: 0 },
+        deliveryAccesses: filteredAccesses.length,
       };
 
       (transactions || []).forEach((t) => {
@@ -246,7 +303,6 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
         }
       });
 
-      // Add PIX links to stats as paid PIX
       (pixLinks || []).forEach((p) => {
         const product = productsMap[p.product_id];
         stats.pix.count++;
@@ -258,7 +314,7 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
         stats.abandoned.totalAmount += Number(a.amount) || 0;
       });
 
-      // Combine and sort
+      // Combine all events
       const allEvents: CustomerEvent[] = [
         ...(transactions || []).map((t) => ({
           id: t.id,
@@ -284,6 +340,14 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
           paid_at: p.created_at,
           original_phone: p.normalized_phone,
         })),
+        ...filteredAccesses.map((a) => ({
+          id: a.id,
+          type: "delivery_access" as const,
+          product_name: productsMap[a.product_id]?.name || "Produto",
+          amount: null,
+          created_at: a.accessed_at,
+          description: `Acessou link de entrega: ${productsMap[a.product_id]?.name || "Produto"}`,
+        })),
         ...(abandonedEvents || []).map((a) => ({
           id: a.id,
           type: "abandoned" as const,
@@ -296,7 +360,6 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
         })),
       ];
 
-      // Sort by date descending
       allEvents.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       return { events: allEvents, stats };
@@ -306,7 +369,8 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
   return { 
     events: data?.events || [], 
     stats: data?.stats || null, 
-    isLoading 
+    isLoading,
+    refetch 
   };
 }
 
