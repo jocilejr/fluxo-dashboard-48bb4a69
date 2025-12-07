@@ -60,7 +60,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const baseUrl = customDomain ? `https://${customDomain}` : window.location.origin;
   const cleanPhone = phone.replace(/\D/g, "");
   const generatedUrl = cleanPhone
-    ? `${baseUrl}/${product?.slug}?telefone=${cleanPhone}`
+    ? `${baseUrl}/e/${product?.slug}?telefone=${cleanPhone}`
     : "";
 
   const handleContinueToPayment = () => {
@@ -181,7 +181,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
                 <Label>Produto</Label>
                 <p className="text-sm font-medium">{product?.name}</p>
                 <code className="text-xs text-muted-foreground block bg-muted p-2 rounded">
-                  /{product?.slug}?telefone=XXXXX
+                  /e/{product?.slug}?telefone=XXXXX
                 </code>
               </div>
 
