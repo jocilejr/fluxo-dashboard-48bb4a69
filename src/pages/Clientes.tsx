@@ -145,7 +145,7 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
               Resumo
             </TabsTrigger>
             <TabsTrigger value="transacoes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">
-              Transações ({events.filter(e => e.type === "transaction").length})
+              Transações ({events.filter(e => e.type === "transaction" || e.type === "pix_link").length})
             </TabsTrigger>
             <TabsTrigger value="abandonos" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2">
               Abandonos ({events.filter(e => e.type === "abandoned").length})
@@ -309,13 +309,13 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {events.filter(e => e.type === "transaction").length === 0 ? (
+                  {events.filter(e => e.type === "transaction" || e.type === "pix_link").length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
                       <p>Nenhuma transação encontrada</p>
                     </div>
                   ) : (
-                    events.filter(e => e.type === "transaction").map((event) => {
+                    events.filter(e => e.type === "transaction" || e.type === "pix_link").map((event) => {
                       const Icon = getEventIcon(event);
                       const color = getEventColor(event);
                       
