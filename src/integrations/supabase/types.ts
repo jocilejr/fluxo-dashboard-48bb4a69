@@ -27,6 +27,7 @@ export type Database = {
           funnel_stage: string | null
           id: string
           metadata: Json | null
+          normalized_phone: string | null
           product_name: string | null
           updated_at: string
           utm_campaign: string | null
@@ -47,6 +48,7 @@ export type Database = {
           funnel_stage?: string | null
           id?: string
           metadata?: Json | null
+          normalized_phone?: string | null
           product_name?: string | null
           updated_at?: string
           utm_campaign?: string | null
@@ -67,6 +69,7 @@ export type Database = {
           funnel_stage?: string | null
           id?: string
           metadata?: Json | null
+          normalized_phone?: string | null
           product_name?: string | null
           updated_at?: string
           utm_campaign?: string | null
@@ -226,6 +229,57 @@ export type Database = {
           created_at?: string
           default_expiration_days?: number
           id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          created_at: string
+          display_phone: string | null
+          document: string | null
+          email: string | null
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          name: string | null
+          normalized_phone: string
+          total_abandoned_events: number
+          total_paid: number
+          total_pending: number
+          total_transactions: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_phone?: string | null
+          document?: string | null
+          email?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          name?: string | null
+          normalized_phone: string
+          total_abandoned_events?: number
+          total_paid?: number
+          total_pending?: number
+          total_transactions?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_phone?: string | null
+          document?: string | null
+          email?: string | null
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          name?: string | null
+          normalized_phone?: string
+          total_abandoned_events?: number
+          total_paid?: number
+          total_pending?: number
+          total_transactions?: number
           updated_at?: string
         }
         Relationships: []
@@ -815,6 +869,7 @@ export type Database = {
           external_id: string | null
           id: string
           metadata: Json | null
+          normalized_phone: string | null
           paid_at: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
@@ -832,6 +887,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           metadata?: Json | null
+          normalized_phone?: string | null
           paid_at?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           type: Database["public"]["Enums"]["transaction_type"]
@@ -849,6 +905,7 @@ export type Database = {
           external_id?: string | null
           id?: string
           metadata?: Json | null
+          normalized_phone?: string | null
           paid_at?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           type?: Database["public"]["Enums"]["transaction_type"]
@@ -1066,6 +1123,11 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      normalize_phone: { Args: { phone: string }; Returns: string }
+      refresh_customer_stats: {
+        Args: { customer_normalized_phone?: string }
+        Returns: undefined
       }
     }
     Enums: {
