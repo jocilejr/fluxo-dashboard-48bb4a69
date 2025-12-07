@@ -20,7 +20,7 @@ export interface Customer {
 
 export interface CustomerEvent {
   id: string;
-  type: "transaction" | "abandoned";
+  type: "transaction" | "abandoned" | "pix_link";
   event_type?: string;
   status?: string;
   transaction_type?: "boleto" | "pix" | "cartao";
@@ -117,6 +117,30 @@ export function useCustomerEvents(normalizedPhone: string | null) {
 
       if (abError) throw abError;
 
+      // Fetch PIX link generations (manual PIX paid)
+      const { data: pixLinks, error: pixError } = await supabase
+        .from("delivery_link_generations")
+        .select("id, created_at, product_id, payment_method")
+        .eq("normalized_phone", normalizedPhone)
+        .eq("payment_method", "pix")
+        .order("created_at", { ascending: false });
+
+      if (pixError) throw pixError;
+
+      // Fetch product info for PIX links
+      const productIds = [...new Set((pixLinks || []).map(p => p.product_id))];
+      let productsMap: Record<string, { name: string; value: number }> = {};
+      if (productIds.length > 0) {
+        const { data: products } = await supabase
+          .from("delivery_products")
+          .select("id, name, value")
+          .in("id", productIds);
+        
+        (products || []).forEach(p => {
+          productsMap[p.id] = { name: p.name, value: p.value || 0 };
+        });
+      }
+
       // Calculate stats by payment method
       const stats: CustomerStats = {
         boleto: { count: 0, paid: 0, pending: 0, totalPaid: 0, totalPending: 0 },
@@ -139,6 +163,14 @@ export function useCustomerEvents(normalizedPhone: string | null) {
         }
       });
 
+      // Add PIX links to stats as paid PIX
+      (pixLinks || []).forEach((p) => {
+        const product = productsMap[p.product_id];
+        stats.pix.count++;
+        stats.pix.paid++;
+        stats.pix.totalPaid += product?.value || 0;
+      });
+
       (abandonedEvents || []).forEach((a) => {
         stats.abandoned.totalAmount += Number(a.amount) || 0;
       });
@@ -155,6 +187,17 @@ export function useCustomerEvents(normalizedPhone: string | null) {
           created_at: t.created_at,
           paid_at: t.paid_at,
           external_id: t.external_id,
+        })),
+        ...(pixLinks || []).map((p) => ({
+          id: p.id,
+          type: "pix_link" as const,
+          transaction_type: "pix" as const,
+          status: "pago",
+          amount: productsMap[p.product_id]?.value || 0,
+          description: productsMap[p.product_id]?.name || "Produto",
+          product_name: productsMap[p.product_id]?.name,
+          created_at: p.created_at,
+          paid_at: p.created_at,
         })),
         ...(abandonedEvents || []).map((a) => ({
           id: a.id,
