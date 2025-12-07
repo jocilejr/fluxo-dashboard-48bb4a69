@@ -15,6 +15,7 @@ interface MobileLayoutProps {
 const pageConfig: Record<string, string> = {
   "/": "Dashboard",
   "/transacoes": "Transações",
+  "/clientes": "Clientes",
   "/perfil": "Perfil",
 };
 

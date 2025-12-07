@@ -137,7 +137,7 @@ const App = () => (
             path="/clientes"
             element={
               <ProtectedRoute>
-                <ResponsiveLayout>
+                <ResponsiveLayout mobileComponent="clientes">
                   <Clientes />
                 </ResponsiveLayout>
               </ProtectedRoute>

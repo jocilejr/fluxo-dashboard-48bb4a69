@@ -32,6 +32,7 @@ interface WirePusherTemplate {
 const AVAILABLE_PERMISSIONS = [
   { key: "dashboard", label: "Dashboard", description: "Métricas e visão geral" },
   { key: "transacoes", label: "Transações", description: "Lista de transações" },
+  { key: "clientes", label: "Clientes", description: "Lista de clientes" },
   { key: "recuperacao", label: "Recuperação", description: "Recuperação de boletos" },
   { key: "entrega", label: "Entrega", description: "Produtos digitais" },
   { key: "projetos", label: "Quadros", description: "Gestão de projetos" },
