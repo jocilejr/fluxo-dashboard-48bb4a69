@@ -98,17 +98,19 @@ export function MobileClientes() {
                 onClick={() => setSelectedCustomer(customer)}
                 className="w-full bg-card border border-border/20 rounded-lg px-3 py-2.5 text-left active:bg-secondary/50"
               >
-                <div className="flex items-center gap-2 w-full overflow-hidden">
-                  <div className="w-7 h-7 bg-primary/10 rounded-full flex-shrink-0 flex items-center justify-center">
-                    <User className="h-3 w-3 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0 max-w-[55%]">
-                    <p className="text-sm font-medium truncate leading-tight">
-                      {customer.name?.split(' ').slice(0, 2).join(' ') || "Sem nome"}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      {customer.display_phone || customer.normalized_phone}
-                    </p>
+                <div className="flex items-center justify-between gap-2 w-full">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-7 h-7 bg-primary/10 rounded-full flex-shrink-0 flex items-center justify-center">
+                      <User className="h-3 w-3 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate leading-tight max-w-[140px]">
+                        {customer.name?.split(' ').slice(0, 2).join(' ') || "Sem nome"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                        {customer.display_phone || customer.normalized_phone}
+                      </p>
+                    </div>
                   </div>
                   <span className="flex-shrink-0 text-sm font-bold text-success">
                     {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(customer.total_paid)}
