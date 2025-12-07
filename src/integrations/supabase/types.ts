@@ -1167,6 +1167,7 @@ export type Database = {
         Args: { customer_normalized_phone?: string }
         Returns: undefined
       }
+      sync_delivery_leads_to_customers: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
