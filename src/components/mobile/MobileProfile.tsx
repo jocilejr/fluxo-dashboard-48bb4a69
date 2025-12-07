@@ -64,52 +64,52 @@ export function MobileProfile() {
     <button
       onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-4 p-4 bg-[hsl(222,44%,14%)] border rounded-2xl",
-        danger ? "border-destructive/30" : "border-[hsl(40,50%,55%)]/10"
+        "w-full flex items-center gap-4 p-4 bg-card border rounded-2xl",
+        danger ? "border-destructive/30" : "border-border/30"
       )}
     >
       <div className={cn(
         "h-10 w-10 rounded-xl flex items-center justify-center",
-        danger ? "bg-destructive/10" : "bg-[hsl(40,50%,55%)]/10"
+        danger ? "bg-destructive/10" : "bg-primary/10"
       )}>
         <Icon className={cn(
           "h-5 w-5",
-          danger ? "text-destructive" : "text-[hsl(40,50%,55%)]"
+          danger ? "text-destructive" : "text-primary"
         )} />
       </div>
       <div className="flex-1 text-left">
         <p className={cn(
           "text-sm font-medium",
-          danger ? "text-destructive" : "text-[hsl(45,20%,95%)]"
+          danger ? "text-destructive" : "text-foreground"
         )}>
           {label}
         </p>
         {value && (
-          <p className="text-xs text-[hsl(220,15%,55%)] truncate">{value}</p>
+          <p className="text-xs text-muted-foreground truncate">{value}</p>
         )}
       </div>
-      {onClick && <ChevronRight className="h-4 w-4 text-[hsl(220,15%,55%)]" />}
+      {onClick && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
     </button>
   );
 
   return (
-    <div className="p-4 space-y-6 bg-[hsl(222,47%,11%)] min-h-full">
+    <div className="p-4 space-y-6 bg-background min-h-full">
       {/* Profile Header */}
       <div className="flex flex-col items-center py-6">
-        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[hsl(40,50%,55%)] to-[hsl(40,45%,40%)] flex items-center justify-center shadow-xl shadow-[hsl(40,50%,55%)]/20 mb-4">
-          <span className="text-2xl font-bold text-[hsl(222,47%,11%)] uppercase">
+        <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-xl shadow-primary/20 mb-4">
+          <span className="text-2xl font-bold text-primary-foreground uppercase">
             {user?.email?.charAt(0) || "U"}
           </span>
         </div>
-        <h2 className="text-lg font-bold text-[hsl(45,20%,95%)]">
+        <h2 className="text-lg font-bold text-foreground">
           {profile?.name || user?.email?.split("@")[0] || "Usuário"}
         </h2>
         <div className="flex items-center gap-2 mt-1">
           <span className={cn(
             "px-3 py-1 rounded-full text-xs font-semibold",
             isAdmin 
-              ? "bg-[hsl(40,50%,55%)]/15 text-[hsl(40,50%,55%)]" 
-              : "bg-[hsl(222,35%,20%)] text-[hsl(220,15%,55%)]"
+              ? "bg-primary/15 text-primary" 
+              : "bg-secondary text-muted-foreground"
           )}>
             {isAdmin ? "Administrador" : "Colaborador"}
           </span>
@@ -118,7 +118,7 @@ export function MobileProfile() {
 
       {/* Account Info */}
       <div className="space-y-3">
-        <h3 className="text-xs font-semibold text-[hsl(220,15%,55%)] uppercase tracking-wider px-1">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
           Conta
         </h3>
         <div className="space-y-2">
@@ -142,7 +142,7 @@ export function MobileProfile() {
 
       {/* Actions */}
       <div className="space-y-3">
-        <h3 className="text-xs font-semibold text-[hsl(220,15%,55%)] uppercase tracking-wider px-1">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
           Ações
         </h3>
         <div className="space-y-2">
@@ -157,10 +157,10 @@ export function MobileProfile() {
 
       {/* App Info */}
       <div className="text-center pt-6 pb-4">
-        <p className="text-xs text-[hsl(220,15%,55%)]">
+        <p className="text-xs text-muted-foreground">
           Origem Viva Dashboard
         </p>
-        <p className="text-[10px] text-[hsl(220,15%,55%)]/50">
+        <p className="text-[10px] text-muted-foreground/50">
           Versão 1.0.0
         </p>
       </div>

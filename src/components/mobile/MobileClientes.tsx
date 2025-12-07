@@ -88,29 +88,29 @@ export function MobileClientes() {
               <button
                 key={customer.id}
                 onClick={() => setSelectedCustomer(customer)}
-                className="w-full bg-card/50 border border-border/30 rounded-xl p-4 text-left transition-all active:scale-[0.98]"
+                className="w-full bg-card/50 border border-border/30 rounded-xl p-3 text-left transition-all active:scale-[0.98]"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
-                    <User className="h-5 w-5 text-primary" />
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 bg-primary/20 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p className="font-medium text-xs truncate">
                       {customer.name || "Cliente sem nome"}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-[10px] text-muted-foreground truncate">
                       {customer.display_phone || customer.normalized_phone}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-success">
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-semibold text-success">
                       {formatCurrency(customer.total_paid)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {customer.total_transactions} transações
+                    <p className="text-[9px] text-muted-foreground">
+                      {customer.total_transactions} trans.
                     </p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
                 </div>
               </button>
             ))
