@@ -22,7 +22,7 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
   const [copied, setCopied] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [clickCount, setClickCount] = useState(0);
-  const { sendText, extensionStatus } = useWhatsAppExtension();
+  const { openChat, extensionStatus } = useWhatsAppExtension();
 
   // Fetch click count
   useEffect(() => {
@@ -95,15 +95,19 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
       return;
     }
 
+    // Primeiro copia a mensagem
+    await navigator.clipboard.writeText(message);
+
+    // Depois abre o chat sem enviar mensagem
     const phone = transaction.customer_phone.replace(/\D/g, "");
-    const success = await sendText(phone, message);
+    const success = await openChat(phone);
     
     if (success) {
-      toast.success("Mensagem enviada para o WhatsApp");
+      toast.success("Mensagem copiada! Cole com Ctrl+V");
       setIsOpen(false);
       await registerClick();
     } else {
-      toast.error("Erro ao enviar mensagem");
+      toast.error("Erro ao abrir conversa");
     }
   };
 
