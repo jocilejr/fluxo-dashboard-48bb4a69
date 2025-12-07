@@ -11,13 +11,15 @@ import {
   Clock,
   AlertTriangle,
   RefreshCw,
-  MessageSquare,
-  TrendingUp
+  MessageCircle,
+  TrendingUp,
+  ChevronDown
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { startOfDay, endOfDay, subDays, isWithinInterval, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const VIEWED_STORAGE_KEY = "viewed_transactions";
 const VIEWED_ABANDONED_KEY = "viewed_abandoned_events";
@@ -193,20 +195,20 @@ export function MobileTransactions() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-30 bg-background border-b border-border px-4 pt-3 pb-3 space-y-3">
-        {/* Date Filter & Refresh */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      {/* Header fixo */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-xl border-b border-border/50 px-4 pt-3 pb-3 space-y-3">
+        {/* Filtros de data e refresh */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
             {(["hoje", "ontem", "semana"] as DateFilterType[]).map((filter) => (
               <button
                 key={filter}
                 onClick={() => setDateFilter(filter)}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                  "px-3 py-2 rounded-lg text-xs font-medium transition-all",
                   dateFilter === filter
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary/50 text-muted-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-secondary/50 text-muted-foreground hover:bg-secondary"
                 )}
               >
                 {filter === "hoje" ? "Hoje" : filter === "ontem" ? "Ontem" : "7 dias"}
@@ -215,48 +217,52 @@ export function MobileTransactions() {
           </div>
           <button 
             onClick={handleRefresh}
-            className="p-2 rounded-lg bg-secondary/50 text-muted-foreground"
+            disabled={isRefreshing}
+            className="p-2.5 rounded-lg bg-secondary/50 text-muted-foreground hover:bg-secondary transition-colors"
           >
             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
           </button>
         </div>
 
-        {/* Search */}
+        {/* Busca */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar cliente..."
+            placeholder="Buscar por nome ou telefone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-10 bg-secondary/30 border-border/50 text-sm"
+            className="pl-10 h-11 bg-secondary/30 border-border/30 text-sm"
           />
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {(["aprovados", "pendentes", "abandonos"] as TabType[]).map((tab) => {
             const isActive = activeTab === tab;
             const count = counts[tab];
+            const colors = {
+              aprovados: { active: "bg-success/10 text-success border-success/30", badge: "bg-success/20" },
+              pendentes: { active: "bg-warning/10 text-warning border-warning/30", badge: "bg-warning/20" },
+              abandonos: { active: "bg-destructive/10 text-destructive border-destructive/30", badge: "bg-destructive/20" },
+            };
             
             return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-all border",
+                  "flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-all border",
                   isActive 
-                    ? tab === "aprovados" 
-                      ? "bg-success/10 text-success border-success/30"
-                      : tab === "pendentes"
-                        ? "bg-warning/10 text-warning border-warning/30"
-                        : "bg-destructive/10 text-destructive border-destructive/30"
-                    : "bg-secondary/30 text-muted-foreground border-transparent"
+                    ? colors[tab].active
+                    : "bg-card text-muted-foreground border-border/30"
                 )}
               >
-                <span className="capitalize">{tab}</span>
+                <span className="capitalize text-[11px]">
+                  {tab === "aprovados" ? "Aprovados" : tab === "pendentes" ? "Pendentes" : "Abandonos"}
+                </span>
                 <span className={cn(
-                  "min-w-[18px] h-[18px] px-1 rounded text-[10px] font-bold flex items-center justify-center",
-                  isActive ? "bg-background/50" : "bg-card"
+                  "min-w-[24px] h-5 px-1.5 rounded-full text-[10px] font-bold flex items-center justify-center",
+                  isActive ? "bg-background/60" : "bg-secondary/50"
                 )}>
                   {count}
                 </span>
@@ -266,152 +272,226 @@ export function MobileTransactions() {
         </div>
       </div>
 
-      {/* Revenue Summary for Aprovados */}
+      {/* Resumo de receita para aprovados */}
       {activeTab === "aprovados" && totalRevenue > 0 && (
-        <div className="mx-4 mt-3 p-3 rounded-xl bg-success/5 border border-success/20">
+        <div className="mx-4 mt-3 p-4 rounded-xl bg-gradient-to-r from-success/10 to-success/5 border border-success/20">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-success/10 flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-success" />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-success/10 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-success" />
               </div>
               <div>
-                <p className="text-[10px] text-muted-foreground">Total do período</p>
-                <p className="text-sm font-bold text-success">{formatCurrency(totalRevenue)}</p>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
+                  Total do período
+                </p>
+                <p className="text-lg font-bold text-success">{formatCurrency(totalRevenue)}</p>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground">{counts.aprovados} vendas</p>
+            <div className="text-right">
+              <p className="text-xl font-bold text-foreground">{counts.aprovados}</p>
+              <p className="text-[10px] text-muted-foreground">vendas</p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Transaction List */}
-      <div className="flex-1 overflow-auto px-4 py-3 space-y-2">
-        {activeTab === "abandonos" ? (
-          filteredAbandoned.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <AlertTriangle className="h-10 w-10 mb-3 opacity-20" />
-              <p className="text-sm">Nenhum abandono encontrado</p>
-            </div>
+      {/* Lista de transações */}
+      <ScrollArea className="flex-1">
+        <div className="px-4 py-3 space-y-2 pb-24">
+          {activeTab === "abandonos" ? (
+            filteredAbandoned.length === 0 ? (
+              <EmptyState icon={AlertTriangle} message="Nenhum abandono encontrado" />
+            ) : (
+              filteredAbandoned.map((event) => (
+                <AbandonedCard 
+                  key={event.id}
+                  event={event}
+                  formatCurrency={formatCurrency}
+                  formatTime={formatTime}
+                  formatDate={formatDate}
+                  onWhatsApp={openWhatsAppBusiness}
+                />
+              ))
+            )
           ) : (
-            filteredAbandoned.map((event) => (
-              <div 
-                key={event.id}
-                className="bg-card rounded-xl p-4 border border-border/50"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-destructive/10 flex-shrink-0 flex items-center justify-center">
-                    <AlertTriangle className="h-5 w-5 text-destructive" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {event.customer_name || "Cliente não identificado"}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {event.event_type === "cart_abandoned" ? "Carrinho abandonado" : "Falha no pagamento"}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-bold text-destructive">
-                          {event.amount ? formatCurrency(event.amount) : "-"}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {formatTime(event.created_at)} • {formatDate(event.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                    {event.customer_phone && (
-                      <button
-                        onClick={() => openWhatsAppBusiness(event.customer_phone)}
-                        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-medium"
-                      >
-                        <MessageSquare className="h-3.5 w-3.5" />
-                        Recuperar via WhatsApp
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )
-        ) : (
-          filteredTransactions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-              <FileText className="h-10 w-10 mb-3 opacity-20" />
-              <p className="text-sm">Nenhuma transação encontrada</p>
-            </div>
-          ) : (
-            filteredTransactions.map((transaction) => {
-              const Icon = getTypeIcon(transaction.type);
-              const isPaid = transaction.status === "pago";
-              const displayDate = isPaid && transaction.paid_at ? transaction.paid_at : transaction.created_at;
-              
-              return (
-                <div 
+            filteredTransactions.length === 0 ? (
+              <EmptyState icon={FileText} message="Nenhuma transação encontrada" />
+            ) : (
+              filteredTransactions.map((transaction) => (
+                <TransactionCard
                   key={transaction.id}
-                  className="bg-card rounded-xl p-4 border border-border/50"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={cn(
-                      "h-10 w-10 rounded-xl flex-shrink-0 flex items-center justify-center",
-                      isPaid ? "bg-success/10" : "bg-warning/10"
-                    )}>
-                      <Icon className={cn(
-                        "h-5 w-5",
-                        isPaid ? "text-success" : "text-warning"
-                      )} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {transaction.customer_name || "Cliente"}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className={cn(
-                              "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold",
-                              isPaid 
-                                ? "bg-success/10 text-success" 
-                                : "bg-warning/10 text-warning"
-                            )}>
-                              {isPaid ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                              {isPaid ? "Pago" : "Pendente"}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {getTypeLabel(transaction.type)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className={cn(
-                            "text-sm font-bold",
-                            isPaid ? "text-success" : "text-foreground"
-                          )}>
-                            {formatCurrency(Number(transaction.amount))}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {formatTime(displayDate)} • {formatDate(displayDate)}
-                          </p>
-                        </div>
-                      </div>
-                      {!isPaid && transaction.customer_phone && (
-                        <button
-                          onClick={() => openWhatsAppBusiness(transaction.customer_phone)}
-                          className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success text-xs font-medium"
-                        >
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          Recuperar via WhatsApp
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )
-        )}
+                  transaction={transaction}
+                  formatCurrency={formatCurrency}
+                  formatTime={formatTime}
+                  formatDate={formatDate}
+                  getTypeIcon={getTypeIcon}
+                  getTypeLabel={getTypeLabel}
+                  onWhatsApp={openWhatsAppBusiness}
+                />
+              ))
+            )
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+// Componente de estado vazio
+function EmptyState({ icon: Icon, message }: { icon: any; message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+      <Icon className="h-12 w-12 mb-4 opacity-20" />
+      <p className="text-sm font-medium">{message}</p>
+    </div>
+  );
+}
+
+// Componente de card de transação
+interface TransactionCardProps {
+  transaction: any;
+  formatCurrency: (value: number) => string;
+  formatTime: (dateStr: string) => string;
+  formatDate: (dateStr: string) => string;
+  getTypeIcon: (type: string) => any;
+  getTypeLabel: (type: string) => string;
+  onWhatsApp: (phone: string | null) => void;
+}
+
+function TransactionCard({ 
+  transaction, 
+  formatCurrency, 
+  formatTime, 
+  formatDate, 
+  getTypeIcon, 
+  getTypeLabel,
+  onWhatsApp 
+}: TransactionCardProps) {
+  const Icon = getTypeIcon(transaction.type);
+  const isPaid = transaction.status === "pago";
+  const displayDate = isPaid && transaction.paid_at ? transaction.paid_at : transaction.created_at;
+  
+  return (
+    <div className="bg-card rounded-xl border border-border/40 overflow-hidden">
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Ícone */}
+          <div className={cn(
+            "h-11 w-11 rounded-xl flex-shrink-0 flex items-center justify-center",
+            isPaid ? "bg-success/10" : "bg-warning/10"
+          )}>
+            <Icon className={cn("h-5 w-5", isPaid ? "text-success" : "text-warning")} />
+          </div>
+          
+          {/* Info */}
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground truncate">
+                {transaction.customer_name || "Cliente"}
+              </p>
+              <p className={cn(
+                "text-base font-bold flex-shrink-0",
+                isPaid ? "text-success" : "text-foreground"
+              )}>
+                {formatCurrency(Number(transaction.amount))}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn(
+                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold",
+                isPaid ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+              )}>
+                {isPaid ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                {isPaid ? "Pago" : "Pendente"}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-medium bg-secondary/50 px-2 py-0.5 rounded-full">
+                {getTypeLabel(transaction.type)}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {formatTime(displayDate)} • {formatDate(displayDate)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
+      
+      {/* Botão de recuperação */}
+      {!isPaid && transaction.customer_phone && (
+        <div className="border-t border-border/30 px-4 py-2.5 bg-secondary/10">
+          <button
+            onClick={() => onWhatsApp(transaction.customer_phone)}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-success/10 text-success text-xs font-medium hover:bg-success/20 transition-colors"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Recuperar via WhatsApp
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Componente de card de abandono
+interface AbandonedCardProps {
+  event: any;
+  formatCurrency: (value: number) => string;
+  formatTime: (dateStr: string) => string;
+  formatDate: (dateStr: string) => string;
+  onWhatsApp: (phone: string | null) => void;
+}
+
+function AbandonedCard({ event, formatCurrency, formatTime, formatDate, onWhatsApp }: AbandonedCardProps) {
+  return (
+    <div className="bg-card rounded-xl border border-destructive/20 overflow-hidden">
+      <div className="p-4">
+        <div className="flex items-start gap-3">
+          {/* Ícone */}
+          <div className="h-11 w-11 rounded-xl bg-destructive/10 flex-shrink-0 flex items-center justify-center">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+          </div>
+          
+          {/* Info */}
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground truncate">
+                {event.customer_name || "Cliente não identificado"}
+              </p>
+              <p className="text-base font-bold text-destructive flex-shrink-0">
+                {event.amount ? formatCurrency(event.amount) : "-"}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">
+                {event.event_type === "cart_abandoned" ? "Carrinho abandonado" : "Falha no pagamento"}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                {formatTime(event.created_at)} • {formatDate(event.created_at)}
+              </span>
+            </div>
+            
+            {event.product_name && (
+              <p className="text-xs text-muted-foreground truncate">
+                {event.product_name}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Botão de recuperação */}
+      {event.customer_phone && (
+        <div className="border-t border-destructive/10 px-4 py-2.5 bg-destructive/5">
+          <button
+            onClick={() => onWhatsApp(event.customer_phone)}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-success/10 text-success text-xs font-medium hover:bg-success/20 transition-colors"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Recuperar via WhatsApp
+          </button>
+        </div>
+      )}
     </div>
   );
 }
