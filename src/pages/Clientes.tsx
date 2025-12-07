@@ -74,9 +74,10 @@ const getPaymentMethodLabel = (type?: string) => {
 
 function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
   const { events, stats, isLoading, refetch } = useCustomerEvents(customer.normalized_phone, customer.merged_phones);
-  const { updateCustomer, deleteTransaction, deleteAbandonedEvent } = useCustomers();
+  const { updateCustomer, deleteTransaction, deleteAbandonedEvent, refetch: refetchCustomers } = useCustomers();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(customer.name || "");
+  const [displayName, setDisplayName] = useState(customer.name || "");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: "transaction" | "abandoned" } | null>(null);
 
   const copyToClipboard = (text: string, label: string) => {
@@ -85,8 +86,14 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
   };
 
   const handleSaveName = async () => {
-    await updateCustomer(customer.id, { name: editName.trim() || null });
-    setIsEditingName(false);
+    try {
+      await updateCustomer(customer.id, { name: editName.trim() || null });
+      setDisplayName(editName.trim() || "");
+      setIsEditingName(false);
+      refetchCustomers();
+    } catch (e) {
+      // Error already shown in toast
+    }
   };
 
   const handleDelete = async () => {
@@ -166,8 +173,8 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <p className="font-semibold text-lg">{customer.name || "Sem nome"}</p>
-                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setEditName(customer.name || ""); setIsEditingName(true); }}>
+                  <p className="font-semibold text-lg">{displayName || "Sem nome"}</p>
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => { setEditName(displayName || ""); setIsEditingName(true); }}>
                     <Pencil className="h-3 w-3 text-muted-foreground" />
                   </Button>
                 </div>
