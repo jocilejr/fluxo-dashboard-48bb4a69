@@ -98,11 +98,11 @@ export function MobileClientes() {
                 onClick={() => setSelectedCustomer(customer)}
                 className="w-full bg-card border border-border/20 rounded-lg px-3 py-2.5 text-left active:bg-secondary/50"
               >
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-primary/10 rounded-full flex-shrink-0 flex items-center justify-center">
-                    <User className="h-3.5 w-3.5 text-primary" />
+                <div className="flex items-center gap-2 w-full">
+                  <div className="w-7 h-7 bg-primary/10 rounded-full flex-shrink-0 flex items-center justify-center">
+                    <User className="h-3 w-3 text-primary" />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
                     <p className="text-sm font-medium truncate leading-tight">
                       {customer.name || "Sem nome"}
                     </p>
@@ -110,11 +110,11 @@ export function MobileClientes() {
                       {customer.display_phone || customer.normalized_phone}
                     </p>
                   </div>
-                  <div className="flex-shrink-0 text-right">
-                    <p className="text-sm font-bold text-success whitespace-nowrap">
-                      {formatCurrency(customer.total_paid)}
+                  <div className="ml-auto pl-2">
+                    <p className="text-sm font-bold text-success text-right">
+                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(customer.total_paid)}
                     </p>
-                    <p className="text-[9px] text-muted-foreground">
+                    <p className="text-[9px] text-muted-foreground text-right">
                       {customer.total_transactions} tx
                     </p>
                   </div>
