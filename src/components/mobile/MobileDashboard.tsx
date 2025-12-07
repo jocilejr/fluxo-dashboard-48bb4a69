@@ -1,20 +1,29 @@
 import { useMemo, useState, useEffect } from "react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { 
   TrendingUp,
   RefreshCw,
   Users,
-  ArrowUpRight,
-  ArrowDownRight
+  UserPlus,
+  UserMinus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { startOfDay, endOfDay, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar } from "recharts";
+import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip } from "recharts";
+
+interface Group {
+  id: string;
+  name: string;
+  current_members: number;
+  total_entries: number;
+  total_exits: number;
+}
 
 export function MobileDashboard() {
+  const queryClient = useQueryClient();
   const { transactions, isLoading, refetch } = useTransactions();
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -36,7 +45,7 @@ export function MobileDashboard() {
     checkRole();
   }, []);
 
-  // Fetch groups data
+  // Use the same groups data as desktop (from groups table, not history)
   const { data: groups = [] } = useQuery({
     queryKey: ["groups"],
     queryFn: async () => {
@@ -45,33 +54,40 @@ export function MobileDashboard() {
         .select("*")
         .order("name");
       if (error) throw error;
-      return data;
+      return data as Group[];
     },
   });
 
-  // Fetch group history for today (Brazil timezone)
-  const { data: groupHistory = [] } = useQuery({
-    queryKey: ["group-history-today"],
-    queryFn: async () => {
-      // Get current date in Brazil timezone (UTC-3)
-      // Create a proper Brazil date by using the timezone offset
-      const now = new Date();
-      const brazilOffset = -3 * 60; // UTC-3 in minutes
-      const utcOffset = now.getTimezoneOffset();
-      const brazilTime = new Date(now.getTime() + (utcOffset + brazilOffset) * 60000);
-      const today = format(brazilTime, "yyyy-MM-dd");
-      
-      console.log("[MobileDashboard] Fetching group history for Brazil date:", today);
-      
-      const { data, error } = await supabase
-        .from("group_statistics_history")
-        .select("*, groups(name)")
-        .eq("date", today);
-      if (error) throw error;
-      console.log("[MobileDashboard] Group history data:", data);
-      return data;
-    },
-  });
+  // Realtime subscription for groups
+  useEffect(() => {
+    const channel = supabase
+      .channel("groups-mobile-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "groups" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["groups"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
+  // Calculate stats from groups (same as desktop GroupStatsCards)
+  const groupStats = useMemo(() => {
+    return groups.reduce(
+      (acc, group) => {
+        acc.currentMembers += group.current_members;
+        acc.totalEntries += group.total_entries;
+        acc.totalExits += group.total_exits;
+        return acc;
+      },
+      { currentMembers: 0, totalEntries: 0, totalExits: 0 }
+    );
+  }, [groups]);
 
   // Today's revenue data (Brazil timezone)
   const todayData = useMemo(() => {
@@ -123,14 +139,6 @@ export function MobileDashboard() {
     
     return days;
   }, [transactions]);
-
-  // Group totals
-  const groupTotals = useMemo(() => {
-    const totalMembers = groups.reduce((sum, g) => sum + (g.current_members || 0), 0);
-    const totalEntries = groupHistory.reduce((sum, h) => sum + (h.entries || 0), 0);
-    const totalExits = groupHistory.reduce((sum, h) => sum + (h.exits || 0), 0);
-    return { totalMembers, totalEntries, totalExits };
-  }, [groups, groupHistory]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -231,76 +239,59 @@ export function MobileDashboard() {
       )}
 
       {/* Group Members Card */}
-      <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Users className="h-4 w-4 text-primary" />
+      {groups.length > 0 && (
+        <div className="rounded-2xl bg-card border border-border/50 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
+                <p className="text-sm font-medium text-foreground">Estatísticas de Grupos</p>
               </div>
-              <p className="text-sm font-medium text-foreground">Membros no Grupo Hoje</p>
             </div>
-          </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-secondary/30 rounded-xl p-3 text-center">
-              <p className="text-xl font-bold text-foreground">{groupTotals.totalMembers}</p>
-              <p className="text-[10px] text-muted-foreground font-medium">Total</p>
-            </div>
-            <div className="bg-success/10 rounded-xl p-3 text-center">
-              <div className="flex items-center justify-center gap-1">
-                <ArrowUpRight className="h-3.5 w-3.5 text-success" />
-                <p className="text-xl font-bold text-success">{groupTotals.totalEntries}</p>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-secondary/30 rounded-xl p-3 text-center">
+                <p className="text-xl font-bold text-foreground">{groupStats.currentMembers.toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground font-medium">Membros</p>
               </div>
-              <p className="text-[10px] text-muted-foreground font-medium">Entradas</p>
-            </div>
-            <div className="bg-destructive/10 rounded-xl p-3 text-center">
-              <div className="flex items-center justify-center gap-1">
-                <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
-                <p className="text-xl font-bold text-destructive">{groupTotals.totalExits}</p>
+              <div className="bg-success/10 rounded-xl p-3 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <UserPlus className="h-3.5 w-3.5 text-success" />
+                  <p className="text-xl font-bold text-success">{groupStats.totalEntries.toLocaleString()}</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-medium">Entradas</p>
               </div>
-              <p className="text-[10px] text-muted-foreground font-medium">Saídas</p>
+              <div className="bg-destructive/10 rounded-xl p-3 text-center">
+                <div className="flex items-center justify-center gap-1">
+                  <UserMinus className="h-3.5 w-3.5 text-destructive" />
+                  <p className="text-xl font-bold text-destructive">{groupStats.totalExits.toLocaleString()}</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground font-medium">Saídas</p>
+              </div>
             </div>
-          </div>
 
-          {/* Individual Groups */}
-          {groups.length > 0 && (
+            {/* Individual Groups */}
             <div className="mt-3 space-y-2">
-              {groups.slice(0, 3).map((group) => {
-                const history = groupHistory.find((h: any) => h.group_id === group.id);
-                return (
-                  <div 
-                    key={group.id}
-                    className="flex items-center justify-between py-2 px-3 bg-secondary/20 rounded-lg"
-                  >
-                    <p className="text-xs font-medium text-foreground truncate flex-1">
-                      {group.name}
-                    </p>
-                    <div className="flex items-center gap-3 text-[10px]">
-                      <span className="text-muted-foreground">
-                        {group.current_members} membros
-                      </span>
-                      {history && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-success">+{history.entries}</span>
-                          <span className="text-destructive">-{history.exits}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {groups.slice(0, 3).map((group) => (
+                <div 
+                  key={group.id}
+                  className="flex items-center justify-between py-2 px-3 bg-secondary/20 rounded-lg"
+                >
+                  <p className="text-xs font-medium text-foreground truncate flex-1">
+                    {group.name}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground">
+                    {group.current_members.toLocaleString()} membros
+                  </span>
+                </div>
+              ))}
             </div>
-          )}
-
-          {groups.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-4 mt-2">
-              Nenhum grupo configurado
-            </p>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Recent Sales - Shows for everyone */}
       <div className="rounded-2xl bg-card border border-border/50 p-4">
