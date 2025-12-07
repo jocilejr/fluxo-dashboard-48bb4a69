@@ -190,35 +190,10 @@ function CustomerDetails({ customer, onCopy, onWhatsApp, formatCurrency }: Custo
         </TabsList>
 
         <ScrollArea className="flex-1 mt-4">
-          <TabsContent value="resumo" className="mt-0 space-y-3">
-            {stats && (
-              <div className="space-y-2">
-                {stats.pix.paid > 0 && (
-                  <div className="flex justify-between items-center bg-card/50 rounded-lg p-3">
-                    <span className="text-sm">PIX Pagos</span>
-                    <span className="font-medium text-success">{stats.pix.paid}</span>
-                  </div>
-                )}
-                {stats.boleto.paid > 0 && (
-                  <div className="flex justify-between items-center bg-card/50 rounded-lg p-3">
-                    <span className="text-sm">Boletos Pagos</span>
-                    <span className="font-medium text-success">{stats.boleto.paid}</span>
-                  </div>
-                )}
-                {stats.cartao.paid > 0 && (
-                  <div className="flex justify-between items-center bg-card/50 rounded-lg p-3">
-                    <span className="text-sm">Cartões Pagos</span>
-                    <span className="font-medium text-success">{stats.cartao.paid}</span>
-                  </div>
-                )}
-                {customer.total_abandoned_events > 0 && (
-                  <div className="flex justify-between items-center bg-destructive/10 border border-destructive/30 rounded-lg p-3">
-                    <span className="text-sm">Abandonos</span>
-                    <span className="font-medium text-destructive">{customer.total_abandoned_events}</span>
-                  </div>
-                )}
-              </div>
-            )}
+          <TabsContent value="resumo" className="mt-0">
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm">Selecione uma aba para ver detalhes</p>
+            </div>
           </TabsContent>
 
           <TabsContent value="transacoes" className="mt-0 space-y-2">
