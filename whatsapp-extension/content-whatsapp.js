@@ -5,14 +5,13 @@ console.log('[WhatsApp Extension] Content script carregado');
 
 // ========== CONFIGURAÇÃO ==========
 const API_URL = 'https://suaznqybxvborpkrtdpm.supabase.co/functions/v1/whatsapp-dashboard';
-const SIDEBAR_WIDTH = 380;
+const SIDEBAR_WIDTH = 360;
 
 // ========== ESTADO GLOBAL ==========
 let currentPhone = null;
 let sidebarVisible = false;
-let recentTransactions = [];
 let currentLeadData = null;
-let currentTab = 'all'; // 'all', 'lead', 'recovery'
+let currentView = 'lead'; // 'lead' or 'recovery'
 let currentRecoveryTx = null;
 
 // Registra no background
@@ -36,12 +35,8 @@ function normalizePhoneForMatching(phone) {
     digits = digits.slice(2);
   }
   
-  // Remove 9th digit if present
+  // Remove 9th digit if present (Brazilian mobile)
   if (digits.length === 11 && digits[2] === '9') {
-    digits = digits.slice(0, 2) + digits.slice(3);
-  }
-  
-  if (digits.length === 11) {
     digits = digits.slice(0, 2) + digits.slice(3);
   }
   
@@ -89,14 +84,10 @@ function injectStyles() {
   styles.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
-    /* Ajusta o WhatsApp para não ficar coberto */
-    #app {
-      margin-right: 0 !important;
-      transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
+    /* Ajusta o WhatsApp para dar espaço à sidebar */
     body.ov-sidebar-open #app {
-      margin-right: ${SIDEBAR_WIDTH}px !important;
+      width: calc(100% - ${SIDEBAR_WIDTH}px) !important;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     #ov-sidebar {
@@ -113,53 +104,57 @@ function injectStyles() {
       font-family: 'Inter', -apple-system, sans-serif;
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
     }
     
     #ov-sidebar.hidden {
       transform: translateX(100%);
     }
     
+    #ov-sidebar * {
+      box-sizing: border-box;
+    }
+    
     #ov-sidebar-header {
-      padding: 16px 20px;
+      padding: 14px 16px;
       background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-shrink: 0;
     }
     
     .ov-header-left {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      min-width: 0;
     }
     
     .ov-logo-container {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
-    }
-    
-    .ov-logo {
-      width: 22px;
-      height: 22px;
-      border-radius: 4px;
+      flex-shrink: 0;
+      font-size: 14px;
+      color: white;
     }
     
     .ov-header-title {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       color: #f8fafc;
       letter-spacing: -0.3px;
     }
     
     .ov-header-subtitle {
-      font-size: 11px;
+      font-size: 10px;
       color: rgba(148, 163, 184, 0.8);
       margin-top: 1px;
     }
@@ -169,16 +164,17 @@ function injectStyles() {
       border: 1px solid rgba(255, 255, 255, 0.1);
       color: #94a3b8;
       cursor: pointer;
-      padding: 8px;
-      font-size: 14px;
+      padding: 0;
+      font-size: 16px;
       line-height: 1;
-      border-radius: 8px;
+      border-radius: 6px;
       transition: all 0.2s;
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
     
     .ov-close-btn:hover {
@@ -189,53 +185,53 @@ function injectStyles() {
     
     /* Lead Info Card */
     .ov-lead-card {
-      margin: 16px;
+      margin: 12px;
       background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 185, 129, 0.04) 100%);
       border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 14px;
-      padding: 18px;
+      border-radius: 12px;
+      padding: 14px;
     }
     
     .ov-lead-header {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     
     .ov-lead-avatar {
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-      border-radius: 12px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
       color: white;
       text-transform: uppercase;
-      margin-right: 14px;
+      margin-right: 12px;
       flex-shrink: 0;
     }
     
     .ov-lead-info {
       flex: 1;
       min-width: 0;
+      overflow: hidden;
     }
     
     .ov-lead-name {
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 600;
       color: #f8fafc;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     
     .ov-lead-phone {
-      font-size: 12px;
+      font-size: 11px;
       color: #64748b;
       font-family: 'SF Mono', Monaco, monospace;
       display: flex;
@@ -249,7 +245,7 @@ function injectStyles() {
       color: #64748b;
       cursor: pointer;
       padding: 2px;
-      font-size: 12px;
+      font-size: 11px;
       opacity: 0.7;
       transition: all 0.2s;
     }
@@ -262,21 +258,21 @@ function injectStyles() {
     .ov-lead-stats {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
+      gap: 8px;
     }
     
     .ov-stat-box {
       background: rgba(15, 23, 42, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: 8px;
+      padding: 10px;
       text-align: center;
     }
     
     .ov-stat-value {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     
     .ov-stat-value.success { color: #22c55e; }
@@ -285,60 +281,19 @@ function injectStyles() {
     .ov-stat-value.info { color: #64748b; }
     
     .ov-stat-label {
-      font-size: 10px;
+      font-size: 9px;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: 500;
     }
     
-    /* Tabs */
-    #ov-sidebar-tabs {
-      display: flex;
-      padding: 0 16px;
-      gap: 4px;
-      background: transparent;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    
-    .ov-tab {
-      flex: 1;
-      padding: 12px 8px;
-      background: none;
-      border: none;
-      color: #64748b;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
-      font-family: inherit;
-    }
-    
-    .ov-tab.active {
-      color: #22c55e;
-      border-bottom-color: #22c55e;
-    }
-    
-    .ov-tab:hover:not(.active) {
-      color: #94a3b8;
-    }
-    
-    .ov-tab-badge {
-      background: #22c55e;
-      color: #0a0f14;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 6px;
-      border-radius: 10px;
-      margin-left: 6px;
-    }
-    
     /* Content */
     #ov-sidebar-content {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      overflow-x: hidden;
+      padding: 12px;
     }
     
     #ov-sidebar-content::-webkit-scrollbar {
@@ -355,18 +310,18 @@ function injectStyles() {
     }
     
     .ov-section {
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     
     .ov-section-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     
     .ov-section-title {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       color: #64748b;
       text-transform: uppercase;
@@ -374,7 +329,7 @@ function injectStyles() {
     }
     
     .ov-section-count {
-      font-size: 11px;
+      font-size: 10px;
       color: #475569;
     }
     
@@ -388,17 +343,17 @@ function injectStyles() {
     .ov-tx-card {
       background: rgba(15, 23, 42, 0.5);
       border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 12px;
-      padding: 14px;
+      border-radius: 10px;
+      padding: 12px;
       cursor: pointer;
       transition: all 0.2s;
       position: relative;
+      overflow: hidden;
     }
     
     .ov-tx-card:hover {
       background: rgba(15, 23, 42, 0.8);
       border-color: rgba(34, 197, 94, 0.3);
-      transform: translateY(-1px);
     }
     
     .ov-tx-card.boleto { border-left: 3px solid #f59e0b; }
@@ -409,38 +364,42 @@ function injectStyles() {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
     }
     
     .ov-tx-row + .ov-tx-row {
-      margin-top: 8px;
+      margin-top: 6px;
     }
     
     .ov-tx-product {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
       color: #e2e8f0;
-      max-width: 180px;
+      flex: 1;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     
     .ov-tx-amount {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       color: #22c55e;
+      flex-shrink: 0;
     }
     
     .ov-tx-badges {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
+      flex-wrap: wrap;
     }
     
     .ov-tx-badge {
       font-size: 9px;
-      padding: 3px 8px;
-      border-radius: 6px;
+      padding: 2px 6px;
+      border-radius: 4px;
       text-transform: uppercase;
       font-weight: 600;
       letter-spacing: 0.3px;
@@ -456,15 +415,16 @@ function injectStyles() {
     .ov-tx-badge.expirado { background: rgba(100, 116, 139, 0.15); color: #64748b; }
     
     .ov-tx-date {
-      font-size: 11px;
+      font-size: 10px;
       color: #475569;
+      flex-shrink: 0;
     }
     
     .ov-tx-actions {
       display: flex;
       gap: 6px;
-      margin-top: 10px;
-      padding-top: 10px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px solid rgba(255, 255, 255, 0.06);
     }
     
@@ -473,13 +433,13 @@ function injectStyles() {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 8px 10px;
+      gap: 4px;
+      padding: 6px 8px;
       background: rgba(34, 197, 94, 0.1);
       border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 8px;
+      border-radius: 6px;
       color: #22c55e;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
@@ -506,42 +466,52 @@ function injectStyles() {
     .ov-barcode-box {
       background: rgba(15, 23, 42, 0.8);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      padding: 10px 12px;
-      margin-top: 10px;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-top: 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 8px;
+    }
+    
+    .ov-barcode-info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
     }
     
     .ov-barcode-label {
-      font-size: 9px;
+      font-size: 8px;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     
     .ov-barcode-value {
-      font-size: 11px;
+      font-size: 10px;
       color: #94a3b8;
       font-family: 'SF Mono', Monaco, monospace;
       word-break: break-all;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     
     .ov-barcode-copy {
       background: rgba(34, 197, 94, 0.1);
       border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 6px;
-      padding: 6px 10px;
+      border-radius: 4px;
+      padding: 4px 8px;
       color: #22c55e;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
       white-space: nowrap;
       font-family: inherit;
+      flex-shrink: 0;
     }
     
     .ov-barcode-copy:hover {
@@ -551,30 +521,30 @@ function injectStyles() {
     /* Empty State */
     .ov-empty {
       text-align: center;
-      padding: 60px 24px;
+      padding: 40px 20px;
     }
     
     .ov-empty-icon {
-      width: 64px;
-      height: 64px;
+      width: 56px;
+      height: 56px;
       background: rgba(100, 116, 139, 0.1);
-      border-radius: 16px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 16px;
-      font-size: 28px;
+      margin: 0 auto 14px;
+      font-size: 24px;
     }
     
     .ov-empty-title {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       color: #94a3b8;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     
     .ov-empty-text {
-      font-size: 12px;
+      font-size: 11px;
       color: #64748b;
       line-height: 1.5;
     }
@@ -585,11 +555,11 @@ function injectStyles() {
       top: 50%;
       right: 0;
       transform: translateY(-50%);
-      width: 32px;
-      height: 80px;
+      width: 28px;
+      height: 70px;
       background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
       border: none;
-      border-radius: 10px 0 0 10px;
+      border-radius: 8px 0 0 8px;
       cursor: pointer;
       z-index: 99998;
       display: flex;
@@ -600,31 +570,33 @@ function injectStyles() {
     }
     
     .ov-toggle-btn:hover {
-      width: 40px;
+      width: 36px;
     }
     
-    .ov-toggle-btn svg {
-      width: 18px;
-      height: 18px;
-      fill: white;
+    .ov-toggle-btn-icon {
+      font-size: 14px;
+      color: white;
     }
     
     body.ov-sidebar-open .ov-toggle-btn {
       right: ${SIDEBAR_WIDTH}px;
     }
     
-    /* Recovery Tab - Full screen within sidebar */
+    /* Recovery View */
     .ov-recovery-view {
-      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
     }
     
     .ov-recovery-header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 16px;
+      gap: 10px;
+      padding: 14px 16px;
       background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%);
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      flex-shrink: 0;
     }
     
     .ov-back-btn {
@@ -632,16 +604,17 @@ function injectStyles() {
       border: 1px solid rgba(255, 255, 255, 0.1);
       color: #94a3b8;
       cursor: pointer;
-      padding: 8px;
-      font-size: 14px;
+      padding: 0;
+      font-size: 16px;
       line-height: 1;
-      border-radius: 8px;
+      border-radius: 6px;
       transition: all 0.2s;
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-shrink: 0;
     }
     
     .ov-back-btn:hover {
@@ -649,75 +622,83 @@ function injectStyles() {
       color: #f8fafc;
     }
     
+    .ov-recovery-title-box {
+      min-width: 0;
+    }
+    
     .ov-recovery-title {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       color: #f8fafc;
     }
     
     .ov-recovery-subtitle {
-      font-size: 11px;
+      font-size: 10px;
       color: rgba(148, 163, 184, 0.8);
     }
     
     .ov-recovery-body {
-      padding: 16px;
+      padding: 12px;
       overflow-y: auto;
       flex: 1;
     }
     
     /* Client Data Section */
     .ov-client-section {
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     
     .ov-client-section-title {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 600;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     
     .ov-client-row {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
+      gap: 10px;
+      padding: 10px 12px;
       background: rgba(15, 23, 42, 0.5);
       border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 10px;
-      margin-bottom: 8px;
+      border-radius: 8px;
+      margin-bottom: 6px;
     }
     
     .ov-client-icon {
-      font-size: 14px;
+      font-size: 12px;
       color: #64748b;
-      width: 20px;
+      width: 18px;
       text-align: center;
+      flex-shrink: 0;
     }
     
     .ov-client-content {
       flex: 1;
       min-width: 0;
+      overflow: hidden;
     }
     
     .ov-client-label {
-      font-size: 10px;
+      font-size: 9px;
       color: #64748b;
-      margin-bottom: 2px;
+      margin-bottom: 1px;
     }
     
     .ov-client-value {
-      font-size: 13px;
+      font-size: 12px;
       color: #e2e8f0;
       font-weight: 500;
+      word-break: break-all;
+      overflow-wrap: break-word;
     }
     
     .ov-client-value.mono {
       font-family: 'SF Mono', Monaco, monospace;
-      font-size: 12px;
+      font-size: 11px;
     }
     
     .ov-client-value.success {
@@ -727,12 +708,13 @@ function injectStyles() {
     .ov-client-copy-btn {
       background: rgba(34, 197, 94, 0.1);
       border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 8px;
-      padding: 8px;
+      border-radius: 6px;
+      padding: 6px;
       color: #22c55e;
       cursor: pointer;
       transition: all 0.2s;
-      font-size: 14px;
+      font-size: 12px;
+      flex-shrink: 0;
     }
     
     .ov-client-copy-btn:hover {
@@ -741,43 +723,45 @@ function injectStyles() {
     
     /* Messages Section */
     .ov-messages-section {
-      margin-top: 24px;
+      margin-top: 20px;
     }
     
     .ov-message-block {
       background: rgba(15, 23, 42, 0.5);
       border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 12px;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
       position: relative;
     }
     
     .ov-message-text {
-      font-size: 13px;
+      font-size: 12px;
       color: #e2e8f0;
-      line-height: 1.7;
+      line-height: 1.6;
       white-space: pre-wrap;
-      margin-bottom: 12px;
-      padding-right: 70px;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      margin-bottom: 10px;
+      padding-right: 60px;
     }
     
     .ov-message-copy {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 10px;
+      right: 10px;
       background: rgba(34, 197, 94, 0.1);
       border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 6px;
-      padding: 6px 10px;
+      border-radius: 4px;
+      padding: 4px 8px;
       color: #22c55e;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       font-family: inherit;
     }
     
@@ -788,55 +772,62 @@ function injectStyles() {
     .ov-file-block {
       background: rgba(15, 23, 42, 0.8);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      padding: 14px 16px;
-      margin-bottom: 12px;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
     
     .ov-file-icon {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       background: rgba(59, 130, 246, 0.15);
-      border-radius: 10px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 16px;
+      flex-shrink: 0;
     }
     
     .ov-file-info {
       flex: 1;
+      min-width: 0;
     }
     
     .ov-file-name {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
       color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     
     .ov-file-hint {
-      font-size: 11px;
+      font-size: 10px;
       color: #64748b;
-      margin-top: 2px;
+      margin-top: 1px;
     }
     
     .ov-file-download {
       background: rgba(59, 130, 246, 0.1);
       border: 1px solid rgba(59, 130, 246, 0.2);
-      border-radius: 8px;
-      padding: 8px 14px;
+      border-radius: 6px;
+      padding: 6px 10px;
       color: #3b82f6;
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       font-family: inherit;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
     
     .ov-file-download:hover {
@@ -849,14 +840,14 @@ function injectStyles() {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 60px;
+      padding: 50px;
       color: #64748b;
-      gap: 16px;
+      gap: 14px;
     }
     
     .ov-spinner {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       border: 2px solid rgba(34, 197, 94, 0.2);
       border-top-color: #22c55e;
       border-radius: 50%;
@@ -870,14 +861,14 @@ function injectStyles() {
     /* Toast */
     .ov-toast {
       position: fixed;
-      bottom: 24px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
       color: white;
-      padding: 12px 24px;
-      border-radius: 10px;
-      font-size: 13px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 12px;
       font-weight: 500;
       z-index: 100001;
       animation: toastIn 0.25s ease;
@@ -902,19 +893,13 @@ function createSidebar() {
   sidebar.innerHTML = `
     <div id="ov-sidebar-header">
       <div class="ov-header-left">
-        <div class="ov-logo-container">
-          <img src="${chrome.runtime.getURL('icon48.png')}" class="ov-logo" alt="Logo" onerror="this.style.display='none'">
-        </div>
+        <div class="ov-logo-container">OV</div>
         <div>
           <div class="ov-header-title">Origem Viva</div>
           <div class="ov-header-subtitle">Painel de Recuperação</div>
         </div>
       </div>
       <button class="ov-close-btn" id="ov-close-sidebar">✕</button>
-    </div>
-    <div id="ov-sidebar-tabs">
-      <button class="ov-tab active" data-tab="all">Todas</button>
-      <button class="ov-tab" data-tab="lead">Lead Atual</button>
     </div>
     <div id="ov-sidebar-content">
       <div class="ov-loading"><div class="ov-spinner"></div><span>Carregando...</span></div>
@@ -925,20 +910,6 @@ function createSidebar() {
   
   // Event listener para fechar
   document.getElementById('ov-close-sidebar').addEventListener('click', closeSidebar);
-  
-  // Event listeners para tabs
-  sidebar.querySelectorAll('.ov-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      if (currentTab === 'recovery') {
-        // Se estiver na aba de recovery, voltar para a tab anterior
-      }
-      sidebar.querySelectorAll('.ov-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      currentTab = tab.dataset.tab;
-      currentRecoveryTx = null;
-      renderContent();
-    });
-  });
 }
 
 function createToggleButton() {
@@ -947,7 +918,7 @@ function createToggleButton() {
   const btn = document.createElement('button');
   btn.id = 'ov-toggle-btn';
   btn.className = 'ov-toggle-btn';
-  btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>`;
+  btn.innerHTML = `<span class="ov-toggle-btn-icon">◀</span>`;
   btn.onclick = toggleSidebar;
   document.body.appendChild(btn);
 }
@@ -968,10 +939,12 @@ function openSidebar() {
   document.body.classList.add('ov-sidebar-open');
   sidebarVisible = true;
   
-  // Carregar dados
-  loadRecentTransactions();
+  // Update toggle button icon
+  const toggleBtn = document.getElementById('ov-toggle-btn');
+  if (toggleBtn) toggleBtn.innerHTML = `<span class="ov-toggle-btn-icon">▶</span>`;
   
-  if (currentPhone && currentTab === 'lead') {
+  // Carregar dados do lead atual
+  if (currentPhone) {
     loadLeadData(currentPhone);
   } else {
     renderContent();
@@ -983,6 +956,10 @@ function closeSidebar() {
   sidebar.classList.add('hidden');
   document.body.classList.remove('ov-sidebar-open');
   sidebarVisible = false;
+  
+  // Update toggle button icon
+  const toggleBtn = document.getElementById('ov-toggle-btn');
+  if (toggleBtn) toggleBtn.innerHTML = `<span class="ov-toggle-btn-icon">◀</span>`;
 }
 
 window.toggleSidebar = toggleSidebar;
@@ -990,68 +967,12 @@ window.toggleSidebar = toggleSidebar;
 // ========== RENDERIZAÇÃO ==========
 function renderContent() {
   const content = document.getElementById('ov-sidebar-content');
-  const tabsContainer = document.getElementById('ov-sidebar-tabs');
   
-  // Mostrar/esconder tabs baseado no estado
-  if (currentTab === 'recovery' && currentRecoveryTx) {
-    tabsContainer.style.display = 'none';
+  if (currentView === 'recovery' && currentRecoveryTx) {
     renderRecoveryView(content);
   } else {
-    tabsContainer.style.display = 'flex';
-    if (currentTab === 'all') {
-      renderAllTransactions(content);
-    } else if (currentTab === 'lead') {
-      renderLeadContent(content);
-    }
+    renderLeadContent(content);
   }
-}
-
-function renderAllTransactions(container) {
-  if (recentTransactions.length === 0) {
-    container.innerHTML = `
-      <div class="ov-loading"><div class="ov-spinner"></div><span>Carregando transações...</span></div>
-    `;
-    return;
-  }
-  
-  const pendingTxs = recentTransactions.filter(t => ['gerado', 'pendente'].includes(t.status));
-  const paidTxs = recentTransactions.filter(t => t.status === 'pago');
-  
-  container.innerHTML = `
-    ${pendingTxs.length > 0 ? `
-      <div class="ov-section">
-        <div class="ov-section-header">
-          <span class="ov-section-title">🔔 Pendentes</span>
-          <span class="ov-section-count">${pendingTxs.length}</span>
-        </div>
-        <div class="ov-tx-list">
-          ${pendingTxs.slice(0, 20).map(tx => renderPendingCard(tx, true)).join('')}
-        </div>
-      </div>
-    ` : ''}
-    
-    ${paidTxs.length > 0 ? `
-      <div class="ov-section">
-        <div class="ov-section-header">
-          <span class="ov-section-title">✅ Pagas Recentes</span>
-          <span class="ov-section-count">${paidTxs.length}</span>
-        </div>
-        <div class="ov-tx-list">
-          ${paidTxs.slice(0, 10).map(tx => renderSimpleCard(tx, true)).join('')}
-        </div>
-      </div>
-    ` : ''}
-    
-    ${recentTransactions.length === 0 ? `
-      <div class="ov-empty">
-        <div class="ov-empty-icon">📋</div>
-        <div class="ov-empty-title">Nenhuma transação</div>
-        <div class="ov-empty-text">As transações recentes aparecerão aqui</div>
-      </div>
-    ` : ''}
-  `;
-  
-  attachCardListeners(container, recentTransactions);
 }
 
 function renderLeadContent(container) {
@@ -1120,7 +1041,7 @@ function renderLeadContent(container) {
           <span class="ov-section-count">${pendingTxs.length} boleto(s)</span>
         </div>
         <div class="ov-tx-list">
-          ${pendingTxs.map(tx => renderPendingCard(tx, false)).join('')}
+          ${pendingTxs.map(tx => renderPendingCard(tx)).join('')}
         </div>
       </div>
     ` : ''}
@@ -1132,13 +1053,13 @@ function renderLeadContent(container) {
           <span class="ov-section-count">${paidTxs.length}</span>
         </div>
         <div class="ov-tx-list">
-          ${paidTxs.slice(0, 5).map(tx => renderSimpleCard(tx, false)).join('')}
+          ${paidTxs.slice(0, 5).map(tx => renderSimpleCard(tx)).join('')}
         </div>
       </div>
     ` : ''}
     
     ${transactions.length === 0 && abandoned.length === 0 ? `
-      <div class="ov-empty" style="padding: 30px;">
+      <div class="ov-empty" style="padding: 24px;">
         <div class="ov-empty-title">Sem dados</div>
         <div class="ov-empty-text">Nenhuma transação encontrada para este lead</div>
       </div>
@@ -1159,7 +1080,7 @@ function renderLeadContent(container) {
 function renderRecoveryView(container) {
   const tx = currentRecoveryTx;
   if (!tx) {
-    currentTab = 'all';
+    currentView = 'lead';
     renderContent();
     return;
   }
@@ -1191,11 +1112,16 @@ function renderRecoveryView(container) {
     return block;
   });
   
+  // Filter to show only text blocks, PDF and image handled separately
+  const textBlocks = processedBlocks.filter(b => b.type === 'text');
+  const hasPdfBlock = processedBlocks.some(b => b.type === 'pdf');
+  const hasImageBlock = processedBlocks.some(b => b.type === 'image');
+  
   container.innerHTML = `
     <div class="ov-recovery-view">
       <div class="ov-recovery-header">
         <button class="ov-back-btn" id="ov-back-btn">←</button>
-        <div>
+        <div class="ov-recovery-title-box">
           <div class="ov-recovery-title">Recuperação de Boleto</div>
           <div class="ov-recovery-subtitle">Copie as mensagens para enviar ao cliente</div>
         </div>
@@ -1236,7 +1162,7 @@ function renderRecoveryView(container) {
               <span class="ov-client-icon">📊</span>
               <div class="ov-client-content">
                 <div class="ov-client-label">Código de Barras</div>
-                <div class="ov-client-value mono" style="font-size: 10px; word-break: break-all;">${barcode}</div>
+                <div class="ov-client-value mono">${barcode}</div>
               </div>
               <button class="ov-client-copy-btn" data-copy="${barcode}">📋</button>
             </div>
@@ -1246,39 +1172,12 @@ function renderRecoveryView(container) {
         <div class="ov-messages-section">
           <div class="ov-client-section-title">Mensagens de Recuperação</div>
           
-          ${processedBlocks.length > 0 ? processedBlocks.map((block, idx) => {
-            if (block.type === 'text') {
-              return `
-                <div class="ov-message-block">
-                  <button class="ov-message-copy" data-text="${encodeURIComponent(block.processedContent)}">📋 Copiar</button>
-                  <div class="ov-message-text">${block.processedContent}</div>
-                </div>
-              `;
-            } else if (block.type === 'pdf' && boletoUrl) {
-              return `
-                <div class="ov-file-block">
-                  <div class="ov-file-icon">📄</div>
-                  <div class="ov-file-info">
-                    <div class="ov-file-name">boleto-${firstName}.pdf</div>
-                    <div class="ov-file-hint">Clique para baixar</div>
-                  </div>
-                  <button class="ov-file-download" data-download-pdf="${boletoUrl}">📥 Baixar PDF</button>
-                </div>
-              `;
-            } else if (block.type === 'image' && boletoUrl) {
-              return `
-                <div class="ov-file-block">
-                  <div class="ov-file-icon">🖼️</div>
-                  <div class="ov-file-info">
-                    <div class="ov-file-name">boleto-${firstName}.jpg</div>
-                    <div class="ov-file-hint">Imagem do boleto</div>
-                  </div>
-                  <button class="ov-file-download" data-download-jpg="${boletoUrl}">📥 Baixar JPG</button>
-                </div>
-              `;
-            }
-            return '';
-          }).join('') : `
+          ${textBlocks.length > 0 ? textBlocks.map(block => `
+            <div class="ov-message-block">
+              <button class="ov-message-copy" data-text="${encodeURIComponent(block.processedContent)}">📋 Copiar</button>
+              <div class="ov-message-text">${block.processedContent}</div>
+            </div>
+          `).join('') : `
             <div class="ov-message-block">
               <button class="ov-message-copy" data-text="${encodeURIComponent(generateDefaultMessage(tx))}">📋 Copiar</button>
               <div class="ov-message-text">${generateDefaultMessage(tx)}</div>
@@ -1289,10 +1188,19 @@ function renderRecoveryView(container) {
             <div class="ov-file-block">
               <div class="ov-file-icon">📄</div>
               <div class="ov-file-info">
-                <div class="ov-file-name">Boleto PDF</div>
-                <div class="ov-file-hint">Baixar arquivo original</div>
+                <div class="ov-file-name">boleto-${firstName}.pdf</div>
+                <div class="ov-file-hint">Arquivo PDF do boleto</div>
               </div>
-              <button class="ov-file-download" data-download-pdf="${boletoUrl}">📥 PDF</button>
+              <button class="ov-file-download" id="download-pdf-btn">📥 PDF</button>
+            </div>
+            
+            <div class="ov-file-block">
+              <div class="ov-file-icon">🖼️</div>
+              <div class="ov-file-info">
+                <div class="ov-file-name">boleto-${firstName}.jpg</div>
+                <div class="ov-file-hint">Imagem do boleto</div>
+              </div>
+              <button class="ov-file-download" id="download-jpg-btn">📥 JPG</button>
             </div>
           ` : ''}
         </div>
@@ -1302,12 +1210,8 @@ function renderRecoveryView(container) {
   
   // Event listener para voltar
   document.getElementById('ov-back-btn').addEventListener('click', () => {
-    currentTab = 'lead';
+    currentView = 'lead';
     currentRecoveryTx = null;
-    document.getElementById('ov-sidebar-tabs').style.display = 'flex';
-    // Re-activate the lead tab
-    document.querySelectorAll('.ov-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('.ov-tab[data-tab="lead"]')?.classList.add('active');
     renderContent();
   });
   
@@ -1329,28 +1233,29 @@ function renderRecoveryView(container) {
   });
   
   // Event listeners para download PDF
-  container.querySelectorAll('[data-download-pdf]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  const pdfBtn = document.getElementById('download-pdf-btn');
+  if (pdfBtn && boletoUrl) {
+    pdfBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const url = btn.dataset.downloadPdf;
-      if (url) {
-        downloadFile(url, `boleto-${firstName}.pdf`);
-      }
+      downloadFileDirect(boletoUrl, `boleto-${firstName}.pdf`);
     });
-  });
+  }
   
-  // Event listeners para download JPG
-  container.querySelectorAll('[data-download-jpg]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  // Event listeners para download JPG (converter de PDF)
+  const jpgBtn = document.getElementById('download-jpg-btn');
+  if (jpgBtn && boletoUrl) {
+    jpgBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const url = btn.dataset.downloadJpg;
-      if (url) {
-        // Para JPG, simplesmente abre o PDF já que conversão requer mais lógica
-        downloadFile(url, `boleto-${firstName}.pdf`);
-        showToast('Baixando PDF (conversão para JPG não disponível na extensão)');
+      showToast('Convertendo PDF para imagem...');
+      try {
+        await convertPdfToJpgAndDownload(boletoUrl, `boleto-${firstName}.jpg`);
+      } catch (err) {
+        console.error('Erro ao converter PDF:', err);
+        showToast('Erro ao converter. Baixando PDF...');
+        downloadFileDirect(boletoUrl, `boleto-${firstName}.pdf`);
       }
     });
-  });
+  }
 }
 
 function attachCardListeners(container, transactions) {
@@ -1358,10 +1263,10 @@ function attachCardListeners(container, transactions) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const txId = btn.dataset.txId;
-      const tx = transactions.find(t => t.id === txId) || recentTransactions.find(t => t.id === txId);
+      const tx = transactions.find(t => t.id === txId);
       if (tx) {
         currentRecoveryTx = tx;
-        currentTab = 'recovery';
+        currentView = 'recovery';
         renderContent();
       }
     });
@@ -1372,7 +1277,7 @@ function attachCardListeners(container, transactions) {
       e.stopPropagation();
       const url = btn.dataset.url;
       if (url) {
-        downloadFile(url, 'boleto.pdf');
+        downloadFileDirect(url, 'boleto.pdf');
       }
     });
   });
@@ -1389,7 +1294,7 @@ function attachCardListeners(container, transactions) {
   });
 }
 
-function renderPendingCard(tx, showCustomerInfo = false) {
+function renderPendingCard(tx) {
   const boletoUrl = tx.metadata?.boleto_url || tx.metadata?.boletoUrl;
   const barcode = tx.external_id;
   const customerName = tx.customer_name || 'Cliente';
@@ -1397,7 +1302,7 @@ function renderPendingCard(tx, showCustomerInfo = false) {
   return `
     <div class="ov-tx-card ${tx.type}">
       <div class="ov-tx-row">
-        <div class="ov-tx-product">${showCustomerInfo ? customerName : (tx.description || customerName || 'Boleto')}</div>
+        <div class="ov-tx-product">${tx.description || customerName || 'Boleto'}</div>
         <div class="ov-tx-amount">${formatCurrency(tx.amount)}</div>
       </div>
       <div class="ov-tx-row">
@@ -1409,11 +1314,11 @@ function renderPendingCard(tx, showCustomerInfo = false) {
       </div>
       ${barcode ? `
         <div class="ov-barcode-box">
-          <div>
+          <div class="ov-barcode-info">
             <div class="ov-barcode-label">Código de Barras</div>
-            <div class="ov-barcode-value">${barcode.slice(0, 24)}...</div>
+            <div class="ov-barcode-value">${barcode.slice(0, 20)}...</div>
           </div>
-          <button class="ov-barcode-copy" data-action="copy-barcode" data-barcode="${barcode}">📋 Copiar</button>
+          <button class="ov-barcode-copy" data-action="copy-barcode" data-barcode="${barcode}">📋</button>
         </div>
       ` : ''}
       <div class="ov-tx-actions">
@@ -1422,7 +1327,7 @@ function renderPendingCard(tx, showCustomerInfo = false) {
         </button>
         ${boletoUrl ? `
           <button class="ov-tx-action-btn download" data-action="download" data-url="${boletoUrl}">
-            📥 Baixar
+            📥 PDF
           </button>
         ` : ''}
       </div>
@@ -1430,13 +1335,13 @@ function renderPendingCard(tx, showCustomerInfo = false) {
   `;
 }
 
-function renderSimpleCard(tx, showCustomerInfo = false) {
+function renderSimpleCard(tx) {
   const customerName = tx.customer_name || 'Transação';
   
   return `
     <div class="ov-tx-card ${tx.type}">
       <div class="ov-tx-row">
-        <div class="ov-tx-product">${showCustomerInfo ? customerName : (tx.description || customerName)}</div>
+        <div class="ov-tx-product">${tx.description || customerName}</div>
         <div class="ov-tx-amount">${formatCurrency(tx.amount)}</div>
       </div>
       <div class="ov-tx-row">
@@ -1451,41 +1356,92 @@ function renderSimpleCard(tx, showCustomerInfo = false) {
 }
 
 // ========== FUNÇÕES DE DOWNLOAD ==========
-function downloadFile(url, filename) {
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  showToast('Download iniciado!');
+function downloadFileDirect(url, filename) {
+  // Usar fetch para baixar o arquivo e criar blob
+  showToast('Iniciando download...');
+  
+  fetch(url)
+    .then(response => {
+      if (!response.ok) throw new Error('Erro no download');
+      return response.blob();
+    })
+    .then(blob => {
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+      showToast('Download concluído!');
+    })
+    .catch(err => {
+      console.error('Erro no download:', err);
+      // Fallback: abrir em nova aba
+      window.open(url, '_blank');
+      showToast('Abrindo em nova aba...');
+    });
+}
+
+async function convertPdfToJpgAndDownload(pdfUrl, filename) {
+  // Carregar PDF.js da CDN se não estiver disponível
+  if (typeof pdfjsLib === 'undefined') {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  
+  // Buscar PDF
+  const response = await fetch(pdfUrl);
+  const arrayBuffer = await response.arrayBuffer();
+  
+  // Carregar PDF
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const page = await pdf.getPage(1);
+  
+  // Renderizar em canvas
+  const scale = 2;
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  
+  // Converter para blob e baixar
+  canvas.toBlob(blob => {
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
+    showToast('Imagem baixada!');
+  }, 'image/jpeg', 0.92);
+}
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
 }
 
 function generateDefaultMessage(tx) {
   const greeting = getGreeting();
-  const firstName = (tx.customer_name || 'Cliente').split(' ')[0];
+  const name = tx.customer_name?.split(' ')[0] || 'Cliente';
   const amount = formatCurrency(tx.amount);
-  const barcode = tx.external_id || '';
-  
-  let msg = `${greeting} ${firstName}! 😊\n\nDeixei aqui o seu boleto para que você consiga pagar na lotérica. Tudo bem?`;
-  
-  if (barcode) {
-    msg += `\n\n📄 Código de barras:\n${barcode}`;
-  }
-  
-  msg += `\n\n💰 Valor: ${amount}`;
-  
-  return msg;
+  return `${greeting} ${name}, tudo bem? 😊\n\nSeu boleto no valor de ${amount} está disponível. Qualquer dúvida estou à disposição!`;
 }
 
 function getGreeting() {
-  const now = new Date();
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const brasilTime = new Date(utc + (-3 * 3600000));
-  const hour = brasilTime.getHours();
-  
+  const hour = new Date().getHours();
   if (hour >= 6 && hour < 12) return 'Bom dia';
   if (hour >= 12 && hour < 18) return 'Boa tarde';
   return 'Boa noite';
@@ -1534,19 +1490,6 @@ function formatDisplayPhone(phone) {
 }
 
 // ========== API ==========
-async function loadRecentTransactions() {
-  try {
-    const response = await fetch(`${API_URL}?action=recent`);
-    const data = await response.json();
-    recentTransactions = data.transactions || [];
-    if (currentTab === 'all') {
-      renderContent();
-    }
-  } catch (error) {
-    console.error('[WhatsApp Extension] Erro ao carregar transações:', error);
-  }
-}
-
 async function loadLeadData(phone) {
   console.log('[WhatsApp Extension] Carregando dados do lead:', phone);
   
@@ -1555,7 +1498,7 @@ async function loadLeadData(phone) {
   console.log('[WhatsApp Extension] Variações do telefone:', variations);
   
   const content = document.getElementById('ov-sidebar-content');
-  if (content && currentTab === 'lead') {
+  if (content) {
     content.innerHTML = `<div class="ov-loading"><div class="ov-spinner"></div><span>Carregando lead...</span></div>`;
   }
   
@@ -1567,12 +1510,10 @@ async function loadLeadData(phone) {
     
     console.log('[WhatsApp Extension] Dados recebidos:', currentLeadData);
     
-    if (currentTab === 'lead') {
-      renderContent();
-    }
+    renderContent();
   } catch (error) {
     console.error('[WhatsApp Extension] Erro ao carregar lead:', error);
-    if (content && currentTab === 'lead') {
+    if (content) {
       content.innerHTML = `<div class="ov-empty"><div class="ov-empty-title">Erro ao carregar</div></div>`;
     }
   }
@@ -1636,7 +1577,11 @@ function observeConversationChanges() {
       lastConversationPhone = phone;
       currentPhone = phone;
       
-      if (sidebarVisible && currentTab === 'lead') {
+      // Reset view when conversation changes
+      currentView = 'lead';
+      currentRecoveryTx = null;
+      
+      if (sidebarVisible) {
         loadLeadData(phone);
       }
     }
