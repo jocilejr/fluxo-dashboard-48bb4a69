@@ -96,13 +96,14 @@ export function BoletoRecoveryQueue({
       undefined
     );
     
-    if (safeIndex < boletos.length - 1) {
-      setCurrentIndex(safeIndex + 1);
-    } else {
+    // Don't increment index - the current boleto will be removed from the list
+    // after the contact is registered, so the next boleto will shift into the current position
+    if (boletos.length <= 1) {
       onOpenChange(false);
       toast({ title: "Parabéns!", description: "Você concluiu a recuperação de hoje! 🎉" });
     }
-  }, [currentBoleto, safeIndex, boletos.length, onMarkContacted, onOpenChange, toast]);
+    // Keep same index - the array will rerender with the contacted boleto removed
+  }, [currentBoleto, boletos.length, onMarkContacted, onOpenChange, toast]);
 
   const handleSkip = useCallback(() => {
     if (safeIndex < boletos.length - 1) {
