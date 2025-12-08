@@ -94,16 +94,18 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
       return;
     }
 
-    // Primeiro copia a mensagem
+    // Registra o clique primeiro
+    await registerClick();
+
+    // Copia a mensagem
     await navigator.clipboard.writeText(message);
 
-    // Depois abre o chat sem enviar mensagem
+    // Abre o chat sem enviar mensagem
     const phone = transaction.customer_phone.replace(/\D/g, "");
     await openChat(phone);
     
     toast.success("Mensagem copiada! Cole com Ctrl+V");
     setIsOpen(false);
-    await registerClick();
   };
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
