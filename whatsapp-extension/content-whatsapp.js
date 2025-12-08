@@ -2,7 +2,7 @@
 // Origem Viva CRM Dashboard
 // VERSION 1.4.1 - MINIMAL DARK THEME
 
-const OV_VERSION = '1.4.1';
+const OV_VERSION = '1.4.2';
 console.log('[OV] Content script carregado - VERSION ' + OV_VERSION);
 
 // ========== CONFIG ==========
@@ -186,18 +186,19 @@ function injectStyles() {
     }
     
     .ov-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 8px;
-      background: #1a1a1a;
-      border: 1px solid #333333;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 600;
-      color: #888888;
-      flex-shrink: 0;
+      width: 40px !important;
+      height: 40px !important;
+      border-radius: 8px !important;
+      background: #1a1a1a !important;
+      border: 1px solid #333333 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      color: #888888 !important;
+      flex-shrink: 0 !important;
+      box-shadow: none !important;
     }
     
     .ov-profile-info { flex: 1; min-width: 0; }
@@ -223,11 +224,16 @@ function injectStyles() {
     }
     
     .ov-stat-box {
-      background: #1a1a1a;
-      border: 1px solid #222222;
-      border-radius: 8px;
-      padding: 14px;
-      text-align: center;
+      background: #1a1a1a !important;
+      border: 1px solid #222222 !important;
+      border-radius: 8px !important;
+      padding: 14px !important;
+      text-align: center !important;
+    }
+    
+    .ov-stat-box.green, .ov-stat-box.amber, .ov-stat-box.red, .ov-stat-box.slate {
+      background: #1a1a1a !important;
+      border-color: #222222 !important;
     }
     
     .ov-stat-value {
