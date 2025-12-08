@@ -643,6 +643,33 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_ads_settings: {
+        Row: {
+          access_token: string
+          ad_account_id: string
+          created_at: string
+          id: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token: string
+          ad_account_id: string
+          created_at?: string
+          id?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string
+          ad_account_id?: string
+          created_at?: string
+          id?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       mind_map_connections: {
         Row: {
           color: string | null
