@@ -1520,10 +1520,10 @@ function downloadFileDirect(url, filename) {
 }
 
 async function convertPdfToJpgAndDownload(pdfUrl, filename) {
-  showToast('Baixando boleto...');
+  showToast('Convertendo PDF para imagem...');
   
   try {
-    // Use edge function to fetch PDF (bypasses CORS)
+    // First, fetch the PDF via our proxy to bypass CORS
     const proxyUrl = `https://suaznqybxvborpkrtdpm.supabase.co/functions/v1/pdf-to-image?url=${encodeURIComponent(pdfUrl)}`;
     
     const response = await fetch(proxyUrl);
@@ -1536,54 +1536,93 @@ async function convertPdfToJpgAndDownload(pdfUrl, filename) {
       throw new Error(data.error);
     }
     
-    // Convert base64 PDF to data URL
-    const pdfDataUrl = `data:application/pdf;base64,${data.pdfBase64}`;
-    
-    // Try to use OffscreenCanvas if available (modern browsers)
-    if (typeof OffscreenCanvas !== 'undefined') {
-      try {
-        // Create an invisible iframe to render the PDF
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position: fixed; left: -9999px; top: -9999px; width: 800px; height: 1200px;';
-        iframe.src = pdfDataUrl;
-        document.body.appendChild(iframe);
-        
-        // Wait for iframe to load
-        await new Promise((resolve, reject) => {
-          iframe.onload = resolve;
-          iframe.onerror = reject;
-          setTimeout(reject, 5000); // Timeout after 5s
-        });
-        
-        // Try html2canvas approach or similar
-        // This is complex in extension context, so fallback to PDF download with clearer message
-        document.body.removeChild(iframe);
-        throw new Error('Método alternativo necessário');
-      } catch {
-        // Fallback
-      }
+    // Decode base64 to binary
+    const binaryString = atob(data.pdfBase64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
     }
     
-    // Since PDF.js can't be loaded due to CSP, download PDF directly
-    // and show a helpful message
-    const blob = new Blob([Uint8Array.from(atob(data.pdfBase64), c => c.charCodeAt(0))], { type: 'application/pdf' });
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = filename.replace('.jpg', '.pdf');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(blobUrl);
+    // Load PDF.js from CDN dynamically
+    if (!window.pdfjsLib) {
+      await loadPdfJsLibrary();
+    }
     
-    showToast('PDF baixado! Use o dashboard para converter em JPG.');
+    if (window.pdfjsLib) {
+      // Use PDF.js to render
+      const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+      
+      // Render at 2x scale for quality
+      const scale = 2;
+      const viewport = page.getViewport({ scale });
+      
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const context = canvas.getContext('2d');
+      
+      // White background
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Render PDF page
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      // Convert to JPEG
+      const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      
+      // Download
+      const link = document.createElement('a');
+      link.href = jpgDataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast('JPG baixado com sucesso!');
+      return;
+    }
+    
+    // Fallback: download PDF instead
+    throw new Error('PDF.js não disponível');
     
   } catch (err) {
-    console.error('[WhatsApp Extension] Erro ao baixar:', err);
-    // Ultimate fallback: open in new tab
-    window.open(pdfUrl, '_blank');
-    showToast('Abrindo PDF em nova aba...');
+    console.error('[WhatsApp Extension] Erro ao converter:', err);
+    // Fallback: download PDF
+    downloadFileDirect(pdfUrl, filename.replace('.jpg', '.pdf'));
+    showToast('Erro na conversão. PDF baixado.');
   }
+}
+
+// Load PDF.js library dynamically
+async function loadPdfJsLibrary() {
+  return new Promise((resolve, reject) => {
+    if (window.pdfjsLib) {
+      resolve();
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.onload = () => {
+      // Set worker source
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      resolve();
+    };
+    script.onerror = () => {
+      console.error('[WhatsApp Extension] Falha ao carregar PDF.js');
+      reject(new Error('Failed to load PDF.js'));
+    };
+    document.head.appendChild(script);
+  });
 }
 
 function generateDefaultMessage(tx) {
