@@ -44,6 +44,7 @@ export function MobileEntrega() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [generatedLink, setGeneratedLink] = useState("");
+  const [linkMessageTemplate, setLinkMessageTemplate] = useState<string>("{link}");
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["delivery-products"],
@@ -56,6 +57,23 @@ export function MobileEntrega() {
 
       if (error) throw error;
       return data as DeliveryProduct[];
+    },
+  });
+
+  // Load link message template
+  useQuery({
+    queryKey: ["delivery-settings-message"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("delivery_settings")
+        .select("link_message_template")
+        .limit(1)
+        .single();
+
+      if (data?.link_message_template) {
+        setLinkMessageTemplate(data.link_message_template);
+      }
+      return data;
     },
   });
 
@@ -147,9 +165,10 @@ export function MobileEntrega() {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(generatedLink);
+    const messageWithLink = linkMessageTemplate.replace("{link}", generatedLink);
+    navigator.clipboard.writeText(messageWithLink);
     setCopiedLink(true);
-    toast.success("Link copiado!");
+    toast.success("Mensagem copiada!");
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
@@ -159,11 +178,9 @@ export function MobileEntrega() {
     const cleanPhone = phoneInput.replace(/\D/g, "");
     const formatted = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
     
-    const message = selectedProduct.whatsapp_message 
-      ? selectedProduct.whatsapp_message.replace("{link}", generatedLink)
-      : `Olá! Segue o link de acesso: ${generatedLink}`;
+    const messageWithLink = linkMessageTemplate.replace("{link}", generatedLink);
     
-    window.open(`https://api.whatsapp.com/send?phone=${formatted}&text=${encodeURIComponent(message)}`, "_blank");
+    window.open(`https://api.whatsapp.com/send?phone=${formatted}&text=${encodeURIComponent(messageWithLink)}`, "_blank");
   };
 
   const resetFlow = () => {
