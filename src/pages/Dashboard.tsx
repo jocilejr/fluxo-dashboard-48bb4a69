@@ -13,10 +13,25 @@ import {
   DollarSign,
   Percent,
   Wallet,
+  Megaphone,
 } from "lucide-react";
 import { GroupStatsCards } from "@/components/dashboard/GroupStatsCards";
 import { GroupHistoryChart } from "@/components/dashboard/GroupHistoryChart";
 import { MetaAdsSpendCard } from "@/components/dashboard/MetaAdsSpendCard";
+
+interface MetaAdsInsights {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: string;
+  cpm: string;
+  cpc: string;
+  reach: number;
+  purchases: number;
+  leads: number;
+  tokenExpired?: boolean;
+  error?: string;
+}
 
 const Dashboard = () => {
   const { transactions, isLoading } = useTransactions();
@@ -67,6 +82,21 @@ const Dashboard = () => {
     enabled: isRealAdmin === true,
   });
 
+  const startDateStr = dateFilter.startDate.toISOString().split('T')[0];
+  const endDateStr = dateFilter.endDate.toISOString().split('T')[0];
+
+  const { data: metaAdsData } = useQuery<MetaAdsInsights>({
+    queryKey: ["meta-ads-insights-dashboard", startDateStr, endDateStr],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("meta-ads-insights", {
+        body: { startDate: startDateStr, endDate: endDateStr },
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: isRealAdmin === true,
+  });
+
   const filteredTransactions = useMemo(() => {
     const transactionToBrazilDate = (utcDateStr: string) => {
       return new Date(utcDateStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
@@ -98,7 +128,8 @@ const Dashboard = () => {
     const totalRevenue = paidOrders + manualRevenueTotal;
     const taxRate = financialSettings?.tax_rate || 0;
     const taxAmount = totalRevenue * (taxRate / 100);
-    const netRevenue = totalRevenue - taxAmount;
+    const adsSpend = metaAdsData?.spend || 0;
+    const netRevenue = totalRevenue - taxAmount - adsSpend;
 
     // Boletos pendentes = gerado + pago (excluindo expirado e cancelado)
     const boletosPendentesOuPagos = filteredTransactions.filter(
@@ -119,9 +150,10 @@ const Dashboard = () => {
       totalRevenue,
       taxRate,
       taxAmount,
+      adsSpend,
       netRevenue,
     };
-  }, [filteredTransactions, manualRevenues, financialSettings]);
+  }, [filteredTransactions, manualRevenues, financialSettings, metaAdsData]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000) {
@@ -158,16 +190,12 @@ const Dashboard = () => {
             <StatCard title="Cartão Pago" value={stats.cartaoPago.toLocaleString('pt-BR')} subtitle="No período" icon={CreditCard} variant="success" delay={250} isLoading={isLoading} />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
             <StatCard title="Faturamento" value={formatCurrency(stats.totalRevenue)} subtitle={stats.manualRevenueTotal > 0 ? `+${formatCurrency(stats.manualRevenueTotal)} manual` : "Pedidos pagos"} icon={DollarSign} variant="info" delay={300} isLoading={isLoading} />
             <StatCard title={`Imposto${stats.taxRate > 0 ? ` (${stats.taxRate}%)` : ''}`} value={stats.taxRate > 0 ? `-${formatCurrency(stats.taxAmount)}` : "R$ 0,00"} subtitle={stats.taxRate > 0 ? "Dedução fiscal" : "Não configurado"} icon={Percent} variant="warning" delay={350} isLoading={isLoading} />
-            <StatCard title="Líquido" value={formatCurrency(stats.netRevenue)} subtitle={stats.taxRate > 0 ? "Após impostos" : "Receita total"} icon={Wallet} variant="success" delay={400} isLoading={isLoading} />
+            <StatCard title="Meta Ads" value={stats.adsSpend > 0 ? `-${formatCurrency(stats.adsSpend)}` : "R$ 0,00"} subtitle={stats.adsSpend > 0 ? "Gasto em ads" : "Não configurado"} icon={Megaphone} variant="warning" delay={375} isLoading={isLoading} />
+            <StatCard title="Líquido" value={formatCurrency(stats.netRevenue)} subtitle={stats.taxRate > 0 || stats.adsSpend > 0 ? "Após deduções" : "Receita total"} icon={Wallet} variant="success" delay={400} isLoading={isLoading} />
           </div>
-
-          <MetaAdsSpendCard 
-            startDate={dateFilter.startDate.toISOString().split('T')[0]} 
-            endDate={dateFilter.endDate.toISOString().split('T')[0]} 
-          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
             <div className="lg:col-span-2">
