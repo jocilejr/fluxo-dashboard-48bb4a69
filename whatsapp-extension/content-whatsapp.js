@@ -135,15 +135,19 @@ function injectStyles() {
     .ov-logo-container {
       width: 32px;
       height: 32px;
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
       flex-shrink: 0;
-      font-size: 14px;
-      color: white;
+      overflow: hidden;
+    }
+    
+    .ov-logo-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
     
     .ov-header-title {
@@ -893,7 +897,7 @@ function createSidebar() {
   sidebar.innerHTML = `
     <div id="ov-sidebar-header">
       <div class="ov-header-left">
-        <div class="ov-logo-container">OV</div>
+        <div class="ov-logo-container"><img src="${chrome.runtime.getURL('logo-ov.png')}" alt="OV"></div>
         <div>
           <div class="ov-header-title">Origem Viva</div>
           <div class="ov-header-subtitle">Painel de Recuperação</div>
