@@ -23,11 +23,6 @@ function normalizePhoneForMatching(phone: string): string | null {
     digits = digits.slice(0, 2) + digits.slice(3);
   }
   
-  // If still 11 digits, remove the 9
-  if (digits.length === 11) {
-    digits = digits.slice(0, 2) + digits.slice(3);
-  }
-  
   return digits;
 }
 
@@ -43,7 +38,7 @@ function generateAllPhoneVariations(phone: string): string[] {
   // Add original
   variations.add(digits);
   
-  // Normalize to base form (DDD + 8 digits without 9)
+  // Normalize to base form
   let baseDigits = digits;
   
   // Remove 55 if present
@@ -51,15 +46,32 @@ function generateAllPhoneVariations(phone: string): string[] {
     baseDigits = baseDigits.slice(2);
   }
   
-  // Remove the 9th digit if present
-  if (baseDigits.length === 11 && baseDigits[2] === '9') {
-    baseDigits = baseDigits.slice(0, 2) + baseDigits.slice(3);
+  // Handle different lengths
+  let ddd = '';
+  let number8 = '';
+  
+  if (baseDigits.length === 10) {
+    // DDD (2) + number (8) - no 9th digit
+    ddd = baseDigits.slice(0, 2);
+    number8 = baseDigits.slice(2);
+  } else if (baseDigits.length === 11 && baseDigits[2] === '9') {
+    // DDD (2) + 9 + number (8)
+    ddd = baseDigits.slice(0, 2);
+    number8 = baseDigits.slice(3);
+  } else if (baseDigits.length === 11) {
+    // Could be DDD (2) + 9 + number (8) where 9 is part of number
+    ddd = baseDigits.slice(0, 2);
+    number8 = baseDigits.slice(3);
+  } else if (baseDigits.length === 8 || baseDigits.length === 9) {
+    // Just the number without DDD - can't generate variations
+    variations.add(baseDigits);
+    if (baseDigits.length === 9 && baseDigits[0] === '9') {
+      variations.add(baseDigits.slice(1));
+    }
+    return Array.from(variations);
+  } else {
+    return Array.from(variations);
   }
-  
-  if (baseDigits.length < 10) return Array.from(variations);
-  
-  const ddd = baseDigits.slice(0, 2);
-  const number8 = baseDigits.slice(baseDigits.length - 8); // últimos 8 dígitos
   
   // Base: DDD + 8 dígitos (sem 9)
   const base = ddd + number8;
@@ -74,6 +86,13 @@ function generateAllPhoneVariations(phone: string): string[] {
   
   // Com 55 + DDD + 9 + 8 dígitos
   variations.add('55' + with9);
+  
+  // Também adicionar versão sem o 9 se o número começar com 9
+  if (number8.startsWith('9') && number8.length === 8) {
+    const without9 = ddd + number8.slice(1);
+    variations.add(without9);
+    variations.add('55' + without9);
+  }
   
   return Array.from(variations);
 }
