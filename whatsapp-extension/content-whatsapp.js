@@ -1520,7 +1520,7 @@ function downloadFileDirect(url, filename) {
 }
 
 async function convertPdfToJpgAndDownload(pdfUrl, filename) {
-  showToast('Convertendo PDF para JPG...');
+  showToast('Baixando boleto...');
   
   try {
     // Use edge function to fetch PDF (bypasses CORS)
@@ -1536,77 +1536,54 @@ async function convertPdfToJpgAndDownload(pdfUrl, filename) {
       throw new Error(data.error);
     }
     
-    // Convert base64 PDF to image using canvas in an offscreen approach
-    // Since we can't load pdf.js dynamically in content scripts due to CSP,
-    // we'll use a workaround: create an iframe with the PDF and capture it
+    // Convert base64 PDF to data URL
+    const pdfDataUrl = `data:application/pdf;base64,${data.pdfBase64}`;
     
-    // Simpler approach: use the PDF as data URL and render with object/embed
-    // But this also has limitations...
-    
-    // Best approach for content scripts: use canvas API with pdf.js bundled
-    // For now, let's try injecting the script via a different method
-    
-    const pdfData = Uint8Array.from(atob(data.pdfBase64), c => c.charCodeAt(0));
-    
-    // Try to access pdfjsLib if it's already loaded
-    if (typeof window.pdfjsLib === 'undefined') {
-      // Inject script into page context
-      await injectPdfJs();
+    // Try to use OffscreenCanvas if available (modern browsers)
+    if (typeof OffscreenCanvas !== 'undefined') {
+      try {
+        // Create an invisible iframe to render the PDF
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position: fixed; left: -9999px; top: -9999px; width: 800px; height: 1200px;';
+        iframe.src = pdfDataUrl;
+        document.body.appendChild(iframe);
+        
+        // Wait for iframe to load
+        await new Promise((resolve, reject) => {
+          iframe.onload = resolve;
+          iframe.onerror = reject;
+          setTimeout(reject, 5000); // Timeout after 5s
+        });
+        
+        // Try html2canvas approach or similar
+        // This is complex in extension context, so fallback to PDF download with clearer message
+        document.body.removeChild(iframe);
+        throw new Error('Método alternativo necessário');
+      } catch {
+        // Fallback
+      }
     }
     
-    if (typeof window.pdfjsLib === 'undefined') {
-      throw new Error('PDF.js não disponível');
-    }
+    // Since PDF.js can't be loaded due to CSP, download PDF directly
+    // and show a helpful message
+    const blob = new Blob([Uint8Array.from(atob(data.pdfBase64), c => c.charCodeAt(0))], { type: 'application/pdf' });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename.replace('.jpg', '.pdf');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(blobUrl);
     
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.js');
-    
-    const pdf = await window.pdfjsLib.getDocument({ data: pdfData.buffer }).promise;
-    const page = await pdf.getPage(1);
-    
-    const scale = 2;
-    const viewport = page.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext('2d');
-    
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    
-    canvas.toBlob(blob => {
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-      showToast('Imagem baixada!');
-    }, 'image/jpeg', 0.92);
+    showToast('PDF baixado! Use o dashboard para converter em JPG.');
     
   } catch (err) {
-    console.error('[WhatsApp Extension] Erro ao converter PDF:', err);
-    showToast('Erro na conversão. Baixando PDF...');
-    // Fallback to PDF download
-    downloadFileDirect(pdfUrl, filename.replace('.jpg', '.pdf'));
+    console.error('[WhatsApp Extension] Erro ao baixar:', err);
+    // Ultimate fallback: open in new tab
+    window.open(pdfUrl, '_blank');
+    showToast('Abrindo PDF em nova aba...');
   }
-}
-
-function injectPdfJs() {
-  return new Promise((resolve, reject) => {
-    // Create a script element that runs in the page context
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('pdf.min.js');
-    script.onload = () => {
-      console.log('[WhatsApp Extension] PDF.js carregado');
-      resolve();
-    };
-    script.onerror = (err) => {
-      console.error('[WhatsApp Extension] Erro ao carregar PDF.js:', err);
-      reject(err);
-    };
-    (document.head || document.documentElement).appendChild(script);
-  });
 }
 
 function generateDefaultMessage(tx) {
