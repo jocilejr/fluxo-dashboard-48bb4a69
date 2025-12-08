@@ -1349,15 +1349,25 @@ async function openChat(phone) {
   console.log('[WhatsApp Extension] Abrindo chat para:', formatted);
   
   try {
-    // Primeiro espera o painel de busca carregar
     await new Promise(r => setTimeout(r, 300));
     
-    // Procura pelo botão de nova conversa
-    let newChatBtn = document.querySelector('[data-testid="menu-bar-new-chat"]') ||
-                     document.querySelector('span[data-icon="new-chat"]')?.closest('div[role="button"]') ||
-                     document.querySelector('span[data-icon="new-chat-outline"]')?.closest('div[role="button"]') ||
-                     document.querySelector('div[title="Nova conversa"]') ||
-                     document.querySelector('[aria-label="Nova conversa"]');
+    // Procura pelo botão de nova conversa usando múltiplos seletores
+    const newChatSelectors = [
+      '[data-testid="menu-bar-new-chat"]',
+      'span[data-icon="new-chat"]',
+      'span[data-icon="new-chat-outline"]',
+      'div[title="Nova conversa"]',
+      '[aria-label="Nova conversa"]'
+    ];
+    
+    let newChatBtn = null;
+    for (const sel of newChatSelectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        newChatBtn = el.closest('[role="button"]') || el.parentElement || el;
+        break;
+      }
+    }
     
     if (!newChatBtn) {
       console.error('[WhatsApp Extension] Botão Nova Conversa não encontrado');
@@ -1365,23 +1375,29 @@ async function openChat(phone) {
     }
     
     console.log('[WhatsApp Extension] Clicando em Nova Conversa...');
-    newChatBtn.click();
-    await new Promise(r => setTimeout(r, 800));
+    simulateRealClick(newChatBtn);
+    await new Promise(r => setTimeout(r, 1000));
     
-    // Procura campo de busca com múltiplos seletores
-    let searchInput = document.querySelector('[data-testid="chat-list-search"]') ||
-                      document.querySelector('div[contenteditable="true"][data-tab="3"]') ||
-                      document.querySelector('div[contenteditable="true"][role="textbox"]') ||
-                      document.querySelector('.copyable-area div[contenteditable="true"]');
+    // Procura campo de busca
+    let searchInput = null;
+    const searchSelectors = [
+      '[data-testid="chat-list-search"]',
+      'div[contenteditable="true"][data-tab="3"]',
+      'div[contenteditable="true"][role="textbox"]',
+      'p.selectable-text[data-tab="3"]'
+    ];
     
+    for (const sel of searchSelectors) {
+      searchInput = document.querySelector(sel);
+      if (searchInput) break;
+    }
+    
+    // Fallback: qualquer contenteditable no painel lateral
     if (!searchInput) {
-      // Tenta encontrar qualquer input editável no painel de nova conversa
-      const editables = document.querySelectorAll('div[contenteditable="true"]');
-      for (const el of editables) {
-        if (el.getAttribute('data-tab') === '3' || el.closest('[data-testid="chat-list-search-container"]')) {
-          searchInput = el;
-          break;
-        }
+      const panel = document.querySelector('[data-testid="chat-list"]') || document.querySelector('#pane-side');
+      if (panel) {
+        searchInput = panel.querySelector('div[contenteditable="true"]') || 
+                      panel.querySelector('p[contenteditable="true"]');
       }
     }
     
@@ -1392,84 +1408,124 @@ async function openChat(phone) {
     
     console.log('[WhatsApp Extension] Digitando número:', formatted);
     searchInput.focus();
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 200));
     
-    // Limpa e digita
+    // Limpa e digita usando múltiplas técnicas
     searchInput.textContent = '';
-    document.execCommand('insertText', false, formatted);
-    searchInput.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
     
-    // Aguarda resultados aparecerem
-    await new Promise(r => setTimeout(r, 1500));
+    // Tenta insertText
+    if (document.execCommand) {
+      document.execCommand('insertText', false, formatted);
+    } else {
+      searchInput.textContent = formatted;
+    }
     
-    // Procura resultado na lista - tenta múltiplas abordagens
+    // Dispara eventos necessários
+    searchInput.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: formatted }));
+    searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+    
+    // Aguarda resultados
+    await new Promise(r => setTimeout(r, 2000));
+    
     console.log('[WhatsApp Extension] Procurando contato na lista...');
     
-    // Abordagem 1: Busca por data-jid
-    let contact = document.querySelector(`div[data-jid*="${formatted}"]`);
+    // Encontra o painel de resultados de busca
+    const searchPanel = document.querySelector('[data-testid="chat-list"]') || 
+                        document.querySelector('#pane-side') ||
+                        document.querySelector('[aria-label="Lista de conversas"]');
     
-    // Abordagem 2: Busca por cell-frame-container que contenha o número
-    if (!contact) {
-      const cells = document.querySelectorAll('[data-testid="cell-frame-container"]');
-      for (const cell of cells) {
-        const text = cell.textContent || '';
-        // Verifica se o texto contém parte do número formatado
-        const lastDigits = formatted.slice(-8);
-        if (text.includes(formatted) || text.includes(lastDigits)) {
-          contact = cell;
-          console.log('[WhatsApp Extension] Contato encontrado por texto');
-          break;
+    if (!searchPanel) {
+      console.error('[WhatsApp Extension] Painel de busca não encontrado');
+      return false;
+    }
+    
+    // Procura todos os elementos clicáveis que parecem ser itens de lista
+    const allDivs = searchPanel.querySelectorAll('div');
+    let contactItem = null;
+    const lastDigits = formatted.slice(-8);
+    
+    for (const div of allDivs) {
+      // Verifica se é um item de lista com o número
+      const text = div.textContent || '';
+      const hasRole = div.getAttribute('role') === 'listitem' || 
+                      div.getAttribute('role') === 'option' ||
+                      div.getAttribute('role') === 'row' ||
+                      div.getAttribute('role') === 'button';
+      const hasTabindex = div.getAttribute('tabindex') !== null;
+      
+      // Verifica se contém o número e parece ser um item clicável
+      if ((text.includes(formatted) || text.includes(lastDigits)) && (hasRole || hasTabindex)) {
+        // Prefere o elemento mais específico (menor)
+        if (!contactItem || div.textContent.length < contactItem.textContent.length) {
+          contactItem = div;
         }
       }
     }
     
-    // Abordagem 3: Busca por list item ou row
-    if (!contact) {
-      const items = document.querySelectorAll('div[role="listitem"], div[role="row"], div[role="option"]');
-      for (const item of items) {
+    // Se não encontrou por role, procura por estrutura visual
+    if (!contactItem) {
+      // Procura elementos que parecem ser cards de contato (têm imagem + texto)
+      const potentialItems = searchPanel.querySelectorAll('div[tabindex="-1"], div[data-testid="cell-frame-container"]');
+      for (const item of potentialItems) {
         const text = item.textContent || '';
-        const lastDigits = formatted.slice(-8);
         if (text.includes(formatted) || text.includes(lastDigits)) {
-          contact = item;
-          console.log('[WhatsApp Extension] Contato encontrado por role');
+          contactItem = item;
+          console.log('[WhatsApp Extension] Contato encontrado por estrutura');
           break;
         }
       }
     }
     
-    // Abordagem 4: Pega o primeiro resultado da lista de busca
-    if (!contact) {
-      // Espera um pouco mais
+    // Último recurso: pega o primeiro item da lista que parece ser um contato
+    if (!contactItem) {
       await new Promise(r => setTimeout(r, 500));
       
-      contact = document.querySelector('[data-testid="cell-frame-container"]') ||
-                document.querySelector('div[role="listitem"]') ||
-                document.querySelector('div[tabindex="-1"][role="option"]');
+      // Procura o primeiro elemento com tabindex ou role de listitem
+      const firstResult = searchPanel.querySelector('div[tabindex="-1"]') ||
+                          searchPanel.querySelector('[role="listitem"]') ||
+                          searchPanel.querySelector('[role="option"]');
+      
+      if (firstResult && firstResult.textContent.length > 5) {
+        contactItem = firstResult;
+        console.log('[WhatsApp Extension] Usando primeiro resultado');
+      }
     }
     
-    if (contact) {
-      console.log('[WhatsApp Extension] Clicando no contato...');
+    if (contactItem) {
+      console.log('[WhatsApp Extension] Clicando no contato encontrado...');
       
-      // Tenta clicar diretamente
-      contact.click();
-      await new Promise(r => setTimeout(r, 300));
+      // Simula clique real com eventos de mouse
+      simulateRealClick(contactItem);
+      await new Promise(r => setTimeout(r, 500));
       
-      // Verifica se a conversa abriu
+      // Verifica se abriu
       const chatOpened = document.querySelector('[data-testid="conversation-panel-wrapper"]') ||
-                         document.querySelector('footer[data-testid="conversation-compose-box-input"]');
+                         document.querySelector('[data-testid="conversation-compose-box-input"]') ||
+                         document.querySelector('footer div[contenteditable="true"]');
       
       if (chatOpened) {
         console.log('[WhatsApp Extension] Conversa aberta com sucesso!');
         return true;
       }
       
-      // Se não abriu, tenta clicar em elementos filhos clicáveis
-      const clickable = contact.querySelector('div[role="button"]') || 
-                        contact.querySelector('[data-testid="cell-frame-container"]') ||
-                        contact.querySelector('span');
-      if (clickable) {
-        clickable.click();
-        await new Promise(r => setTimeout(r, 300));
+      // Tenta clicar em subelementos
+      const clickTargets = [
+        contactItem.querySelector('span'),
+        contactItem.querySelector('div[role="button"]'),
+        contactItem.firstElementChild
+      ];
+      
+      for (const target of clickTargets) {
+        if (target) {
+          simulateRealClick(target);
+          await new Promise(r => setTimeout(r, 300));
+          
+          const opened = document.querySelector('[data-testid="conversation-compose-box-input"]');
+          if (opened) {
+            console.log('[WhatsApp Extension] Conversa aberta após retry!');
+            return true;
+          }
+        }
       }
       
       return true;
@@ -1481,6 +1537,29 @@ async function openChat(phone) {
   } catch (error) {
     console.error('[WhatsApp Extension] Erro ao abrir chat:', error);
     return false;
+  }
+}
+
+// Simula um clique real com eventos de mouse completos
+function simulateRealClick(element) {
+  if (!element) return;
+  
+  const rect = element.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  
+  const mouseEvents = ['mousedown', 'mouseup', 'click'];
+  
+  for (const eventType of mouseEvents) {
+    const event = new MouseEvent(eventType, {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: x,
+      clientY: y,
+      button: 0
+    });
+    element.dispatchEvent(event);
   }
 }
 
