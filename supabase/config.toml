@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.import-abandoned-events]
 verify_jwt = true
+
+[functions.whatsapp-dashboard]
+verify_jwt = false
