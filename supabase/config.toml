@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.whatsapp-dashboard]
 verify_jwt = false
+
+[functions.pdf-to-image]
+verify_jwt = false

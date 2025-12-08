@@ -1041,8 +1041,8 @@ function renderLeadContent(container) {
     ${pendingTxs.length > 0 ? `
       <div class="ov-section">
         <div class="ov-section-header">
-          <span class="ov-section-title">🔔 Pendentes</span>
-          <span class="ov-section-count">${pendingTxs.length} boleto(s)</span>
+          <span class="ov-section-title">⚠️ Pendentes</span>
+          <span class="ov-section-count">${pendingTxs.length} transação(ões)</span>
         </div>
         <div class="ov-tx-list">
           ${pendingTxs.map(tx => renderPendingCard(tx)).join('')}
@@ -1497,21 +1497,37 @@ function downloadFileDirect(url, filename) {
 }
 
 async function convertPdfToJpgAndDownload(pdfUrl, filename) {
-  // Carregar PDF.js da CDN se não estiver disponível
+  // Use edge function to fetch PDF (bypasses CORS)
+  const proxyUrl = `https://suaznqybxvborpkrtdpm.supabase.co/functions/v1/pdf-to-image?url=${encodeURIComponent(pdfUrl)}`;
+  
+  const response = await fetch(proxyUrl);
+  if (!response.ok) {
+    throw new Error('Erro ao buscar PDF');
+  }
+  
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  
+  // Convert base64 to ArrayBuffer
+  const binaryString = atob(data.pdfBase64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  
+  // Load PDF.js from CDN if not available
   if (typeof pdfjsLib === 'undefined') {
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
   
-  // Buscar PDF
-  const response = await fetch(pdfUrl);
-  const arrayBuffer = await response.arrayBuffer();
-  
-  // Carregar PDF
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  // Load PDF
+  const pdf = await pdfjsLib.getDocument({ data: bytes.buffer }).promise;
   const page = await pdf.getPage(1);
   
-  // Renderizar em canvas
+  // Render to canvas
   const scale = 2;
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
@@ -1521,7 +1537,7 @@ async function convertPdfToJpgAndDownload(pdfUrl, filename) {
   
   await page.render({ canvasContext: ctx, viewport }).promise;
   
-  // Converter para blob e baixar
+  // Convert to blob and download
   canvas.toBlob(blob => {
     const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
