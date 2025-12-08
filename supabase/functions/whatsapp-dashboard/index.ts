@@ -30,7 +30,7 @@ function normalizePhoneForMatching(phone: string): string | null {
 function generateAllPhoneVariations(phone: string): string[] {
   if (!phone) return [];
   
-  const digits = phone.replace(/\D/g, '');
+  let digits = phone.replace(/\D/g, '');
   if (digits.length < 8) return [];
   
   const variations = new Set<string>();
@@ -38,61 +38,89 @@ function generateAllPhoneVariations(phone: string): string[] {
   // Add original
   variations.add(digits);
   
-  // Normalize to base form
-  let baseDigits = digits;
-  
-  // Remove 55 if present
-  if (baseDigits.startsWith('55') && baseDigits.length >= 12) {
-    baseDigits = baseDigits.slice(2);
+  // Start by removing country code if present
+  let withoutCountry = digits;
+  if (digits.startsWith('55') && digits.length >= 12) {
+    withoutCountry = digits.slice(2);
+    variations.add(withoutCountry);
   }
   
-  // Handle different lengths
+  // Now we should have 10 or 11 digits (DDD + number)
   let ddd = '';
   let number8 = '';
   
-  if (baseDigits.length === 10) {
-    // DDD (2) + number (8) - no 9th digit
-    ddd = baseDigits.slice(0, 2);
-    number8 = baseDigits.slice(2);
-  } else if (baseDigits.length === 11 && baseDigits[2] === '9') {
-    // DDD (2) + 9 + number (8)
-    ddd = baseDigits.slice(0, 2);
-    number8 = baseDigits.slice(3);
-  } else if (baseDigits.length === 11) {
-    // Could be DDD (2) + 9 + number (8) where 9 is part of number
-    ddd = baseDigits.slice(0, 2);
-    number8 = baseDigits.slice(3);
-  } else if (baseDigits.length === 8 || baseDigits.length === 9) {
-    // Just the number without DDD - can't generate variations
-    variations.add(baseDigits);
-    if (baseDigits.length === 9 && baseDigits[0] === '9') {
-      variations.add(baseDigits.slice(1));
+  if (withoutCountry.length === 10) {
+    // DDD (2) + number (8)
+    ddd = withoutCountry.slice(0, 2);
+    number8 = withoutCountry.slice(2);
+  } else if (withoutCountry.length === 11) {
+    // DDD (2) + 9 + number (7) OR DDD (2) + number starting with 9 (8)
+    ddd = withoutCountry.slice(0, 2);
+    // Check if it's 9 prefix or number starting with 9
+    if (withoutCountry[2] === '9') {
+      // Could be 9 prefix - try both interpretations
+      number8 = withoutCountry.slice(3); // Remove the 9
+      // Also keep the full 9-digit version
+      const number9 = withoutCountry.slice(2);
+      variations.add(ddd + number9); // DDD + 9 digits
+    } else {
+      // Number doesn't start with 9, something is off
+      number8 = withoutCountry.slice(2, 10);
+    }
+  } else if (withoutCountry.length === 8 || withoutCountry.length === 9) {
+    // Just the number without DDD - can't generate proper variations
+    variations.add(withoutCountry);
+    if (withoutCountry.length === 9 && withoutCountry[0] === '9') {
+      variations.add(withoutCountry.slice(1));
     }
     return Array.from(variations);
   } else {
     return Array.from(variations);
   }
   
-  // Base: DDD + 8 dígitos (sem 9)
-  const base = ddd + number8;
-  variations.add(base);
+  if (!ddd || number8.length < 7) {
+    return Array.from(variations);
+  }
   
-  // Com 9: DDD + 9 + 8 dígitos
-  const with9 = ddd + '9' + number8;
+  // Ensure number8 is exactly 8 digits
+  if (number8.length === 7) {
+    // Number was 11 digits with 9 removed, number8 is now 7 digits
+    // This is the core number
+  } else if (number8.length > 8) {
+    number8 = number8.slice(0, 8);
+  }
+  
+  // Generate all variations:
+  // Format: DDD + 8 dígitos (sem 9 extra)
+  const base8 = ddd + (number8.length === 8 ? number8 : '9' + number8);
+  if (number8.length === 8) {
+    variations.add(ddd + number8);
+    variations.add('55' + ddd + number8);
+  }
+  
+  // Format: DDD + 9 + 8 dígitos
+  const with9 = ddd + '9' + (number8.length === 7 ? number8 : number8.slice(number8.length - 7));
   variations.add(with9);
-  
-  // Com 55 + DDD + 8 dígitos
-  variations.add('55' + base);
-  
-  // Com 55 + DDD + 9 + 8 dígitos
   variations.add('55' + with9);
   
-  // Também adicionar versão sem o 9 se o número começar com 9
-  if (number8.startsWith('9') && number8.length === 8) {
+  // Also add without 9 if applicable
+  if (number8.length === 8 && number8[0] === '9') {
     const without9 = ddd + number8.slice(1);
     variations.add(without9);
     variations.add('55' + without9);
+    variations.add(ddd + number8);
+    variations.add('55' + ddd + number8);
   }
+  
+  // If number is 7 digits, add with 9 prefix
+  if (number8.length === 7) {
+    variations.add(ddd + number8);
+    variations.add('55' + ddd + number8);
+    variations.add(ddd + '9' + number8);
+    variations.add('55' + ddd + '9' + number8);
+  }
+  
+  console.log('[WhatsApp Dashboard] Generated variations for', phone, ':', Array.from(variations));
   
   return Array.from(variations);
 }
