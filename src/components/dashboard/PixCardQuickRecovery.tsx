@@ -27,12 +27,14 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
   // Fetch click count
   useEffect(() => {
     const fetchClickCount = async () => {
-      const { count } = await supabase
+      const { count, error } = await supabase
         .from("pix_card_recovery_clicks")
         .select("*", { count: "exact", head: true })
         .eq("transaction_id", transaction.id);
       
-      setClickCount(count || 0);
+      if (!error) {
+        setClickCount(count || 0);
+      }
     };
 
     fetchClickCount();
@@ -66,14 +68,16 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase
+    const { error } = await supabase
       .from("pix_card_recovery_clicks")
       .insert({
         transaction_id: transaction.id,
         user_id: user.id,
       });
     
-    setClickCount(prev => prev + 1);
+    if (!error) {
+      setClickCount(prev => prev + 1);
+    }
   };
 
   const handleCopy = async () => {
