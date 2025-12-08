@@ -387,8 +387,8 @@ function TransactionCard({
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-semibold text-foreground truncate max-w-[180px]">
-                {(transaction.customer_name || "Cliente").length > 25 
-                  ? (transaction.customer_name || "Cliente").slice(0, 25) + "..." 
+                {(transaction.customer_name || "Cliente").length > 20 
+                  ? (transaction.customer_name || "Cliente").slice(0, 20) + "..." 
                   : (transaction.customer_name || "Cliente")}
               </p>
               <p className={cn(
@@ -457,8 +457,8 @@ function AbandonedCard({ event, formatCurrency, formatTime, formatDate, onWhatsA
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-semibold text-foreground truncate max-w-[180px]">
-                {(event.customer_name || "Cliente").length > 25 
-                  ? (event.customer_name || "Cliente").slice(0, 25) + "..." 
+                {(event.customer_name || "Cliente").length > 20 
+                  ? (event.customer_name || "Cliente").slice(0, 20) + "..." 
                   : (event.customer_name || "Cliente")}
               </p>
               <p className="text-base font-bold text-destructive flex-shrink-0">
