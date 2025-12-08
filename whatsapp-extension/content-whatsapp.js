@@ -989,26 +989,29 @@ async function openChat(phone) {
   console.log('[OV] Abrindo chat:', formatted);
   
   try {
-    await new Promise(r => setTimeout(r, 300));
-    
-    // Find new chat button
+    // Find new chat button immediately
+    const newChatSelectors = ['span[data-icon="new-chat"]', 'span[data-icon="new-chat-outline"]', '[data-testid="menu-bar-new-chat"]'];
     let newChatBtn = null;
-    for (const sel of ['span[data-icon="new-chat"]', 'span[data-icon="new-chat-outline"]', '[data-testid="menu-bar-new-chat"]']) {
+    for (const sel of newChatSelectors) {
       const el = document.querySelector(sel);
       if (el) { newChatBtn = el.closest('[role="button"]') || el.parentElement || el; break; }
     }
     
     if (!newChatBtn) { console.error('[OV] Botão nova conversa não encontrado'); return false; }
     
-    console.log('[OV] Clicando nova conversa...');
     simClick(newChatBtn);
-    await new Promise(r => setTimeout(r, 1000));
     
-    // Find search input
+    // Wait for search input with polling instead of fixed delay
     let searchInput = null;
-    for (const sel of ['div[contenteditable="true"][data-tab="3"]', 'p.selectable-text[data-tab="3"]', '[data-testid="chat-list-search"]']) {
-      searchInput = document.querySelector(sel);
+    const searchSelectors = ['div[contenteditable="true"][data-tab="3"]', 'p.selectable-text[data-tab="3"]', '[data-testid="chat-list-search"]'];
+    
+    for (let i = 0; i < 10; i++) {
+      for (const sel of searchSelectors) {
+        searchInput = document.querySelector(sel);
+        if (searchInput) break;
+      }
       if (searchInput) break;
+      await new Promise(r => setTimeout(r, 50));
     }
     
     if (!searchInput) {
@@ -1018,52 +1021,52 @@ async function openChat(phone) {
     
     if (!searchInput) { console.error('[OV] Campo busca não encontrado'); return false; }
     
-    console.log('[OV] Digitando:', formatted);
+    // Type immediately
     searchInput.focus();
-    await new Promise(r => setTimeout(r, 200));
     searchInput.textContent = '';
     document.execCommand('insertText', false, formatted);
     searchInput.dispatchEvent(new InputEvent('input', { bubbles: true }));
     
-    await new Promise(r => setTimeout(r, 2500));
-    
-    console.log('[OV] Procurando contato...');
-    
-    const searchPanel = document.querySelector('#pane-side');
-    if (!searchPanel) { console.error('[OV] Painel não encontrado'); return false; }
-    
+    // Poll for contact with shorter intervals
     const lastDigits = formatted.slice(-8);
     let contactItem = null;
     
-    // Find contact
-    for (const cell of searchPanel.querySelectorAll('[data-testid="cell-frame-container"], div[tabindex="-1"]')) {
-      if ((cell.textContent || '').replace(/\D/g, '').includes(lastDigits)) {
-        contactItem = cell;
-        break;
+    for (let attempt = 0; attempt < 15; attempt++) {
+      await new Promise(r => setTimeout(r, 100));
+      
+      const searchPanel = document.querySelector('#pane-side');
+      if (!searchPanel) continue;
+      
+      for (const cell of searchPanel.querySelectorAll('[data-testid="cell-frame-container"], div[tabindex="-1"]')) {
+        if ((cell.textContent || '').replace(/\D/g, '').includes(lastDigits)) {
+          contactItem = cell;
+          break;
+        }
       }
-    }
-    
-    if (!contactItem) {
-      contactItem = searchPanel.querySelector('[data-testid="cell-frame-container"]') || searchPanel.querySelector('div[tabindex="-1"]');
+      
+      if (!contactItem) {
+        contactItem = searchPanel.querySelector('[data-testid="cell-frame-container"]');
+      }
+      
+      if (contactItem) break;
     }
     
     if (contactItem) {
-      console.log('[OV] Clicando contato:', contactItem.textContent?.slice(0, 50));
       simClick(contactItem);
-      await new Promise(r => setTimeout(r, 500));
       
-      const opened = document.querySelector('[data-testid="conversation-compose-box-input"]');
-      if (opened) { console.log('[OV] Chat aberto com sucesso!'); return true; }
-      
-      // Try child elements
-      for (const target of [contactItem.querySelector('span'), contactItem.firstElementChild].filter(Boolean)) {
-        simClick(target);
-        await new Promise(r => setTimeout(r, 300));
+      // Quick check for opened chat
+      for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 50));
         if (document.querySelector('[data-testid="conversation-compose-box-input"]')) {
-          console.log('[OV] Chat aberto após retry!');
+          console.log('[OV] Chat aberto!');
           return true;
         }
       }
+      
+      // Retry with child element
+      const child = contactItem.querySelector('span') || contactItem.firstElementChild;
+      if (child) simClick(child);
+      
       return true;
     }
     
