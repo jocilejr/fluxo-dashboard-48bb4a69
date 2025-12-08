@@ -2,8 +2,24 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction } from "./useTransactions";
 import { useMemo, useEffect, useState } from "react";
-import { addDays, differenceInDays, isToday, isBefore, startOfDay } from "date-fns";
+import { addDays, differenceInDays, isBefore, startOfDay, isSameDay } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { getGreeting } from "@/lib/greeting";
+
+const BRAZIL_TIMEZONE = "America/Sao_Paulo";
+
+// Helper to check if a date is "today" in Brazil timezone
+function isTodayInBrazil(date: Date): boolean {
+  const nowInBrazil = toZonedTime(new Date(), BRAZIL_TIMEZONE);
+  const dateInBrazil = toZonedTime(date, BRAZIL_TIMEZONE);
+  return isSameDay(nowInBrazil, dateInBrazil);
+}
+
+// Get start of today in Brazil timezone
+function getTodayStartInBrazil(): Date {
+  const nowInBrazil = toZonedTime(new Date(), BRAZIL_TIMEZONE);
+  return startOfDay(nowInBrazil);
+}
 
 export interface BoletoSettings {
   id: string;
@@ -140,15 +156,19 @@ export function useBoletoRecovery(transactions: Transaction[]) {
       (t) => t.type === "boleto" && !["pago", "cancelado", "expirado"].includes(t.status)
     );
 
-    const expirationDays = settings?.default_expiration_days || 3;
-    const today = startOfDay(new Date());
+      const expirationDays = settings?.default_expiration_days || 3;
+      const today = getTodayStartInBrazil();
 
-    return unpaidBoletos.map((boleto): BoletoWithRecovery => {
-      const createdAt = new Date(boleto.created_at);
-      const dueDate = addDays(createdAt, expirationDays);
-      const daysUntilDue = differenceInDays(dueDate, today);
-      const daysSinceGeneration = differenceInDays(today, startOfDay(createdAt));
-      const isOverdue = isBefore(dueDate, today);
+      return unpaidBoletos.map((boleto): BoletoWithRecovery => {
+        // Convert created_at to Brazil timezone for accurate day calculations
+        const createdAt = new Date(boleto.created_at);
+        const createdAtInBrazil = toZonedTime(createdAt, BRAZIL_TIMEZONE);
+        const createdAtDayStart = startOfDay(createdAtInBrazil);
+        
+        const dueDate = addDays(createdAtDayStart, expirationDays);
+        const daysUntilDue = differenceInDays(dueDate, today);
+        const daysSinceGeneration = differenceInDays(today, createdAtDayStart);
+        const isOverdue = isBefore(dueDate, today);
 
       // Get contacts for this boleto
       const boletoContacts = contacts?.filter((c) => c.transaction_id === boleto.id) || [];
@@ -172,7 +192,7 @@ export function useBoletoRecovery(transactions: Transaction[]) {
           if (ruleMatches) {
             // Check if already contacted today for this rule
             const contactedToday = boletoContacts.some(
-              (c) => c.rule_id === rule.id && isToday(new Date(c.contacted_at))
+              (c) => c.rule_id === rule.id && isTodayInBrazil(new Date(c.contacted_at))
             );
 
             if (!contactedToday) {
@@ -208,14 +228,18 @@ export function useBoletoRecovery(transactions: Transaction[]) {
   const boletosMatchingRulesToday = useMemo(() => {
     if (!rules || rules.length === 0) return [];
     
-    const today = startOfDay(new Date());
+    const today = getTodayStartInBrazil();
     const expirationDays = settings?.default_expiration_days || 3;
     
     return processedBoletos.filter((boleto) => {
+      // Use same Brazil timezone calculation as processedBoletos
       const createdAt = new Date(boleto.created_at);
-      const dueDate = addDays(createdAt, expirationDays);
+      const createdAtInBrazil = toZonedTime(createdAt, BRAZIL_TIMEZONE);
+      const createdAtDayStart = startOfDay(createdAtInBrazil);
+      
+      const dueDate = addDays(createdAtDayStart, expirationDays);
       const daysUntilDue = differenceInDays(dueDate, today);
-      const daysSinceGeneration = differenceInDays(today, startOfDay(createdAt));
+      const daysSinceGeneration = differenceInDays(today, createdAtDayStart);
       const isOverdue = isBefore(dueDate, today);
       
       // Check if any rule matches this boleto today
@@ -256,7 +280,7 @@ export function useBoletoRecovery(transactions: Transaction[]) {
     
     // Already contacted today
     const contactedToday = boletosMatchingRulesToday.filter((b) => 
-      b.contacts.some((c) => isToday(new Date(c.contacted_at)))
+      b.contacts.some((c) => isTodayInBrazil(new Date(c.contacted_at)))
     ).length;
     
     // Remaining to contact
