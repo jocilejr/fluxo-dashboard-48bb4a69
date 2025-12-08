@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, DollarSign, MessageSquare, Link as LinkIcon, Shield, Bell, Database } from "lucide-react";
+import { Settings, Users, DollarSign, MessageSquare, Link as LinkIcon, Shield, Bell, Database, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import DataImportExport from "@/components/settings/DataImportExport";
 import { toast } from "sonner";
@@ -66,6 +66,11 @@ const Configuracoes = () => {
   const [wirePusherDeviceId, setWirePusherDeviceId] = useState("");
   const [wirePusherEnabled, setWirePusherEnabled] = useState(true);
   const [editedTemplates, setEditedTemplates] = useState<Record<string, WirePusherTemplate>>({});
+  
+  // Meta Ads states
+  const [metaAccessToken, setMetaAccessToken] = useState("");
+  const [metaAdAccountId, setMetaAdAccountId] = useState("");
+  const [isSavingMeta, setIsSavingMeta] = useState(false);
 
   // Fetch users with their permissions
   const { data: usersWithPermissions, isLoading: isLoadingUsers } = useQuery({
@@ -178,6 +183,19 @@ const Configuracoes = () => {
     },
   });
 
+  // Fetch Meta Ads settings
+  const { data: metaAdsSettings, refetch: refetchMetaAds } = useQuery({
+    queryKey: ["meta-ads-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meta_ads_settings")
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   useEffect(() => {
     if (financialSettings) setTaxRate(String(financialSettings.tax_rate || ""));
     if (recoverySettings) setRecoveryMessage(recoverySettings.message || "");
@@ -190,6 +208,13 @@ const Configuracoes = () => {
       setWirePusherEnabled(wirePusherSettings.is_enabled ?? true);
     }
   }, [wirePusherSettings]);
+
+  useEffect(() => {
+    if (metaAdsSettings) {
+      setMetaAccessToken(metaAdsSettings.access_token || "");
+      setMetaAdAccountId(metaAdsSettings.ad_account_id || "");
+    }
+  }, [metaAdsSettings]);
 
   useEffect(() => {
     if (wirePusherTemplates) {
@@ -469,6 +494,64 @@ const Configuracoes = () => {
     }
   };
 
+  const saveMetaAdsSettings = async () => {
+    if (!metaAccessToken.trim() || !metaAdAccountId.trim()) {
+      toast.error("Preencha o Access Token e o Ad Account ID");
+      return;
+    }
+
+    setIsSavingMeta(true);
+    try {
+      const { data: existing } = await supabase
+        .from("meta_ads_settings")
+        .select("id")
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("meta_ads_settings")
+          .update({ 
+            access_token: metaAccessToken.trim(), 
+            ad_account_id: metaAdAccountId.trim() 
+          })
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("meta_ads_settings")
+          .insert({ 
+            access_token: metaAccessToken.trim(), 
+            ad_account_id: metaAdAccountId.trim() 
+          });
+        if (error) throw error;
+      }
+      
+      refetchMetaAds();
+      toast.success("Configurações do Meta Ads salvas");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao salvar");
+    } finally {
+      setIsSavingMeta(false);
+    }
+  };
+
+  const deleteMetaAdsSettings = async () => {
+    try {
+      const { error } = await supabase
+        .from("meta_ads_settings")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+      if (error) throw error;
+      
+      setMetaAccessToken("");
+      setMetaAdAccountId("");
+      refetchMetaAds();
+      toast.success("Configurações removidas");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao remover");
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6 animate-fade-in">
       <Tabs defaultValue="users" className="w-full">
@@ -501,6 +584,10 @@ const Configuracoes = () => {
             <TabsTrigger value="data" className="gap-2 data-[state=active]:bg-foreground data-[state=active]:text-background text-xs">
               <Database className="h-3.5 w-3.5" />
               Dados
+            </TabsTrigger>
+            <TabsTrigger value="meta-ads" className="gap-2 data-[state=active]:bg-foreground data-[state=active]:text-background text-xs">
+              <TrendingUp className="h-3.5 w-3.5" />
+              Meta Ads
             </TabsTrigger>
           </TabsList>
         </div>
@@ -838,6 +925,85 @@ const Configuracoes = () => {
 
         <TabsContent value="data">
           <DataImportExport />
+        </TabsContent>
+
+        <TabsContent value="meta-ads">
+          <div className="bg-card/60 border border-border/30 rounded-xl p-5 lg:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Meta Ads (Facebook/Instagram)</h3>
+                <p className="text-xs text-muted-foreground">Configure o token de acesso para visualizar gastos com anúncios</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <p className="text-xs text-amber-200">
+                  <strong>Como obter o token:</strong> Acesse o <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer" className="underline">Meta Business Suite</a> → Configurações → Usuários do Sistema → 
+                  Gere um token com permissões <code className="bg-secondary/50 px-1 rounded">ads_read</code> e <code className="bg-secondary/50 px-1 rounded">read_insights</code>.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-sm">Access Token</Label>
+                  <Input
+                    type="password"
+                    placeholder="EAAxxxxxxx..."
+                    value={metaAccessToken}
+                    onChange={(e) => setMetaAccessToken(e.target.value)}
+                    className="bg-secondary/30 border-border/30 h-9 text-sm font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">Ad Account ID</Label>
+                  <Input
+                    placeholder="123456789 (apenas números)"
+                    value={metaAdAccountId}
+                    onChange={(e) => setMetaAdAccountId(e.target.value)}
+                    className="bg-secondary/30 border-border/30 h-9 text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Encontre em: Meta Business Suite → Configurações → Contas de Anúncios
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={saveMetaAdsSettings}
+                    disabled={isSavingMeta}
+                    size="sm" 
+                    className="h-9"
+                  >
+                    {isSavingMeta ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
+                    Salvar
+                  </Button>
+                  
+                  {metaAdsSettings && (
+                    <Button 
+                      variant="destructive"
+                      onClick={deleteMetaAdsSettings}
+                      size="sm" 
+                      className="h-9"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-2" />
+                      Remover
+                    </Button>
+                  )}
+                </div>
+
+                {metaAdsSettings && (
+                  <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <p className="text-xs text-green-300">
+                      ✓ Meta Ads configurado. Os gastos serão exibidos no Dashboard.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

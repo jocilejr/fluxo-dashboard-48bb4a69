@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { GroupStatsCards } from "@/components/dashboard/GroupStatsCards";
 import { GroupHistoryChart } from "@/components/dashboard/GroupHistoryChart";
+import { MetaAdsSpendCard } from "@/components/dashboard/MetaAdsSpendCard";
 
 const Dashboard = () => {
   const { transactions, isLoading } = useTransactions();
@@ -162,6 +163,11 @@ const Dashboard = () => {
             <StatCard title={`Imposto${stats.taxRate > 0 ? ` (${stats.taxRate}%)` : ''}`} value={stats.taxRate > 0 ? `-${formatCurrency(stats.taxAmount)}` : "R$ 0,00"} subtitle={stats.taxRate > 0 ? "Dedução fiscal" : "Não configurado"} icon={Percent} variant="warning" delay={350} isLoading={isLoading} />
             <StatCard title="Líquido" value={formatCurrency(stats.netRevenue)} subtitle={stats.taxRate > 0 ? "Após impostos" : "Receita total"} icon={Wallet} variant="success" delay={400} isLoading={isLoading} />
           </div>
+
+          <MetaAdsSpendCard 
+            startDate={dateFilter.startDate.toISOString().split('T')[0]} 
+            endDate={dateFilter.endDate.toISOString().split('T')[0]} 
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
             <div className="lg:col-span-2">
