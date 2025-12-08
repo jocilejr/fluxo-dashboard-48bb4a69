@@ -3,12 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Globe, Save, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Globe, Save, Loader2, AlertCircle, CheckCircle2, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const DomainSettings = () => {
   const [customDomain, setCustomDomain] = useState("");
+  const [linkMessageTemplate, setLinkMessageTemplate] = useState("Muito obrigada pela contribuição meu bem, vou deixar aqui o seu link de acesso 👇\n\n{link}");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
@@ -31,6 +33,7 @@ const DomainSettings = () => {
 
       if (data) {
         setCustomDomain(data.custom_domain || "");
+        setLinkMessageTemplate(data.link_message_template || "Muito obrigada pela contribuição meu bem, vou deixar aqui o seu link de acesso 👇\n\n{link}");
         setSettingsId(data.id);
       }
     } catch (error) {
@@ -52,14 +55,21 @@ const DomainSettings = () => {
       if (settingsId) {
         const { error } = await supabase
           .from("delivery_settings")
-          .update({ custom_domain: cleanDomain || null, updated_at: new Date().toISOString() })
+          .update({ 
+            custom_domain: cleanDomain || null, 
+            link_message_template: linkMessageTemplate,
+            updated_at: new Date().toISOString() 
+          })
           .eq("id", settingsId);
 
         if (error) throw error;
       } else {
         const { data, error } = await supabase
           .from("delivery_settings")
-          .insert({ custom_domain: cleanDomain || null })
+          .insert({ 
+            custom_domain: cleanDomain || null,
+            link_message_template: linkMessageTemplate
+          })
           .select()
           .single();
 
@@ -87,6 +97,42 @@ const DomainSettings = () => {
 
   return (
     <div className="space-y-6">
+      {/* Mensagem do Link */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Mensagem do Link
+          </CardTitle>
+          <CardDescription>
+            Configure a mensagem que será copiada junto com o link de entrega
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="linkMessage">Mensagem</Label>
+            <Textarea
+              id="linkMessage"
+              value={linkMessageTemplate}
+              onChange={(e) => setLinkMessageTemplate(e.target.value)}
+              placeholder="Muito obrigada pela contribuição! Segue seu link: {link}"
+              rows={4}
+            />
+            <p className="text-xs text-muted-foreground">
+              Use <code className="bg-muted px-1 rounded">{"{link}"}</code> para indicar onde o link será inserido
+            </p>
+          </div>
+
+          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+            <p className="text-sm font-medium">Prévia da mensagem:</p>
+            <p className="text-xs bg-background p-2 rounded whitespace-pre-wrap">
+              {linkMessageTemplate.replace("{link}", "https://exemplo.com/e/produto?telefone=5511999999999")}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Domínio Personalizado */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -117,22 +163,23 @@ const DomainSettings = () => {
               https://{customDomain || "seudominio.com"}/slug-do-produto?telefone=5511999999999
             </code>
           </div>
-
-          <Button onClick={handleSave} disabled={isSaving} className="w-full">
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Salvar Domínio
-              </>
-            )}
-          </Button>
         </CardContent>
       </Card>
+
+      {/* Botão Salvar */}
+      <Button onClick={handleSave} disabled={isSaving} className="w-full">
+        {isSaving ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Salvando...
+          </>
+        ) : (
+          <>
+            <Save className="h-4 w-4 mr-2" />
+            Salvar Configurações
+          </>
+        )}
+      </Button>
 
       <Card>
         <CardHeader>

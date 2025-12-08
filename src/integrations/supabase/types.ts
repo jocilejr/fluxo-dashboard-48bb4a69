@@ -460,18 +460,21 @@ export type Database = {
           created_at: string
           custom_domain: string | null
           id: string
+          link_message_template: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           custom_domain?: string | null
           id?: string
+          link_message_template?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           custom_domain?: string | null
           id?: string
+          link_message_template?: string | null
           updated_at?: string
         }
         Relationships: []

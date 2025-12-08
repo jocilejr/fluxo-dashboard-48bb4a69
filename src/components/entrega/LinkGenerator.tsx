@@ -30,6 +30,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const [phone, setPhone] = useState("");
   const [copied, setCopied] = useState(false);
   const [customDomain, setCustomDomain] = useState<string | null>(null);
+  const [linkMessageTemplate, setLinkMessageTemplate] = useState<string>("{link}");
   const [step, setStep] = useState<"phone" | "payment" | "link">("phone");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
 
@@ -45,12 +46,15 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
     try {
       const { data } = await supabase
         .from("delivery_settings")
-        .select("custom_domain")
+        .select("custom_domain, link_message_template")
         .limit(1)
         .single();
 
       if (data?.custom_domain) {
         setCustomDomain(data.custom_domain);
+      }
+      if (data?.link_message_template) {
+        setLinkMessageTemplate(data.link_message_template);
       }
     } catch (error) {
       console.error("Erro ao carregar domínio:", error);
@@ -131,12 +135,13 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
     if (!generatedUrl) return;
 
     try {
-      await navigator.clipboard.writeText(generatedUrl);
+      const messageWithLink = linkMessageTemplate.replace("{link}", generatedUrl);
+      await navigator.clipboard.writeText(messageWithLink);
       setCopied(true);
-      toast.success("Link copiado!");
+      toast.success("Mensagem copiada!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Erro ao copiar link");
+      toast.error("Erro ao copiar");
     }
   };
 
