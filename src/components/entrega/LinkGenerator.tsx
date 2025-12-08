@@ -81,18 +81,8 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
     const normalizedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
     
     try {
-      // Buscar valor do produto se for PIX
-      let productValue = 0;
-      if (method === "pix" && product?.id) {
-        const { data: productData } = await supabase
-          .from("delivery_products")
-          .select("value")
-          .eq("id", product.id)
-          .maybeSingle();
-        productValue = productData?.value || 0;
-      }
-
-      // Registrar a geração do link (com valor se for PIX)
+      // Registrar a geração do link - o trigger handle_new_delivery_link
+      // automaticamente cria/atualiza o cliente e incrementa pix_payment_count
       await supabase.from("delivery_link_generations").insert({
         product_id: product?.id,
         phone: phone,
@@ -100,32 +90,10 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
         payment_method: method,
       });
 
-      // Atualizar ou criar cliente
-      const { data: existingCustomer } = await supabase
-        .from("customers")
-        .select("id, pix_payment_count, total_paid")
-        .eq("normalized_phone", normalizedPhone)
-        .maybeSingle();
-
-      if (existingCustomer) {
-        const updates: Record<string, unknown> = { last_seen_at: new Date().toISOString() };
-        if (method === "pix") {
-          updates.pix_payment_count = (existingCustomer.pix_payment_count || 0) + 1;
-          updates.total_paid = (Number(existingCustomer.total_paid) || 0) + productValue;
-        }
-        await supabase.from("customers").update(updates).eq("id", existingCustomer.id);
-      } else {
-        await supabase.from("customers").insert({
-          normalized_phone: normalizedPhone,
-          display_phone: phone,
-          pix_payment_count: method === "pix" ? 1 : 0,
-          total_paid: method === "pix" ? productValue : 0,
-        });
-      }
-
       toast.success(method === "pix" ? "PIX pago registrado" : "Link gerado");
     } catch (error) {
       console.error("Erro ao registrar:", error);
+      toast.error("Erro ao registrar link");
     }
     
     setStep("link");
