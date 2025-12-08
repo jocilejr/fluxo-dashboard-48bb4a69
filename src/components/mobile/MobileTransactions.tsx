@@ -386,8 +386,10 @@ function TransactionCard({
           {/* Info */}
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground truncate">
-                {transaction.customer_name || "Cliente"}
+              <p className="text-sm font-semibold text-foreground truncate max-w-[180px]">
+                {(transaction.customer_name || "Cliente").length > 25 
+                  ? (transaction.customer_name || "Cliente").slice(0, 25) + "..." 
+                  : (transaction.customer_name || "Cliente")}
               </p>
               <p className={cn(
                 "text-base font-bold flex-shrink-0",
@@ -454,8 +456,10 @@ function AbandonedCard({ event, formatCurrency, formatTime, formatDate, onWhatsA
           {/* Info */}
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground truncate">
-                {event.customer_name || "Cliente não identificado"}
+              <p className="text-sm font-semibold text-foreground truncate max-w-[180px]">
+                {(event.customer_name || "Cliente").length > 25 
+                  ? (event.customer_name || "Cliente").slice(0, 25) + "..." 
+                  : (event.customer_name || "Cliente")}
               </p>
               <p className="text-base font-bold text-destructive flex-shrink-0">
                 {event.amount ? formatCurrency(event.amount) : "-"}
