@@ -31,35 +31,49 @@ function normalizePhoneForMatching(phone: string): string | null {
   return digits;
 }
 
-// Gera todas as variações possíveis de um telefone
-function generatePhoneVariations(phone: string): string[] {
+// Gera TODAS as variações possíveis de um telefone brasileiro
+function generateAllPhoneVariations(phone: string): string[] {
   if (!phone) return [];
   
-  const normalized = normalizePhoneForMatching(phone);
-  if (!normalized || normalized.length < 8) return [];
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 8) return [];
   
   const variations = new Set<string>();
-  const originalDigits = phone.replace(/\D/g, '');
-  variations.add(originalDigits);
-  variations.add(normalized);
   
-  // If we have DDD + 8 digits, also generate with the 9th digit
-  if (normalized.length === 10) {
-    const ddd = normalized.slice(0, 2);
-    const number = normalized.slice(2);
-    const with9 = ddd + '9' + number;
-    variations.add(with9);
-    variations.add('55' + normalized);
-    variations.add('55' + with9);
+  // Add original
+  variations.add(digits);
+  
+  // Normalize to base form (DDD + 8 digits without 9)
+  let baseDigits = digits;
+  
+  // Remove 55 if present
+  if (baseDigits.startsWith('55') && baseDigits.length >= 12) {
+    baseDigits = baseDigits.slice(2);
   }
   
-  // If 11 digits (with 9th digit), also generate without
-  if (normalized.length === 11 && normalized[2] === '9') {
-    const without9 = normalized.slice(0, 2) + normalized.slice(3);
-    variations.add(without9);
-    variations.add('55' + without9);
-    variations.add('55' + normalized);
+  // Remove the 9th digit if present
+  if (baseDigits.length === 11 && baseDigits[2] === '9') {
+    baseDigits = baseDigits.slice(0, 2) + baseDigits.slice(3);
   }
+  
+  if (baseDigits.length < 10) return Array.from(variations);
+  
+  const ddd = baseDigits.slice(0, 2);
+  const number8 = baseDigits.slice(baseDigits.length - 8); // últimos 8 dígitos
+  
+  // Base: DDD + 8 dígitos (sem 9)
+  const base = ddd + number8;
+  variations.add(base);
+  
+  // Com 9: DDD + 9 + 8 dígitos
+  const with9 = ddd + '9' + number8;
+  variations.add(with9);
+  
+  // Com 55 + DDD + 8 dígitos
+  variations.add('55' + base);
+  
+  // Com 55 + DDD + 9 + 8 dígitos
+  variations.add('55' + with9);
   
   return Array.from(variations);
 }
@@ -104,7 +118,7 @@ serve(async (req) => {
       // Gera todas as variações possíveis de todos os telefones
       const allVariations = new Set<string>();
       for (const phone of phones) {
-        const variations = generatePhoneVariations(phone);
+        const variations = generateAllPhoneVariations(phone);
         variations.forEach(v => allVariations.add(v));
       }
       
@@ -124,48 +138,56 @@ serve(async (req) => {
         });
       }
 
-      // Cria filtros OR para todas as variações
-      const phoneFilters = phoneVariations.map(p => {
-        // Busca exata e parcial (para cobrir casos com/sem código de país)
-        return `normalized_phone.eq.${p},normalized_phone.ilike.%${p}%,customer_phone.ilike.%${p}%`;
-      }).join(',');
-
-      // Busca transações
+      // Busca transações - usando IN para busca exata em todas as variações
       const { data: transactions, error: txError } = await supabase
         .from('transactions')
         .select('*')
-        .or(phoneFilters)
+        .or(phoneVariations.map(p => `normalized_phone.eq.${p},customer_phone.eq.${p}`).join(','))
         .order('created_at', { ascending: false });
 
       if (txError) {
         console.error('[WhatsApp Dashboard] Transactions error:', txError);
-        throw txError;
       }
 
       // Busca abandonos
       const { data: abandoned, error: abError } = await supabase
         .from('abandoned_events')
         .select('*')
-        .or(phoneFilters)
+        .or(phoneVariations.map(p => `normalized_phone.eq.${p},customer_phone.eq.${p}`).join(','))
         .order('created_at', { ascending: false });
 
       if (abError) {
         console.error('[WhatsApp Dashboard] Abandoned error:', abError);
-        throw abError;
       }
 
-      // Busca customer - tenta todas as variações
+      // Busca customer por normalized_phone
+      const normalizedBase = normalizePhoneForMatching(phones[0]);
       let customer = null;
-      for (const variation of phoneVariations) {
+      
+      if (normalizedBase) {
+        // Busca na tabela customers usando o telefone normalizado
         const { data: customerData } = await supabase
           .from('customers')
           .select('*')
-          .or(`normalized_phone.eq.${variation},normalized_phone.ilike.%${variation}%`)
+          .eq('normalized_phone', normalizedBase)
           .maybeSingle();
         
-        if (customerData) {
-          customer = customerData;
-          break;
+        customer = customerData;
+        
+        // Se não encontrou, tenta com outras variações
+        if (!customer) {
+          for (const variation of phoneVariations) {
+            const { data: cd } = await supabase
+              .from('customers')
+              .select('*')
+              .eq('normalized_phone', variation)
+              .maybeSingle();
+            
+            if (cd) {
+              customer = cd;
+              break;
+            }
+          }
         }
       }
 
@@ -191,7 +213,8 @@ serve(async (req) => {
       console.log('[WhatsApp Dashboard] Found:', {
         transactions: transactions?.length || 0,
         abandoned: abandoned?.length || 0,
-        customer: customer ? 'yes' : 'no'
+        customer: customer ? 'yes' : 'no',
+        normalizedBase
       });
 
       return new Response(JSON.stringify({ 
