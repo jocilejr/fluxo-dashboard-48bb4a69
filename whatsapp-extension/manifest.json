@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Dash Origem Viva - WhatsApp Integration",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Integração com WhatsApp Web para recuperação de boletos e transações",
   "permissions": ["activeTab", "tabs"],
   "host_permissions": [
@@ -30,7 +30,7 @@
     }
   ],
   "web_accessible_resources": [{
-    "resources": ["logo-ov.png"],
+    "resources": ["logo-ov.png", "pdf.min.js", "pdf.worker.min.js"],
     "matches": ["https://web.whatsapp.com/*"]
   }],
   "icons": {

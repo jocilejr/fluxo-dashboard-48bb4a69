@@ -40,36 +40,59 @@ function normalizePhoneForMatching(phone) {
     digits = digits.slice(0, 2) + digits.slice(3);
   }
   
+  // Also handle case where we have 11 digits but 3rd digit is NOT 9 (landline with leading 0 or other)
+  if (digits.length === 11) {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  
   return digits;
 }
 
 function generatePhoneVariations(phone) {
   if (!phone) return [];
   
-  const normalized = normalizePhoneForMatching(phone);
-  if (!normalized || normalized.length < 8) return [];
+  let originalDigits = phone.replace(/\D/g, '');
+  if (originalDigits.length < 8) return [];
   
   const variations = new Set();
-  const originalDigits = phone.replace(/\D/g, '');
-  variations.add(originalDigits);
-  variations.add(normalized);
   
-  // If we have DDD + 8 digits, also generate with the 9th digit
-  if (normalized.length === 10) {
-    const ddd = normalized.slice(0, 2);
-    const number = normalized.slice(2);
-    const with9 = ddd + '9' + number;
-    variations.add(with9);
-    variations.add('55' + normalized);
-    variations.add('55' + with9);
+  // Add original
+  variations.add(originalDigits);
+  
+  // Work with digits without country code
+  let withoutCountry = originalDigits;
+  if (originalDigits.startsWith('55') && originalDigits.length >= 12) {
+    withoutCountry = originalDigits.slice(2);
+    variations.add(withoutCountry);
   }
   
-  // If 11 digits (with 9th digit), also generate without
-  if (normalized.length === 11 && normalized[2] === '9') {
-    const without9 = normalized.slice(0, 2) + normalized.slice(3);
-    variations.add(without9);
-    variations.add('55' + without9);
-    variations.add('55' + normalized);
+  // Generate base form (DDD + 8 digits without 9th digit)
+  let base = withoutCountry;
+  if (base.length === 11 && base[2] === '9') {
+    base = base.slice(0, 2) + base.slice(3); // Remove 9th digit
+  } else if (base.length === 11) {
+    base = base.slice(0, 2) + base.slice(3); // Force 10 digits
+  }
+  
+  if (base.length === 10) {
+    const ddd = base.slice(0, 2);
+    const number = base.slice(2);
+    const with9 = ddd + '9' + number;
+    
+    // All variations
+    variations.add(base);           // 4181503356
+    variations.add(with9);          // 41981503356
+    variations.add('55' + base);    // 554181503356
+    variations.add('55' + with9);   // 5541981503356
+  } else if (base.length === 9) {
+    // Missing DDD digit - try adding common patterns
+    variations.add(base);
+    variations.add('55' + base);
+  }
+  
+  // Also handle if input was already with country code
+  if (!originalDigits.startsWith('55') && originalDigits.length <= 11) {
+    variations.add('55' + originalDigits);
   }
   
   return Array.from(variations);
@@ -1517,10 +1540,10 @@ async function convertPdfToJpgAndDownload(pdfUrl, filename) {
     bytes[i] = binaryString.charCodeAt(i);
   }
   
-  // Load PDF.js from CDN if not available
+  // Load PDF.js from extension local files
   if (typeof pdfjsLib === 'undefined') {
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    await loadLocalScript('pdf.min.js');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('pdf.worker.min.js');
   }
   
   // Load PDF
@@ -1551,10 +1574,10 @@ async function convertPdfToJpgAndDownload(pdfUrl, filename) {
   }, 'image/jpeg', 0.92);
 }
 
-function loadScript(src) {
+function loadLocalScript(filename) {
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = src;
+    script.src = chrome.runtime.getURL(filename);
     script.onload = resolve;
     script.onerror = reject;
     document.head.appendChild(script);
