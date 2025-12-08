@@ -1,7 +1,9 @@
 // Content Script - WhatsApp Web
 // Origem Viva CRM Dashboard
+// VERSION 1.4.1 - MINIMAL DARK THEME
 
-console.log('[OV] Content script carregado');
+const OV_VERSION = '1.4.1';
+console.log('[OV] Content script carregado - VERSION ' + OV_VERSION);
 
 // ========== CONFIG ==========
 const API_URL = 'https://suaznqybxvborpkrtdpm.supabase.co/functions/v1/whatsapp-dashboard';
@@ -597,7 +599,7 @@ function createSidebar() {
         <div class="ov-logo"><img src="${logoUrl}" alt="" /></div>
         <div class="ov-header-text">
           <h1>Origem Viva</h1>
-          <span>CRM DASHBOARD</span>
+          <span>CRM v${OV_VERSION}</span>
         </div>
       </div>
       <button class="ov-close-btn" onclick="toggleSidebar()">✕</button>
