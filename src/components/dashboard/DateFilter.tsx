@@ -122,6 +122,7 @@ export function DateFilter({ value, onChange }: DateFilterProps) {
             numberOfMonths={1}
             locale={ptBR}
             className="pointer-events-auto"
+            disabled={{ after: getBrazilNow() }}
           />
         </PopoverContent>
       </Popover>
