@@ -196,6 +196,37 @@ serve(async (req) => {
         console.error('[WhatsApp Dashboard] Transactions error:', txError);
       }
 
+      // Busca delivery link generations (PIX links gerados)
+      const { data: deliveryLinks, error: dlError } = await supabase
+        .from('delivery_link_generations')
+        .select('*, delivery_products(name, value)')
+        .or(phoneVariations.map(p => `normalized_phone.eq.${p},phone.eq.${p}`).join(','))
+        .order('created_at', { ascending: false });
+
+      if (dlError) {
+        console.error('[WhatsApp Dashboard] Delivery links error:', dlError);
+      }
+
+      // Converte delivery_link_generations para formato de transação para exibir junto
+      const deliveryAsTransactions = (deliveryLinks || []).map(dl => ({
+        id: dl.id,
+        type: dl.payment_method as 'pix' | 'boleto' | 'cartao',
+        status: 'pago' as const, // PIX links são considerados pagos
+        amount: dl.delivery_products?.value || 0,
+        customer_phone: dl.phone,
+        normalized_phone: dl.normalized_phone,
+        description: dl.delivery_products?.name || 'Link de entrega',
+        created_at: dl.created_at,
+        is_delivery_link: true
+      }));
+
+      // Merge transactions: DB transactions + delivery links (sem duplicatas)
+      const txIds = new Set((transactions || []).map(t => t.id));
+      const allTransactions = [
+        ...(transactions || []),
+        ...deliveryAsTransactions.filter(dt => !txIds.has(dt.id))
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
       // Busca abandonos
       const { data: abandoned, error: abError } = await supabase
         .from('abandoned_events')
@@ -207,34 +238,18 @@ serve(async (req) => {
         console.error('[WhatsApp Dashboard] Abandoned error:', abError);
       }
 
-      // Busca customer por normalized_phone
-      const normalizedBase = normalizePhoneForMatching(phones[0]);
+      // Busca customer por todas as variações
       let customer = null;
-      
-      if (normalizedBase) {
-        // Busca na tabela customers usando o telefone normalizado
-        const { data: customerData } = await supabase
+      for (const variation of phoneVariations) {
+        const { data: cd } = await supabase
           .from('customers')
           .select('*')
-          .eq('normalized_phone', normalizedBase)
+          .eq('normalized_phone', variation)
           .maybeSingle();
         
-        customer = customerData;
-        
-        // Se não encontrou, tenta com outras variações
-        if (!customer) {
-          for (const variation of phoneVariations) {
-            const { data: cd } = await supabase
-              .from('customers')
-              .select('*')
-              .eq('normalized_phone', variation)
-              .maybeSingle();
-            
-            if (cd) {
-              customer = cd;
-              break;
-            }
-          }
+        if (cd) {
+          customer = cd;
+          break;
         }
       }
 
@@ -258,14 +273,14 @@ serve(async (req) => {
         .maybeSingle();
 
       console.log('[WhatsApp Dashboard] Found:', {
-        transactions: transactions?.length || 0,
+        transactions: allTransactions.length,
+        deliveryLinks: deliveryLinks?.length || 0,
         abandoned: abandoned?.length || 0,
-        customer: customer ? 'yes' : 'no',
-        normalizedBase
+        customer: customer ? 'yes' : 'no'
       });
 
       return new Response(JSON.stringify({ 
-        transactions: transactions || [],
+        transactions: allTransactions,
         abandoned: abandoned || [],
         customer,
         recoveryTemplates,
