@@ -1,0 +1,487 @@
+/* Origem Viva WhatsApp Extension - v2.0.0 */
+/* Design Minimalista Escuro Profissional */
+
+:root {
+  --ov-bg-primary: #0a0a0a;
+  --ov-bg-secondary: #111111;
+  --ov-bg-card: #1a1a1a;
+  --ov-bg-hover: #222222;
+  --ov-border: #2a2a2a;
+  --ov-text-primary: #ffffff;
+  --ov-text-secondary: #a0a0a0;
+  --ov-text-muted: #666666;
+  --ov-accent: #22c55e;
+  --ov-accent-hover: #16a34a;
+  --ov-warning: #f59e0b;
+  --ov-danger: #ef4444;
+  --ov-info: #3b82f6;
+}
+
+/* Ajuste do WhatsApp para não sobrepor */
+#app {
+  width: calc(100% - 380px) !important;
+}
+
+/* Sidebar Principal */
+#ov-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 380px;
+  height: 100vh;
+  background: var(--ov-bg-primary);
+  border-left: 1px solid var(--ov-border);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
+
+/* Header */
+.ov-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ov-border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ov-bg-secondary);
+}
+
+.ov-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.ov-header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ov-text-primary);
+}
+
+.ov-header-version {
+  font-size: 11px;
+  color: var(--ov-text-muted);
+  margin-left: auto;
+}
+
+/* Navegação por Tabs */
+.ov-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--ov-border);
+  background: var(--ov-bg-secondary);
+}
+
+.ov-tab {
+  flex: 1;
+  padding: 12px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ov-text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.ov-tab:hover {
+  color: var(--ov-text-primary);
+  background: var(--ov-bg-hover);
+}
+
+.ov-tab.active {
+  color: var(--ov-accent);
+  border-bottom: 2px solid var(--ov-accent);
+}
+
+/* Conteúdo */
+.ov-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.ov-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ov-content::-webkit-scrollbar-track {
+  background: var(--ov-bg-primary);
+}
+
+.ov-content::-webkit-scrollbar-thumb {
+  background: var(--ov-border);
+  border-radius: 3px;
+}
+
+/* Card do Lead Atual */
+.ov-lead-card {
+  background: var(--ov-bg-card);
+  border: 1px solid var(--ov-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.ov-lead-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ov-lead-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--ov-bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ov-text-primary);
+}
+
+.ov-lead-info {
+  flex: 1;
+}
+
+.ov-lead-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ov-text-primary);
+  margin-bottom: 4px;
+}
+
+.ov-lead-phone {
+  font-size: 13px;
+  color: var(--ov-text-secondary);
+}
+
+/* Stats Grid */
+.ov-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ov-stat-item {
+  background: var(--ov-bg-secondary);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+.ov-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ov-text-primary);
+}
+
+.ov-stat-value.success {
+  color: var(--ov-accent);
+}
+
+.ov-stat-value.warning {
+  color: var(--ov-warning);
+}
+
+.ov-stat-value.danger {
+  color: var(--ov-danger);
+}
+
+.ov-stat-label {
+  font-size: 11px;
+  color: var(--ov-text-muted);
+  margin-top: 4px;
+}
+
+/* Seção */
+.ov-section {
+  margin-bottom: 16px;
+}
+
+.ov-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ov-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+/* Lista de Transações */
+.ov-transaction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ov-transaction-item {
+  background: var(--ov-bg-card);
+  border: 1px solid var(--ov-border);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ov-transaction-item:hover {
+  background: var(--ov-bg-hover);
+  border-color: var(--ov-accent);
+}
+
+.ov-transaction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ov-transaction-type {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.ov-transaction-type.boleto {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--ov-info);
+}
+
+.ov-transaction-type.pix {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--ov-accent);
+}
+
+.ov-transaction-type.cartao {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+}
+
+.ov-transaction-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ov-text-primary);
+}
+
+.ov-transaction-status {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ov-transaction-status.pago {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--ov-accent);
+}
+
+.ov-transaction-status.pendente,
+.ov-transaction-status.gerado {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--ov-warning);
+}
+
+.ov-transaction-date {
+  font-size: 11px;
+  color: var(--ov-text-muted);
+}
+
+/* Botões de Ação */
+.ov-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ov-btn {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ov-btn-primary {
+  background: var(--ov-accent);
+  color: #000;
+}
+
+.ov-btn-primary:hover {
+  background: var(--ov-accent-hover);
+}
+
+.ov-btn-secondary {
+  background: var(--ov-bg-hover);
+  color: var(--ov-text-primary);
+  border: 1px solid var(--ov-border);
+}
+
+.ov-btn-secondary:hover {
+  background: var(--ov-bg-card);
+}
+
+/* Estado Vazio */
+.ov-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ov-text-muted);
+}
+
+.ov-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.ov-empty-text {
+  font-size: 14px;
+}
+
+/* Loading */
+.ov-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.ov-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--ov-border);
+  border-top-color: var(--ov-accent);
+  border-radius: 50%;
+  animation: ov-spin 0.8s linear infinite;
+}
+
+@keyframes ov-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Toast */
+.ov-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 400px;
+  background: var(--ov-bg-card);
+  border: 1px solid var(--ov-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--ov-text-primary);
+  font-size: 13px;
+  z-index: 10000;
+  animation: ov-toast-in 0.3s ease;
+}
+
+.ov-toast.success {
+  border-color: var(--ov-accent);
+}
+
+.ov-toast.error {
+  border-color: var(--ov-danger);
+}
+
+@keyframes ov-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Links Úteis */
+.ov-links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ov-link-item {
+  background: var(--ov-bg-card);
+  border: 1px solid var(--ov-border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ov-link-item:hover {
+  background: var(--ov-bg-hover);
+}
+
+.ov-link-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--ov-bg-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.ov-link-info {
+  flex: 1;
+}
+
+.ov-link-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ov-text-primary);
+}
+
+.ov-link-desc {
+  font-size: 11px;
+  color: var(--ov-text-muted);
+}
+
+/* Evento Abandonado */
+.ov-abandoned-item {
+  background: var(--ov-bg-card);
+  border: 1px solid var(--ov-danger);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.ov-abandoned-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ov-abandoned-type {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--ov-danger);
+}
+
+.ov-abandoned-error {
+  font-size: 12px;
+  color: var(--ov-text-secondary);
+  margin-top: 4px;
+}
