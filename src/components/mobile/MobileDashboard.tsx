@@ -16,7 +16,7 @@ import { ptBR } from "date-fns/locale";
 import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip } from "recharts";
 
 interface MetaAdsInsights {
-  totalSpend: number;
+  spend: number;
   impressions?: number;
   clicks?: number;
   ctr?: number;
@@ -263,7 +263,7 @@ export function MobileDashboard() {
       )}
 
       {/* Meta Ads Card - Admin only */}
-      {isRealAdmin && metaAdsData && metaAdsData.totalSpend > 0 && (
+      {isRealAdmin && metaAdsData && metaAdsData.spend > 0 && (
         <div className="rounded-2xl bg-gradient-to-br from-primary/10 via-card to-card border border-primary/20 overflow-hidden">
           <div className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -276,7 +276,7 @@ export function MobileDashboard() {
             </div>
             
             <p className="text-2xl font-bold text-primary tracking-tight">
-              {formatCurrency(metaAdsData.totalSpend)}
+              {formatCurrency(metaAdsData.spend)}
             </p>
             
             {/* Metrics */}
