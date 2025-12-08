@@ -1085,8 +1085,26 @@ function renderRecoveryView(container) {
     return;
   }
   
-  const templates = currentLeadData?.recoveryTemplates;
-  const blocks = templates?.blocks || [];
+  const isBoleto = tx.type === 'boleto';
+  const isPix = tx.type === 'pix';
+  const isCartao = tx.type === 'cartao';
+  
+  // Escolhe o template correto baseado no tipo de transação
+  let templateMessage = '';
+  let templateBlocks = [];
+  
+  if (isBoleto) {
+    // Usa template de boleto
+    const templates = currentLeadData?.recoveryTemplates;
+    templateBlocks = templates?.blocks || [];
+  } else {
+    // Usa template de PIX/Cartão
+    const pixSettings = currentLeadData?.pixCardSettings;
+    if (pixSettings?.message) {
+      templateMessage = pixSettings.message;
+    }
+  }
+  
   const customerName = tx.customer_name || 'Cliente';
   const firstName = customerName.split(' ')[0];
   const amount = formatCurrency(tx.amount);
@@ -1095,34 +1113,141 @@ function renderRecoveryView(container) {
   const boletoUrl = tx.metadata?.boleto_url || tx.metadata?.boletoUrl;
   const greeting = getGreeting();
   
-  // Process template blocks
-  const processedBlocks = blocks.map(block => {
-    if (block.type === 'text') {
-      let text = block.content || '';
-      text = text
-        .replace(/{saudação}/gi, greeting)
-        .replace(/{saudacao}/gi, greeting)
-        .replace(/{nome}/gi, customerName)
-        .replace(/{primeiro_nome}/gi, firstName)
-        .replace(/{valor}/gi, amount)
-        .replace(/{vencimento}/gi, dueDate)
-        .replace(/{codigo_barras}/gi, barcode);
-      return { ...block, processedContent: text };
-    }
-    return block;
-  });
+  // Função para substituir variáveis
+  const replaceVariables = (text) => {
+    return text
+      .replace(/{saudação}/gi, greeting)
+      .replace(/{saudacao}/gi, greeting)
+      .replace(/{nome}/gi, customerName)
+      .replace(/{primeiro_nome}/gi, firstName)
+      .replace(/{valor}/gi, amount)
+      .replace(/{vencimento}/gi, dueDate)
+      .replace(/{codigo_barras}/gi, barcode);
+  };
   
-  // Filter to show only text blocks, PDF and image handled separately
-  const textBlocks = processedBlocks.filter(b => b.type === 'text');
-  const hasPdfBlock = processedBlocks.some(b => b.type === 'pdf');
-  const hasImageBlock = processedBlocks.some(b => b.type === 'image');
+  // Título e subtítulo baseado no tipo
+  const typeLabels = {
+    boleto: { title: 'Recuperação de Boleto', label: 'Valor do Boleto', icon: '🧾' },
+    pix: { title: 'Recuperação de PIX', label: 'Valor do PIX', icon: '💠' },
+    cartao: { title: 'Recuperação de Cartão', label: 'Valor do Pedido', icon: '💳' }
+  };
+  const typeInfo = typeLabels[tx.type] || typeLabels.boleto;
+  
+  // Gera HTML para blocos de mensagem (mantendo ordem do template)
+  let messagesHtml = '';
+  
+  if (isBoleto && templateBlocks.length > 0) {
+    // Renderiza blocos na ordem exata do template
+    templateBlocks.forEach((block, idx) => {
+      if (block.type === 'text') {
+        const processedText = replaceVariables(block.content || '');
+        messagesHtml += `
+          <div class="ov-message-block">
+            <button class="ov-message-copy" data-text="${encodeURIComponent(processedText)}">📋 Copiar</button>
+            <div class="ov-message-text">${processedText}</div>
+          </div>
+        `;
+      } else if (block.type === 'pdf' && boletoUrl) {
+        messagesHtml += `
+          <div class="ov-file-block">
+            <div class="ov-file-icon">📄</div>
+            <div class="ov-file-info">
+              <div class="ov-file-name">boleto-${firstName}.pdf</div>
+              <div class="ov-file-hint">Arquivo PDF do boleto</div>
+            </div>
+            <button class="ov-file-download ov-download-pdf" data-url="${boletoUrl}" data-filename="boleto-${firstName}.pdf">📥 PDF</button>
+          </div>
+        `;
+      } else if (block.type === 'image' && boletoUrl) {
+        messagesHtml += `
+          <div class="ov-file-block">
+            <div class="ov-file-icon">🖼️</div>
+            <div class="ov-file-info">
+              <div class="ov-file-name">boleto-${firstName}.jpg</div>
+              <div class="ov-file-hint">Imagem do boleto</div>
+            </div>
+            <button class="ov-file-download ov-download-jpg" data-url="${boletoUrl}" data-filename="boleto-${firstName}.jpg">📥 JPG</button>
+          </div>
+        `;
+      }
+    });
+  } else if (!isBoleto && templateMessage) {
+    // PIX/Cartão - usa mensagem das configurações
+    const processedText = replaceVariables(templateMessage);
+    messagesHtml = `
+      <div class="ov-message-block">
+        <button class="ov-message-copy" data-text="${encodeURIComponent(processedText)}">📋 Copiar</button>
+        <div class="ov-message-text">${processedText}</div>
+      </div>
+    `;
+  } else {
+    // Fallback - mensagem padrão
+    const defaultMsg = generateDefaultMessage(tx);
+    messagesHtml = `
+      <div class="ov-message-block">
+        <button class="ov-message-copy" data-text="${encodeURIComponent(defaultMsg)}">📋 Copiar</button>
+        <div class="ov-message-text">${defaultMsg}</div>
+      </div>
+    `;
+  }
+  
+  // Se for boleto sem blocos de PDF/imagem no template, adiciona ao final
+  if (isBoleto && boletoUrl && templateBlocks.length > 0) {
+    const hasPdfBlock = templateBlocks.some(b => b.type === 'pdf');
+    const hasImageBlock = templateBlocks.some(b => b.type === 'image');
+    
+    if (!hasPdfBlock) {
+      messagesHtml += `
+        <div class="ov-file-block">
+          <div class="ov-file-icon">📄</div>
+          <div class="ov-file-info">
+            <div class="ov-file-name">boleto-${firstName}.pdf</div>
+            <div class="ov-file-hint">Arquivo PDF do boleto</div>
+          </div>
+          <button class="ov-file-download ov-download-pdf" data-url="${boletoUrl}" data-filename="boleto-${firstName}.pdf">📥 PDF</button>
+        </div>
+      `;
+    }
+    if (!hasImageBlock) {
+      messagesHtml += `
+        <div class="ov-file-block">
+          <div class="ov-file-icon">🖼️</div>
+          <div class="ov-file-info">
+            <div class="ov-file-name">boleto-${firstName}.jpg</div>
+            <div class="ov-file-hint">Imagem do boleto</div>
+          </div>
+          <button class="ov-file-download ov-download-jpg" data-url="${boletoUrl}" data-filename="boleto-${firstName}.jpg">📥 JPG</button>
+        </div>
+      `;
+    }
+  } else if (isBoleto && boletoUrl && templateBlocks.length === 0) {
+    // Sem template, adiciona PDF e JPG
+    messagesHtml += `
+      <div class="ov-file-block">
+        <div class="ov-file-icon">📄</div>
+        <div class="ov-file-info">
+          <div class="ov-file-name">boleto-${firstName}.pdf</div>
+          <div class="ov-file-hint">Arquivo PDF do boleto</div>
+        </div>
+        <button class="ov-file-download ov-download-pdf" data-url="${boletoUrl}" data-filename="boleto-${firstName}.pdf">📥 PDF</button>
+      </div>
+      <div class="ov-file-block">
+        <div class="ov-file-icon">🖼️</div>
+        <div class="ov-file-info">
+          <div class="ov-file-name">boleto-${firstName}.jpg</div>
+          <div class="ov-file-hint">Imagem do boleto</div>
+        </div>
+        <button class="ov-file-download ov-download-jpg" data-url="${boletoUrl}" data-filename="boleto-${firstName}.jpg">📥 JPG</button>
+      </div>
+    `;
+  }
   
   container.innerHTML = `
     <div class="ov-recovery-view">
       <div class="ov-recovery-header">
         <button class="ov-back-btn" id="ov-back-btn">←</button>
         <div class="ov-recovery-title-box">
-          <div class="ov-recovery-title">Recuperação de Boleto</div>
+          <div class="ov-recovery-title">${typeInfo.title}</div>
           <div class="ov-recovery-subtitle">Copie as mensagens para enviar ao cliente</div>
         </div>
       </div>
@@ -1149,15 +1274,15 @@ function renderRecoveryView(container) {
           </div>
           
           <div class="ov-client-row">
-            <span class="ov-client-icon">💰</span>
+            <span class="ov-client-icon">${typeInfo.icon}</span>
             <div class="ov-client-content">
-              <div class="ov-client-label">Valor do Boleto</div>
+              <div class="ov-client-label">${typeInfo.label}</div>
               <div class="ov-client-value success">${amount}</div>
             </div>
             <button class="ov-client-copy-btn" data-copy="${amount}">📋</button>
           </div>
           
-          ${barcode ? `
+          ${isBoleto && barcode ? `
             <div class="ov-client-row">
               <span class="ov-client-icon">📊</span>
               <div class="ov-client-content">
@@ -1171,38 +1296,7 @@ function renderRecoveryView(container) {
         
         <div class="ov-messages-section">
           <div class="ov-client-section-title">Mensagens de Recuperação</div>
-          
-          ${textBlocks.length > 0 ? textBlocks.map(block => `
-            <div class="ov-message-block">
-              <button class="ov-message-copy" data-text="${encodeURIComponent(block.processedContent)}">📋 Copiar</button>
-              <div class="ov-message-text">${block.processedContent}</div>
-            </div>
-          `).join('') : `
-            <div class="ov-message-block">
-              <button class="ov-message-copy" data-text="${encodeURIComponent(generateDefaultMessage(tx))}">📋 Copiar</button>
-              <div class="ov-message-text">${generateDefaultMessage(tx)}</div>
-            </div>
-          `}
-          
-          ${boletoUrl ? `
-            <div class="ov-file-block">
-              <div class="ov-file-icon">📄</div>
-              <div class="ov-file-info">
-                <div class="ov-file-name">boleto-${firstName}.pdf</div>
-                <div class="ov-file-hint">Arquivo PDF do boleto</div>
-              </div>
-              <button class="ov-file-download" id="download-pdf-btn">📥 PDF</button>
-            </div>
-            
-            <div class="ov-file-block">
-              <div class="ov-file-icon">🖼️</div>
-              <div class="ov-file-info">
-                <div class="ov-file-name">boleto-${firstName}.jpg</div>
-                <div class="ov-file-hint">Imagem do boleto</div>
-              </div>
-              <button class="ov-file-download" id="download-jpg-btn">📥 JPG</button>
-            </div>
-          ` : ''}
+          ${messagesHtml}
         </div>
       </div>
     </div>
@@ -1233,29 +1327,43 @@ function renderRecoveryView(container) {
   });
   
   // Event listeners para download PDF
-  const pdfBtn = document.getElementById('download-pdf-btn');
-  if (pdfBtn && boletoUrl) {
-    pdfBtn.addEventListener('click', (e) => {
+  container.querySelectorAll('.ov-download-pdf').forEach(btn => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      downloadFileDirect(boletoUrl, `boleto-${firstName}.pdf`);
-    });
-  }
-  
-  // Event listeners para download JPG (converter de PDF)
-  const jpgBtn = document.getElementById('download-jpg-btn');
-  if (jpgBtn && boletoUrl) {
-    jpgBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      showToast('Convertendo PDF para imagem...');
-      try {
-        await convertPdfToJpgAndDownload(boletoUrl, `boleto-${firstName}.jpg`);
-      } catch (err) {
-        console.error('Erro ao converter PDF:', err);
-        showToast('Erro ao converter. Baixando PDF...');
-        downloadFileDirect(boletoUrl, `boleto-${firstName}.pdf`);
+      e.preventDefault();
+      const url = btn.dataset.url;
+      const filename = btn.dataset.filename;
+      if (url) {
+        downloadFileDirect(url, filename);
       }
     });
-  }
+  });
+  
+  // Event listeners para download JPG (converter de PDF)
+  container.querySelectorAll('.ov-download-jpg').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const url = btn.dataset.url;
+      const filename = btn.dataset.filename;
+      if (url) {
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+        showToast('Convertendo PDF para imagem...');
+        try {
+          await convertPdfToJpgAndDownload(url, filename);
+          btn.textContent = '📥 JPG';
+          btn.disabled = false;
+        } catch (err) {
+          console.error('Erro ao converter PDF:', err);
+          showToast('Erro ao converter. Baixando PDF...');
+          downloadFileDirect(url, filename.replace('.jpg', '.pdf'));
+          btn.textContent = '📥 JPG';
+          btn.disabled = false;
+        }
+      }
+    });
+  });
 }
 
 function attachCardListeners(container, transactions) {
