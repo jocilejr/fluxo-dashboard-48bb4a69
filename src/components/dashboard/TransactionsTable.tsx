@@ -340,8 +340,11 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
           bVal = b.customer_name || "";
           break;
         default:
-          aVal = new Date(a.created_at).getTime();
-          bVal = new Date(b.created_at).getTime();
+          // For paid transactions, use paid_at; for others, use created_at
+          const aDateStr = a.status === "pago" && a.paid_at ? a.paid_at : a.created_at;
+          const bDateStr = b.status === "pago" && b.paid_at ? b.paid_at : b.created_at;
+          aVal = new Date(aDateStr).getTime();
+          bVal = new Date(bDateStr).getTime();
       }
 
       if (sortDirection === "asc") {
