@@ -7,12 +7,20 @@ import {
   RefreshCw,
   Users,
   UserPlus,
-  UserMinus
+  UserMinus,
+  Megaphone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { startOfDay, endOfDay, subDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { AreaChart, Area, XAxis, ResponsiveContainer, Tooltip } from "recharts";
+
+interface MetaAdsInsights {
+  totalSpend: number;
+  impressions?: number;
+  clicks?: number;
+  ctr?: number;
+}
 
 interface Group {
   id: string;
@@ -75,6 +83,22 @@ export function MobileDashboard() {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
+  // Fetch Meta Ads data for today
+  const { data: metaAdsData } = useQuery({
+    queryKey: ["meta-ads-mobile"],
+    queryFn: async () => {
+      const nowBrazil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+      const todayStr = nowBrazil.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+      
+      const { data, error } = await supabase.functions.invoke("meta-ads-insights", {
+        body: { startDate: todayStr, endDate: todayStr },
+      });
+      if (error) throw error;
+      return data as MetaAdsInsights;
+    },
+    enabled: isRealAdmin === true,
+  });
 
   // Calculate stats from groups (same as desktop GroupStatsCards)
   const groupStats = useMemo(() => {
@@ -234,6 +258,43 @@ export function MobileDashboard() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Meta Ads Card - Admin only */}
+      {isRealAdmin && metaAdsData && metaAdsData.totalSpend > 0 && (
+        <div className="rounded-2xl bg-gradient-to-br from-primary/10 via-card to-card border border-primary/20 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Megaphone className="h-4 w-4 text-primary" />
+                </div>
+                <p className="text-xs text-muted-foreground font-medium">Meta Ads Hoje</p>
+              </div>
+            </div>
+            
+            <p className="text-2xl font-bold text-primary tracking-tight">
+              {formatCurrency(metaAdsData.totalSpend)}
+            </p>
+            
+            {/* Metrics */}
+            {metaAdsData.impressions && metaAdsData.impressions > 0 && (
+              <div className="flex items-center gap-3 mt-2">
+                <div className="text-[10px] text-muted-foreground">
+                  <span className="font-medium text-foreground">{metaAdsData.impressions.toLocaleString()}</span> impressões
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  <span className="font-medium text-foreground">{metaAdsData.clicks?.toLocaleString() || 0}</span> cliques
+                </div>
+                {metaAdsData.ctr && (
+                  <div className="text-[10px] text-muted-foreground">
+                    <span className="font-medium text-foreground">{metaAdsData.ctr.toFixed(2)}%</span> CTR
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
