@@ -11,8 +11,6 @@ const SIDEBAR_WIDTH = 360;
 let currentPhone = null;
 let sidebarVisible = false;
 let currentLeadData = null;
-let currentView = 'lead'; // 'lead' or 'recovery'
-let currentRecoveryTx = null;
 
 // Registra no background
 chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' }, (response) => {
@@ -576,6 +574,63 @@ function injectStyles() {
       line-height: 1.5;
     }
     
+    /* Links Úteis */
+    .ov-links-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .ov-link-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 8px;
+    }
+    
+    .ov-link-info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    
+    .ov-link-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .ov-link-desc {
+      font-size: 10px;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    
+    .ov-link-copy-btn {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: #3b82f6;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    
+    .ov-link-copy-btn:hover {
+      background: rgba(59, 130, 246, 0.2);
+    }
+    
     /* Toggle Button */
     .ov-toggle-btn {
       position: fixed;
@@ -923,7 +978,7 @@ function createSidebar() {
         <div class="ov-logo-container"><img src="${chrome.runtime.getURL('logo-ov.png')}" alt="OV"></div>
         <div>
           <div class="ov-header-title">Origem Viva</div>
-          <div class="ov-header-subtitle">Painel de Recuperação</div>
+          <div class="ov-header-subtitle">Histórico do Lead</div>
         </div>
       </div>
       <button class="ov-close-btn" id="ov-close-sidebar">✕</button>
@@ -994,12 +1049,7 @@ window.toggleSidebar = toggleSidebar;
 // ========== RENDERIZAÇÃO ==========
 function renderContent() {
   const content = document.getElementById('ov-sidebar-content');
-  
-  if (currentView === 'recovery' && currentRecoveryTx) {
-    renderRecoveryView(content);
-  } else {
-    renderLeadContent(content);
-  }
+  renderLeadContent(content);
 }
 
 function renderLeadContent(container) {
@@ -1019,7 +1069,7 @@ function renderLeadContent(container) {
     return;
   }
   
-  const { customer, transactions = [], abandoned = [] } = currentLeadData;
+  const { customer, transactions = [], abandoned = [], usefulLinks = [] } = currentLeadData;
   const paidTxs = transactions.filter(t => t.status === 'pago');
   const pendingTxs = transactions.filter(t => ['gerado', 'pendente'].includes(t.status));
   const totalPaid = paidTxs.reduce((sum, t) => sum + Number(t.amount || 0), 0);
@@ -1028,6 +1078,27 @@ function renderLeadContent(container) {
   const displayPhone = formatDisplayPhone(currentPhone);
   const customerName = customer?.name || transactions[0]?.customer_name || abandoned[0]?.customer_name || 'Lead';
   const initials = customerName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+  
+  // Gera HTML para links úteis
+  const linksHtml = usefulLinks.length > 0 ? `
+    <div class="ov-section">
+      <div class="ov-section-header">
+        <span class="ov-section-title">🔗 Links Úteis</span>
+        <span class="ov-section-count">${usefulLinks.length}</span>
+      </div>
+      <div class="ov-links-list">
+        ${usefulLinks.map(link => `
+          <div class="ov-link-card">
+            <div class="ov-link-info">
+              <div class="ov-link-title">${link.title}</div>
+              ${link.description ? `<div class="ov-link-desc">${link.description}</div>` : ''}
+            </div>
+            <button class="ov-link-copy-btn" data-copy="${link.url}" title="Copiar link">📋</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
   
   container.innerHTML = `
     <div class="ov-lead-card">
@@ -1051,290 +1122,49 @@ function renderLeadContent(container) {
           <div class="ov-stat-label">Pendente</div>
         </div>
         <div class="ov-stat-box">
-          <div class="ov-stat-value info">${paidTxs.length}</div>
-          <div class="ov-stat-label">Pagas</div>
+          <div class="ov-stat-value info">${transactions.length}</div>
+          <div class="ov-stat-label">Transações</div>
         </div>
         <div class="ov-stat-box">
-          <div class="ov-stat-value warning">${pendingTxs.length}</div>
-          <div class="ov-stat-label">Pendentes</div>
+          <div class="ov-stat-value danger">${abandoned.length}</div>
+          <div class="ov-stat-label">Abandonos</div>
         </div>
       </div>
     </div>
     
-    ${pendingTxs.length > 0 ? `
+    ${linksHtml}
+    
+    ${transactions.length > 0 ? `
       <div class="ov-section">
         <div class="ov-section-header">
-          <span class="ov-section-title">⚠️ Pendentes</span>
-          <span class="ov-section-count">${pendingTxs.length} transação(ões)</span>
+          <span class="ov-section-title">📋 Histórico de Transações</span>
+          <span class="ov-section-count">${transactions.length}</span>
         </div>
         <div class="ov-tx-list">
-          ${pendingTxs.map(tx => renderPendingCard(tx)).join('')}
+          ${transactions.map(tx => renderTransactionCard(tx)).join('')}
         </div>
       </div>
     ` : ''}
     
-    ${paidTxs.length > 0 ? `
+    ${abandoned.length > 0 ? `
       <div class="ov-section">
         <div class="ov-section-header">
-          <span class="ov-section-title">✅ Pagas</span>
-          <span class="ov-section-count">${paidTxs.length}</span>
+          <span class="ov-section-title">⚠️ Abandonos</span>
+          <span class="ov-section-count">${abandoned.length}</span>
         </div>
         <div class="ov-tx-list">
-          ${paidTxs.slice(0, 5).map(tx => renderSimpleCard(tx)).join('')}
+          ${abandoned.map(ab => renderAbandonedCard(ab)).join('')}
         </div>
       </div>
     ` : ''}
     
     ${transactions.length === 0 && abandoned.length === 0 ? `
       <div class="ov-empty" style="padding: 24px;">
-        <div class="ov-empty-title">Sem dados</div>
-        <div class="ov-empty-text">Nenhuma transação encontrada para este lead</div>
+        <div class="ov-empty-title">Sem histórico</div>
+        <div class="ov-empty-text">Nenhuma transação ou evento encontrado para este lead</div>
       </div>
     ` : ''}
   `;
-  
-  // Event listener for copy phone
-  container.querySelectorAll('[data-copy]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      copyToClipboard(btn.dataset.copy);
-    });
-  });
-  
-  attachCardListeners(container, transactions);
-}
-
-function renderRecoveryView(container) {
-  const tx = currentRecoveryTx;
-  if (!tx) {
-    currentView = 'lead';
-    renderContent();
-    return;
-  }
-  
-  const isBoleto = tx.type === 'boleto';
-  const isPix = tx.type === 'pix';
-  const isCartao = tx.type === 'cartao';
-  
-  // Escolhe o template correto baseado no tipo de transação
-  let templateMessage = '';
-  let templateBlocks = [];
-  
-  if (isBoleto) {
-    // Usa template de boleto
-    const templates = currentLeadData?.recoveryTemplates;
-    templateBlocks = templates?.blocks || [];
-  } else {
-    // Usa template de PIX/Cartão
-    const pixSettings = currentLeadData?.pixCardSettings;
-    if (pixSettings?.message) {
-      templateMessage = pixSettings.message;
-    }
-  }
-  
-  const customerName = tx.customer_name || 'Cliente';
-  const firstName = customerName.split(' ')[0];
-  const amount = formatCurrency(tx.amount);
-  const barcode = tx.external_id || '';
-  const dueDate = tx.metadata?.due_date || tx.metadata?.vencimento || '-';
-  const boletoUrl = tx.metadata?.boleto_url || tx.metadata?.boletoUrl;
-  const greeting = getGreeting();
-  
-  // Função para substituir variáveis
-  const replaceVariables = (text) => {
-    return text
-      .replace(/{saudação}/gi, greeting)
-      .replace(/{saudacao}/gi, greeting)
-      .replace(/{nome}/gi, customerName)
-      .replace(/{primeiro_nome}/gi, firstName)
-      .replace(/{valor}/gi, amount)
-      .replace(/{vencimento}/gi, dueDate)
-      .replace(/{codigo_barras}/gi, barcode);
-  };
-  
-  // Título e subtítulo baseado no tipo
-  const typeLabels = {
-    boleto: { title: 'Recuperação de Boleto', label: 'Valor do Boleto', icon: '🧾' },
-    pix: { title: 'Recuperação de PIX', label: 'Valor do PIX', icon: '💠' },
-    cartao: { title: 'Recuperação de Cartão', label: 'Valor do Pedido', icon: '💳' }
-  };
-  const typeInfo = typeLabels[tx.type] || typeLabels.boleto;
-  
-  // Gera HTML para blocos de mensagem (mantendo ordem do template)
-  let messagesHtml = '';
-  
-  if (isBoleto && templateBlocks.length > 0) {
-    // Renderiza blocos na ordem exata do template
-    templateBlocks.forEach((block, idx) => {
-      if (block.type === 'text') {
-        const processedText = replaceVariables(block.content || '');
-        messagesHtml += `
-          <div class="ov-message-block">
-            <button class="ov-message-copy" data-text="${encodeURIComponent(processedText)}">📋 Copiar</button>
-            <div class="ov-message-text">${processedText}</div>
-          </div>
-        `;
-      } else if (block.type === 'pdf' && boletoUrl) {
-        messagesHtml += `
-          <div class="ov-file-block">
-            <div class="ov-file-icon">📄</div>
-            <div class="ov-file-info">
-              <div class="ov-file-name">boleto-${firstName}.pdf</div>
-              <div class="ov-file-hint">Arquivo PDF do boleto</div>
-            </div>
-            <button class="ov-file-download ov-download-pdf" data-url="${boletoUrl}" data-filename="boleto-${firstName}.pdf">📥 PDF</button>
-          </div>
-        `;
-      } else if (block.type === 'image' && boletoUrl) {
-        messagesHtml += `
-          <div class="ov-file-block">
-            <div class="ov-file-icon">🖼️</div>
-            <div class="ov-file-info">
-              <div class="ov-file-name">boleto-${firstName}.jpg</div>
-              <div class="ov-file-hint">Imagem do boleto</div>
-            </div>
-            <button class="ov-file-download ov-download-jpg" data-url="${boletoUrl}" data-filename="boleto-${firstName}.jpg">📥 JPG</button>
-          </div>
-        `;
-      }
-    });
-  } else if (!isBoleto && templateMessage) {
-    // PIX/Cartão - usa mensagem das configurações
-    const processedText = replaceVariables(templateMessage);
-    messagesHtml = `
-      <div class="ov-message-block">
-        <button class="ov-message-copy" data-text="${encodeURIComponent(processedText)}">📋 Copiar</button>
-        <div class="ov-message-text">${processedText}</div>
-      </div>
-    `;
-  } else {
-    // Fallback - mensagem padrão
-    const defaultMsg = generateDefaultMessage(tx);
-    messagesHtml = `
-      <div class="ov-message-block">
-        <button class="ov-message-copy" data-text="${encodeURIComponent(defaultMsg)}">📋 Copiar</button>
-        <div class="ov-message-text">${defaultMsg}</div>
-      </div>
-    `;
-  }
-  
-  // Se for boleto sem blocos de PDF/imagem no template, adiciona ao final
-  if (isBoleto && boletoUrl && templateBlocks.length > 0) {
-    const hasPdfBlock = templateBlocks.some(b => b.type === 'pdf');
-    const hasImageBlock = templateBlocks.some(b => b.type === 'image');
-    
-    if (!hasPdfBlock) {
-      messagesHtml += `
-        <div class="ov-file-block">
-          <div class="ov-file-icon">📄</div>
-          <div class="ov-file-info">
-            <div class="ov-file-name">boleto-${firstName}.pdf</div>
-            <div class="ov-file-hint">Arquivo PDF do boleto</div>
-          </div>
-          <button class="ov-file-download ov-download-pdf" data-url="${boletoUrl}" data-filename="boleto-${firstName}.pdf">📥 PDF</button>
-        </div>
-      `;
-    }
-    if (!hasImageBlock) {
-      messagesHtml += `
-        <div class="ov-file-block">
-          <div class="ov-file-icon">🖼️</div>
-          <div class="ov-file-info">
-            <div class="ov-file-name">boleto-${firstName}.jpg</div>
-            <div class="ov-file-hint">Imagem do boleto</div>
-          </div>
-          <button class="ov-file-download ov-download-jpg" data-url="${boletoUrl}" data-filename="boleto-${firstName}.jpg">📥 JPG</button>
-        </div>
-      `;
-    }
-  } else if (isBoleto && boletoUrl && templateBlocks.length === 0) {
-    // Sem template, adiciona PDF e JPG
-    messagesHtml += `
-      <div class="ov-file-block">
-        <div class="ov-file-icon">📄</div>
-        <div class="ov-file-info">
-          <div class="ov-file-name">boleto-${firstName}.pdf</div>
-          <div class="ov-file-hint">Arquivo PDF do boleto</div>
-        </div>
-        <button class="ov-file-download ov-download-pdf" data-url="${boletoUrl}" data-filename="boleto-${firstName}.pdf">📥 PDF</button>
-      </div>
-      <div class="ov-file-block">
-        <div class="ov-file-icon">🖼️</div>
-        <div class="ov-file-info">
-          <div class="ov-file-name">boleto-${firstName}.jpg</div>
-          <div class="ov-file-hint">Imagem do boleto</div>
-        </div>
-        <button class="ov-file-download ov-download-jpg" data-url="${boletoUrl}" data-filename="boleto-${firstName}.jpg">📥 JPG</button>
-      </div>
-    `;
-  }
-  
-  container.innerHTML = `
-    <div class="ov-recovery-view">
-      <div class="ov-recovery-header">
-        <button class="ov-back-btn" id="ov-back-btn">←</button>
-        <div class="ov-recovery-title-box">
-          <div class="ov-recovery-title">${typeInfo.title}</div>
-          <div class="ov-recovery-subtitle">Copie as mensagens para enviar ao cliente</div>
-        </div>
-      </div>
-      <div class="ov-recovery-body">
-        <div class="ov-client-section">
-          <div class="ov-client-section-title">Dados do Cliente</div>
-          
-          <div class="ov-client-row">
-            <span class="ov-client-icon">👤</span>
-            <div class="ov-client-content">
-              <div class="ov-client-label">Nome do Cliente</div>
-              <div class="ov-client-value">${customerName}</div>
-            </div>
-            <button class="ov-client-copy-btn" data-copy="${customerName}">📋</button>
-          </div>
-          
-          <div class="ov-client-row">
-            <span class="ov-client-icon">📞</span>
-            <div class="ov-client-content">
-              <div class="ov-client-label">Telefone</div>
-              <div class="ov-client-value mono">${tx.customer_phone || currentPhone || '-'}</div>
-            </div>
-            <button class="ov-client-copy-btn" data-copy="${tx.customer_phone || currentPhone || ''}">📋</button>
-          </div>
-          
-          <div class="ov-client-row">
-            <span class="ov-client-icon">${typeInfo.icon}</span>
-            <div class="ov-client-content">
-              <div class="ov-client-label">${typeInfo.label}</div>
-              <div class="ov-client-value success">${amount}</div>
-            </div>
-            <button class="ov-client-copy-btn" data-copy="${amount}">📋</button>
-          </div>
-          
-          ${isBoleto && barcode ? `
-            <div class="ov-client-row">
-              <span class="ov-client-icon">📊</span>
-              <div class="ov-client-content">
-                <div class="ov-client-label">Código de Barras</div>
-                <div class="ov-client-value mono">${barcode}</div>
-              </div>
-              <button class="ov-client-copy-btn" data-copy="${barcode}">📋</button>
-            </div>
-          ` : ''}
-        </div>
-        
-        <div class="ov-messages-section">
-          <div class="ov-client-section-title">Mensagens de Recuperação</div>
-          ${messagesHtml}
-        </div>
-      </div>
-    </div>
-  `;
-  
-  // Event listener para voltar
-  document.getElementById('ov-back-btn').addEventListener('click', () => {
-    currentView = 'lead';
-    currentRecoveryTx = null;
-    renderContent();
-  });
   
   // Event listeners para copiar
   container.querySelectorAll('[data-copy]').forEach(btn => {
@@ -1343,135 +1173,13 @@ function renderRecoveryView(container) {
       copyToClipboard(btn.dataset.copy);
     });
   });
-  
-  container.querySelectorAll('.ov-message-copy').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const text = decodeURIComponent(btn.dataset.text);
-      copyToClipboard(text);
-      showToast('Mensagem copiada!');
-    });
-  });
-  
-  // Event listeners para download PDF
-  container.querySelectorAll('.ov-download-pdf').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const url = btn.dataset.url;
-      const filename = btn.dataset.filename;
-      if (url) {
-        downloadFileDirect(url, filename);
-      }
-    });
-  });
-  
-  // Event listeners para download JPG (converter de PDF)
-  container.querySelectorAll('.ov-download-jpg').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const url = btn.dataset.url;
-      const filename = btn.dataset.filename;
-      if (url) {
-        btn.disabled = true;
-        btn.textContent = '⏳...';
-        showToast('Convertendo PDF para imagem...');
-        try {
-          await convertPdfToJpgAndDownload(url, filename);
-          btn.textContent = '📥 JPG';
-          btn.disabled = false;
-        } catch (err) {
-          console.error('Erro ao converter PDF:', err);
-          showToast('Erro ao converter. Baixando PDF...');
-          downloadFileDirect(url, filename.replace('.jpg', '.pdf'));
-          btn.textContent = '📥 JPG';
-          btn.disabled = false;
-        }
-      }
-    });
-  });
 }
 
-function attachCardListeners(container, transactions) {
-  container.querySelectorAll('[data-action="recovery"]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const txId = btn.dataset.txId;
-      const tx = transactions.find(t => t.id === txId);
-      if (tx) {
-        currentRecoveryTx = tx;
-        currentView = 'recovery';
-        renderContent();
-      }
-    });
-  });
-  
-  container.querySelectorAll('[data-action="download"]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const url = btn.dataset.url;
-      if (url) {
-        downloadFileDirect(url, 'boleto.pdf');
-      }
-    });
-  });
-  
-  container.querySelectorAll('[data-action="copy-barcode"]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const barcode = btn.dataset.barcode;
-      if (barcode) {
-        copyToClipboard(barcode);
-        showToast('Código de barras copiado!');
-      }
-    });
-  });
-}
-
-function renderPendingCard(tx) {
+function renderTransactionCard(tx) {
   const boletoUrl = tx.metadata?.boleto_url || tx.metadata?.boletoUrl;
   const barcode = tx.external_id;
-  const customerName = tx.customer_name || 'Cliente';
-  
-  return `
-    <div class="ov-tx-card ${tx.type}">
-      <div class="ov-tx-row">
-        <div class="ov-tx-product">${tx.description || customerName || 'Boleto'}</div>
-        <div class="ov-tx-amount">${formatCurrency(tx.amount)}</div>
-      </div>
-      <div class="ov-tx-row">
-        <div class="ov-tx-badges">
-          <span class="ov-tx-badge ${tx.type}">${tx.type}</span>
-          <span class="ov-tx-badge ${tx.status}">${tx.status}</span>
-        </div>
-        <span class="ov-tx-date">${formatDate(tx.created_at)}</span>
-      </div>
-      ${barcode ? `
-        <div class="ov-barcode-box">
-          <div class="ov-barcode-info">
-            <div class="ov-barcode-label">Código de Barras</div>
-            <div class="ov-barcode-value">${barcode.slice(0, 20)}...</div>
-          </div>
-          <button class="ov-barcode-copy" data-action="copy-barcode" data-barcode="${barcode}">📋</button>
-        </div>
-      ` : ''}
-      <div class="ov-tx-actions">
-        <button class="ov-tx-action-btn" data-action="recovery" data-tx-id="${tx.id}">
-          💬 Recuperar
-        </button>
-        ${boletoUrl ? `
-          <button class="ov-tx-action-btn download" data-action="download" data-url="${boletoUrl}">
-            📥 PDF
-          </button>
-        ` : ''}
-      </div>
-    </div>
-  `;
-}
-
-function renderSimpleCard(tx) {
   const customerName = tx.customer_name || 'Transação';
+  const isPending = ['gerado', 'pendente'].includes(tx.status);
   
   return `
     <div class="ov-tx-card ${tx.type}">
@@ -1485,6 +1193,40 @@ function renderSimpleCard(tx) {
           <span class="ov-tx-badge ${tx.status}">${tx.status}</span>
         </div>
         <span class="ov-tx-date">${formatDate(tx.created_at)}</span>
+      </div>
+      ${barcode && isPending ? `
+        <div class="ov-barcode-box">
+          <div class="ov-barcode-info">
+            <div class="ov-barcode-label">Código de Barras</div>
+            <div class="ov-barcode-value">${barcode.slice(0, 25)}...</div>
+          </div>
+          <button class="ov-barcode-copy" data-copy="${barcode}">📋</button>
+        </div>
+      ` : ''}
+      ${boletoUrl && isPending ? `
+        <div class="ov-tx-actions">
+          <button class="ov-tx-action-btn download" onclick="window.open('${boletoUrl}', '_blank')">
+            📥 Ver Boleto
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function renderAbandonedCard(ab) {
+  return `
+    <div class="ov-tx-card" style="border-left: 3px solid #ef4444;">
+      <div class="ov-tx-row">
+        <div class="ov-tx-product">${ab.product_name || ab.event_type || 'Abandono'}</div>
+        ${ab.amount ? `<div class="ov-tx-amount" style="color: #ef4444;">${formatCurrency(ab.amount)}</div>` : ''}
+      </div>
+      <div class="ov-tx-row">
+        <div class="ov-tx-badges">
+          <span class="ov-tx-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">${ab.event_type || 'abandono'}</span>
+          ${ab.funnel_stage ? `<span class="ov-tx-badge" style="background: rgba(100, 116, 139, 0.15); color: #64748b;">${ab.funnel_stage}</span>` : ''}
+        </div>
+        <span class="ov-tx-date">${formatDate(ab.created_at)}</span>
       </div>
     </div>
   `;

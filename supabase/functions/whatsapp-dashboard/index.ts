@@ -177,9 +177,7 @@ serve(async (req) => {
           transactions: [],
           abandoned: [],
           customer: null,
-          recoveryTemplates: null,
-          pixCardSettings: null,
-          abandonedSettings: null
+          usefulLinks: []
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -253,39 +251,26 @@ serve(async (req) => {
         }
       }
 
-      // Busca templates de recuperação de boleto
-      const { data: recoveryTemplates } = await supabase
-        .from('boleto_recovery_templates')
+      // Busca links úteis ativos
+      const { data: usefulLinks } = await supabase
+        .from('useful_links')
         .select('*')
-        .eq('is_default', true)
-        .maybeSingle();
-
-      // Busca configurações de recuperação PIX/Cartão
-      const { data: pixCardSettings } = await supabase
-        .from('pix_card_recovery_settings')
-        .select('*')
-        .maybeSingle();
-
-      // Busca configurações de recuperação de abandono
-      const { data: abandonedSettings } = await supabase
-        .from('abandoned_recovery_settings')
-        .select('*')
-        .maybeSingle();
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
 
       console.log('[WhatsApp Dashboard] Found:', {
         transactions: allTransactions.length,
         deliveryLinks: deliveryLinks?.length || 0,
         abandoned: abandoned?.length || 0,
-        customer: customer ? 'yes' : 'no'
+        customer: customer ? 'yes' : 'no',
+        usefulLinks: usefulLinks?.length || 0
       });
 
       return new Response(JSON.stringify({ 
         transactions: allTransactions,
         abandoned: abandoned || [],
         customer,
-        recoveryTemplates,
-        pixCardSettings,
-        abandonedSettings
+        usefulLinks: usefulLinks || []
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
