@@ -574,21 +574,112 @@ function injectStyles() {
       line-height: 1.5;
     }
     
-    /* Links Úteis */
+    /* Accordion Links Úteis */
+    .ov-accordion {
+      margin-bottom: 16px;
+    }
+    
+    .ov-accordion-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .ov-accordion-header:hover {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+    
+    .ov-accordion-header.open {
+      border-radius: 10px 10px 0 0;
+      border-bottom: none;
+    }
+    
+    .ov-accordion-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .ov-accordion-icon {
+      font-size: 14px;
+    }
+    
+    .ov-accordion-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    
+    .ov-accordion-count {
+      font-size: 10px;
+      color: #64748b;
+      background: rgba(100, 116, 139, 0.2);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    
+    .ov-accordion-arrow {
+      font-size: 10px;
+      color: #64748b;
+      transition: transform 0.2s;
+    }
+    
+    .ov-accordion-header.open .ov-accordion-arrow {
+      transform: rotate(180deg);
+    }
+    
+    .ov-accordion-content {
+      display: none;
+      padding: 10px;
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+    }
+    
+    .ov-accordion-content.open {
+      display: block;
+    }
+    
     .ov-links-list {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
     }
     
     .ov-link-card {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      background: rgba(59, 130, 246, 0.08);
-      border: 1px solid rgba(59, 130, 246, 0.2);
+      gap: 12px;
+      padding: 12px 14px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 8px;
+      transition: all 0.2s;
+    }
+    
+    .ov-link-card:hover {
+      background: rgba(15, 23, 42, 0.8);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+    
+    .ov-link-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
     }
     
     .ov-link-info {
@@ -599,8 +690,8 @@ function injectStyles() {
     
     .ov-link-title {
       font-size: 12px;
-      font-weight: 500;
-      color: #e2e8f0;
+      font-weight: 600;
+      color: #f1f5f9;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -612,23 +703,26 @@ function injectStyles() {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      margin-top: 2px;
+      margin-top: 3px;
     }
     
     .ov-link-copy-btn {
       background: rgba(59, 130, 246, 0.1);
-      border: 1px solid rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.25);
       border-radius: 6px;
-      padding: 6px 10px;
-      color: #3b82f6;
-      font-size: 12px;
+      padding: 8px 12px;
+      color: #60a5fa;
+      font-size: 11px;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
       flex-shrink: 0;
+      font-family: inherit;
     }
     
     .ov-link-copy-btn:hover {
       background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.4);
     }
     
     /* Toggle Button */
@@ -1079,23 +1173,30 @@ function renderLeadContent(container) {
   const customerName = customer?.name || transactions[0]?.customer_name || abandoned[0]?.customer_name || 'Lead';
   const initials = customerName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
   
-  // Gera HTML para links úteis
+  // Gera HTML para links úteis com accordion
   const linksHtml = usefulLinks.length > 0 ? `
-    <div class="ov-section">
-      <div class="ov-section-header">
-        <span class="ov-section-title">🔗 Links Úteis</span>
-        <span class="ov-section-count">${usefulLinks.length}</span>
+    <div class="ov-accordion">
+      <div class="ov-accordion-header" id="ov-links-accordion">
+        <div class="ov-accordion-title-row">
+          <span class="ov-accordion-icon">🔗</span>
+          <span class="ov-accordion-title">Links Úteis</span>
+          <span class="ov-accordion-count">${usefulLinks.length}</span>
+        </div>
+        <span class="ov-accordion-arrow">▼</span>
       </div>
-      <div class="ov-links-list">
-        ${usefulLinks.map(link => `
-          <div class="ov-link-card">
-            <div class="ov-link-info">
-              <div class="ov-link-title">${link.title}</div>
-              ${link.description ? `<div class="ov-link-desc">${link.description}</div>` : ''}
+      <div class="ov-accordion-content" id="ov-links-content">
+        <div class="ov-links-list">
+          ${usefulLinks.map(link => `
+            <div class="ov-link-card">
+              <div class="ov-link-icon">🌐</div>
+              <div class="ov-link-info">
+                <div class="ov-link-title">${link.title}</div>
+                ${link.description ? `<div class="ov-link-desc">${link.description}</div>` : ''}
+              </div>
+              <button class="ov-link-copy-btn" data-copy="${link.url}">Copiar</button>
             </div>
-            <button class="ov-link-copy-btn" data-copy="${link.url}" title="Copiar link">📋</button>
-          </div>
-        `).join('')}
+          `).join('')}
+        </div>
       </div>
     </div>
   ` : '';
@@ -1173,6 +1274,16 @@ function renderLeadContent(container) {
       copyToClipboard(btn.dataset.copy);
     });
   });
+  
+  // Event listener para accordion
+  const accordionHeader = container.querySelector('#ov-links-accordion');
+  const accordionContent = container.querySelector('#ov-links-content');
+  if (accordionHeader && accordionContent) {
+    accordionHeader.addEventListener('click', () => {
+      accordionHeader.classList.toggle('open');
+      accordionContent.classList.toggle('open');
+    });
+  }
 }
 
 function renderTransactionCard(tx) {
@@ -1478,19 +1589,107 @@ function insertTextWithLineBreaks(element, text) {
 
 async function openChat(phone) {
   const formatted = formatPhone(phone);
+  console.log('[WhatsApp Extension] Abrindo chat para:', formatted);
+  
   try {
-    const newChatBtn = await waitForElement('button[data-tab="2"], button[aria-label="Nova conversa"]', 2000);
+    // Primeiro tenta encontrar se já existe uma conversa
+    // Procura no painel lateral esquerdo por conversas existentes
+    const existingChat = document.querySelector(`[data-testid="cell-frame-container"][title*="${formatted}"], [data-jid="${formatted}@s.whatsapp.net"]`);
+    if (existingChat) {
+      console.log('[WhatsApp Extension] Conversa existente encontrada, clicando...');
+      existingChat.click();
+      await new Promise(r => setTimeout(r, 500));
+      return true;
+    }
+    
+    // Abre nova conversa usando o botão "Nova conversa"
+    const newChatSelectors = [
+      '[data-testid="menu-bar-new-chat"]',
+      'button[data-tab="2"]',
+      'span[data-icon="new-chat"]',
+      'div[title="Nova conversa"]',
+      '[aria-label="Nova conversa"]'
+    ];
+    
+    let newChatBtn = null;
+    for (const selector of newChatSelectors) {
+      newChatBtn = document.querySelector(selector);
+      if (newChatBtn) break;
+    }
+    
+    if (!newChatBtn) {
+      console.error('[WhatsApp Extension] Botão Nova Conversa não encontrado');
+      return false;
+    }
+    
     newChatBtn.click();
-    await new Promise(r => setTimeout(r, 500));
-    const searchInput = await waitForElement('[data-testid="chat-list-search"], [contenteditable="true"]', 2000);
+    await new Promise(r => setTimeout(r, 600));
+    
+    // Procura campo de busca
+    const searchSelectors = [
+      '[data-testid="chat-list-search"]',
+      'div[contenteditable="true"][data-tab="3"]',
+      '[data-testid="search-input"]',
+      'input[type="text"]'
+    ];
+    
+    let searchInput = null;
+    for (const selector of searchSelectors) {
+      searchInput = document.querySelector(selector);
+      if (searchInput) break;
+    }
+    
+    if (!searchInput) {
+      console.error('[WhatsApp Extension] Campo de busca não encontrado');
+      return false;
+    }
+    
+    console.log('[WhatsApp Extension] Digitando número:', formatted);
     simulateTyping(searchInput, formatted);
-    await new Promise(r => setTimeout(r, 1000));
-    const contact = await waitForElement(`[data-testid="cell-frame-container"], [data-jid*="${formatted}"]`, 3000);
-    contact.click();
-    return true;
+    await new Promise(r => setTimeout(r, 1200));
+    
+    // Procura resultado da busca - múltiplos seletores
+    const resultSelectors = [
+      '[data-testid="cell-frame-container"]',
+      'div[tabindex="-1"][role="option"]',
+      'div[data-testid="chat-list"] > div',
+      '.copyable-area div[role="listitem"]',
+      '[data-testid="list-item-active"]'
+    ];
+    
+    let contact = null;
+    for (const selector of resultSelectors) {
+      const elements = document.querySelectorAll(selector);
+      for (const el of elements) {
+        // Verifica se é o contato correto
+        const text = el.textContent || '';
+        if (text.includes(formatted) || text.includes(formatted.slice(-8))) {
+          contact = el;
+          break;
+        }
+      }
+      if (contact) break;
+    }
+    
+    // Se não encontrou por texto, pega o primeiro resultado
+    if (!contact) {
+      for (const selector of resultSelectors) {
+        contact = document.querySelector(selector);
+        if (contact) break;
+      }
+    }
+    
+    if (contact) {
+      console.log('[WhatsApp Extension] Contato encontrado, clicando...');
+      contact.click();
+      await new Promise(r => setTimeout(r, 500));
+      return true;
+    }
+    
+    console.error('[WhatsApp Extension] Nenhum contato encontrado');
+    return false;
   } catch (error) {
     console.error('[WhatsApp Extension] Erro ao abrir chat:', error);
-    // Sem fallback - apenas retorna erro
     return false;
   }
 }
