@@ -2,7 +2,7 @@
 // Origem Viva CRM Dashboard
 // VERSION 1.4.1 - MINIMAL DARK THEME
 
-const OV_VERSION = '1.4.3';
+const OV_VERSION = '1.4.4';
 console.log('[OV] Content script carregado - VERSION ' + OV_VERSION);
 
 // ========== CONFIG ==========
@@ -683,33 +683,33 @@ function renderContent() {
   const initials = name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
   
   let html = `
-    <div class="ov-profile">
-      <div class="ov-profile-top">
-        <div class="ov-avatar">${initials || '?'}</div>
-        <div class="ov-profile-info">
-          <div class="ov-profile-name">${name}</div>
-          <div class="ov-profile-phone">
+    <div class="ov-profile" style="padding:20px;background:#111111;border-bottom:1px solid #222222;">
+      <div class="ov-profile-top" style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+        <div class="ov-avatar" style="width:40px;height:40px;border-radius:8px;background:#1a1a1a;border:1px solid #333333;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#888888;">${initials || '?'}</div>
+        <div class="ov-profile-info" style="flex:1;min-width:0;">
+          <div class="ov-profile-name" style="font-size:14px;font-weight:500;color:#ffffff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+          <div class="ov-profile-phone" style="font-size:11px;color:#666666;display:flex;align-items:center;gap:6px;margin-top:2px;">
             ${formatDisplayPhone(currentPhone)}
-            <button class="ov-copy-icon" data-copy="${currentPhone}">📋</button>
+            <button class="ov-copy-icon" data-copy="${currentPhone}" style="background:none;border:none;color:#555555;cursor:pointer;font-size:10px;padding:2px;">📋</button>
           </div>
         </div>
       </div>
-      <div class="ov-stats">
-        <div class="ov-stat-box">
-          <div class="ov-stat-value green">${formatCurrency(totalPaid)}</div>
-          <div class="ov-stat-label">Total Pago</div>
+      <div class="ov-stats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+        <div class="ov-stat-box" style="background:#1a1a1a;border:1px solid #222222;border-radius:8px;padding:14px;text-align:center;">
+          <div class="ov-stat-value" style="font-size:18px;font-weight:600;margin-bottom:4px;color:#4ade80;">${formatCurrency(totalPaid)}</div>
+          <div class="ov-stat-label" style="font-size:10px;color:#666666;text-transform:uppercase;letter-spacing:0.05em;">Total Pago</div>
         </div>
-        <div class="ov-stat-box">
-          <div class="ov-stat-value amber">${formatCurrency(totalPending)}</div>
-          <div class="ov-stat-label">Pendente</div>
+        <div class="ov-stat-box" style="background:#1a1a1a;border:1px solid #222222;border-radius:8px;padding:14px;text-align:center;">
+          <div class="ov-stat-value" style="font-size:18px;font-weight:600;margin-bottom:4px;color:#fbbf24;">${formatCurrency(totalPending)}</div>
+          <div class="ov-stat-label" style="font-size:10px;color:#666666;text-transform:uppercase;letter-spacing:0.05em;">Pendente</div>
         </div>
-        <div class="ov-stat-box">
-          <div class="ov-stat-value slate">${transactions.length}</div>
-          <div class="ov-stat-label">Transações</div>
+        <div class="ov-stat-box" style="background:#1a1a1a;border:1px solid #222222;border-radius:8px;padding:14px;text-align:center;">
+          <div class="ov-stat-value" style="font-size:18px;font-weight:600;margin-bottom:4px;color:#888888;">${transactions.length}</div>
+          <div class="ov-stat-label" style="font-size:10px;color:#666666;text-transform:uppercase;letter-spacing:0.05em;">Transações</div>
         </div>
-        <div class="ov-stat-box">
-          <div class="ov-stat-value red">${abandoned.length}</div>
-          <div class="ov-stat-label">Abandonos</div>
+        <div class="ov-stat-box" style="background:#1a1a1a;border:1px solid #222222;border-radius:8px;padding:14px;text-align:center;">
+          <div class="ov-stat-value" style="font-size:18px;font-weight:600;margin-bottom:4px;color:#f87171;">${abandoned.length}</div>
+          <div class="ov-stat-label" style="font-size:10px;color:#666666;text-transform:uppercase;letter-spacing:0.05em;">Abandonos</div>
         </div>
       </div>
     </div>
