@@ -1513,116 +1513,15 @@ function downloadFileDirect(url, filename) {
     })
     .catch(err => {
       console.error('Erro no download:', err);
-      // Fallback: abrir em nova aba
-      window.open(url, '_blank');
-      showToast('Abrindo em nova aba...');
+      showToast('Erro no download');
     });
 }
 
-async function convertPdfToJpgAndDownload(pdfUrl, filename) {
-  showToast('Convertendo PDF para imagem...');
-  
-  try {
-    // First, fetch the PDF via our proxy to bypass CORS
-    const proxyUrl = `https://suaznqybxvborpkrtdpm.supabase.co/functions/v1/pdf-to-image?url=${encodeURIComponent(pdfUrl)}`;
-    
-    const response = await fetch(proxyUrl);
-    if (!response.ok) {
-      throw new Error('Erro ao buscar PDF');
-    }
-    
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(data.error);
-    }
-    
-    // Decode base64 to binary
-    const binaryString = atob(data.pdfBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    // Load PDF.js from CDN dynamically
-    if (!window.pdfjsLib) {
-      await loadPdfJsLibrary();
-    }
-    
-    if (window.pdfjsLib) {
-      // Use PDF.js to render
-      const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
-      const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(1);
-      
-      // Render at 2x scale for quality
-      const scale = 2;
-      const viewport = page.getViewport({ scale });
-      
-      // Create canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const context = canvas.getContext('2d');
-      
-      // White background
-      context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Render PDF page
-      await page.render({
-        canvasContext: context,
-        viewport: viewport
-      }).promise;
-      
-      // Convert to JPEG
-      const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      
-      // Download
-      const link = document.createElement('a');
-      link.href = jpgDataUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      showToast('JPG baixado com sucesso!');
-      return;
-    }
-    
-    // Fallback: download PDF instead
-    throw new Error('PDF.js não disponível');
-    
-  } catch (err) {
-    console.error('[WhatsApp Extension] Erro ao converter:', err);
-    // Fallback: download PDF
-    downloadFileDirect(pdfUrl, filename.replace('.jpg', '.pdf'));
-    showToast('Erro na conversão. PDF baixado.');
-  }
-}
-
-// Load PDF.js library dynamically
-async function loadPdfJsLibrary() {
-  return new Promise((resolve, reject) => {
-    if (window.pdfjsLib) {
-      resolve();
-      return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    script.onload = () => {
-      // Set worker source
-      if (window.pdfjsLib) {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
-      resolve();
-    };
-    script.onerror = () => {
-      console.error('[WhatsApp Extension] Falha ao carregar PDF.js');
-      reject(new Error('Failed to load PDF.js'));
-    };
-    document.head.appendChild(script);
-  });
+// JPG não é possível no contexto do WhatsApp devido a CSP
+// Função redirecionada para baixar PDF
+function convertPdfToJpgAndDownload(pdfUrl, filename) {
+  // Baixa o PDF diretamente - conversão JPG bloqueada por CSP
+  downloadFileDirect(pdfUrl, filename.replace('.jpg', '.pdf'));
 }
 
 function generateDefaultMessage(tx) {
@@ -1849,7 +1748,7 @@ async function openChat(phone) {
     return true;
   } catch (error) {
     console.error('[WhatsApp Extension] Erro ao abrir chat:', error);
-    window.open(`https://web.whatsapp.com/send?phone=${formatted}`, '_blank');
+    // Sem fallback - apenas retorna erro
     return false;
   }
 }
