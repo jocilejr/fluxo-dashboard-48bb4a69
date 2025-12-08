@@ -2,7 +2,7 @@
 // Origem Viva CRM Dashboard
 // VERSION 1.4.1 - MINIMAL DARK THEME
 
-const OV_VERSION = '1.4.2';
+const OV_VERSION = '1.4.3';
 console.log('[OV] Content script carregado - VERSION ' + OV_VERSION);
 
 // ========== CONFIG ==========
@@ -72,14 +72,16 @@ function formatDisplayPhone(phone) {
   return phone;
 }
 
-// ========== CSS - MINIMAL PROFESSIONAL DARK v1.4.0 ==========
+// ========== CSS - MINIMAL PROFESSIONAL DARK v1.4.2 ==========
 function injectStyles() {
+  console.log('[OV] Injetando estilos v1.4.2...');
   document.querySelectorAll('#ov-styles, style[data-ov]').forEach(s => s.remove());
   
   const style = document.createElement('style');
   style.id = 'ov-styles';
-  style.setAttribute('data-ov', 'v1.4.0');
-  style.textContent = `
+  style.setAttribute('data-ov', 'v1.4.2');
+  
+  const css = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     
     body.ov-open #app {
@@ -586,7 +588,10 @@ function injectStyles() {
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
   `;
+  
+  style.textContent = css;
   document.head.appendChild(style);
+  console.log('[OV] Estilos injetados com sucesso!');
 }
 
 // ========== SIDEBAR ==========
