@@ -1,7 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, AlertCircle, Loader2, Settings } from "lucide-react";
+import { TrendingUp, AlertCircle, Loader2, Settings, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useState } from "react";
+
+interface AccountResult {
+  name: string;
+  spend: number;
+  error?: string;
+}
 
 interface MetaAdsInsights {
   configured: boolean;
@@ -16,6 +23,7 @@ interface MetaAdsInsights {
   ctr?: number;
   purchases?: number;
   leads?: number;
+  accounts?: AccountResult[];
 }
 
 interface MetaAdsSpendCardProps {
@@ -24,6 +32,8 @@ interface MetaAdsSpendCardProps {
 }
 
 export const MetaAdsSpendCard = ({ startDate, endDate }: MetaAdsSpendCardProps) => {
+  const [showAccounts, setShowAccounts] = useState(false);
+  
   const { data, isLoading, error } = useQuery<MetaAdsInsights>({
     queryKey: ["meta-ads-insights", startDate, endDate],
     queryFn: async () => {
@@ -79,6 +89,8 @@ export const MetaAdsSpendCard = ({ startDate, endDate }: MetaAdsSpendCardProps) 
 
   // Show spend data
   const spend = data?.spend || 0;
+  const accounts = data?.accounts || [];
+  const activeAccounts = accounts.filter(a => !a.error);
 
   return (
     <div className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border border-blue-500/20 rounded-xl p-4">
@@ -89,11 +101,37 @@ export const MetaAdsSpendCard = ({ startDate, endDate }: MetaAdsSpendCardProps) 
           </div>
           <span className="text-xs text-muted-foreground">Gasto Meta Ads</span>
         </div>
+        {accounts.length > 1 && (
+          <button 
+            onClick={() => setShowAccounts(!showAccounts)}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            {activeAccounts.length} conta(s)
+            <ChevronDown className={`h-3 w-3 transition-transform ${showAccounts ? 'rotate-180' : ''}`} />
+          </button>
+        )}
       </div>
       
       <div className="text-2xl font-bold text-foreground">
         R$ {spend.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
       </div>
+
+      {/* Individual account breakdown */}
+      {showAccounts && accounts.length > 1 && (
+        <div className="mt-3 space-y-1.5 border-t border-border/30 pt-3">
+          {accounts.map((account, idx) => (
+            <div key={idx} className="flex items-center justify-between text-xs">
+              <span className={account.error ? "text-amber-400" : "text-muted-foreground"}>
+                {account.name}
+                {account.error && ` (${account.error})`}
+              </span>
+              <span className="font-medium text-foreground">
+                R$ {account.spend.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {data?.impressions && data.impressions > 0 && (
         <div className="mt-3 grid grid-cols-3 gap-2 text-xs">

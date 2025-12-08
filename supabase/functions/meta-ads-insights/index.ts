@@ -6,6 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface MetaInsights {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  reach: number;
+  cpm: number;
+  cpc: number;
+  ctr: number;
+  purchases: number;
+  leads: number;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -51,11 +63,11 @@ serve(async (req) => {
       });
     }
 
-    // Get Meta Ads settings
-    const { data: settings, error: settingsError } = await supabase
+    // Get ALL active Meta Ads settings
+    const { data: allSettings, error: settingsError } = await supabase
       .from("meta_ads_settings")
       .select("*")
-      .maybeSingle();
+      .eq("is_active", true);
 
     if (settingsError) {
       console.error("Error fetching settings:", settingsError);
@@ -65,7 +77,7 @@ serve(async (req) => {
       });
     }
 
-    if (!settings) {
+    if (!allSettings || allSettings.length === 0) {
       return new Response(JSON.stringify({ error: "Meta Ads not configured", configured: false }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -81,67 +93,89 @@ serve(async (req) => {
     const start = startDate || today;
     const end = endDate || today;
 
-    // Fetch insights from Meta Ads API
-    const adAccountId = settings.ad_account_id.startsWith("act_") 
-      ? settings.ad_account_id 
-      : `act_${settings.ad_account_id}`;
+    console.log(`Fetching Meta Ads insights from ${start} to ${end} for ${allSettings.length} accounts`);
 
-    const insightsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/insights?` +
-      `fields=spend,impressions,clicks,reach,cpm,cpc,ctr,actions` +
-      `&time_range={"since":"${start}","until":"${end}"}` +
-      `&access_token=${settings.access_token}`;
+    // Aggregate insights from all accounts
+    const aggregated: MetaInsights = {
+      spend: 0,
+      impressions: 0,
+      clicks: 0,
+      reach: 0,
+      cpm: 0,
+      cpc: 0,
+      ctr: 0,
+      purchases: 0,
+      leads: 0,
+    };
 
-    console.log(`Fetching Meta Ads insights from ${start} to ${end}`);
+    const accountResults: { name: string; spend: number; error?: string }[] = [];
+    let hasExpiredToken = false;
 
-    const response = await fetch(insightsUrl);
-    const data = await response.json();
+    for (const settings of allSettings) {
+      try {
+        const adAccountId = settings.ad_account_id.startsWith("act_") 
+          ? settings.ad_account_id 
+          : `act_${settings.ad_account_id}`;
 
-    if (data.error) {
-      console.error("Meta API error:", data.error);
-      
-      // Check for expired token
-      if (data.error.code === 190 || data.error.message?.includes("expired")) {
-        return new Response(JSON.stringify({ 
-          error: "Token expirado. Gere um novo token no Meta Business Suite.",
-          tokenExpired: true,
-          configured: true
-        }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        const insightsUrl = `https://graph.facebook.com/v21.0/${adAccountId}/insights?` +
+          `fields=spend,impressions,clicks,reach,cpm,cpc,ctr,actions` +
+          `&time_range={"since":"${start}","until":"${end}"}` +
+          `&access_token=${settings.access_token}`;
+
+        const response = await fetch(insightsUrl);
+        const data = await response.json();
+
+        if (data.error) {
+          console.error(`Meta API error for account ${settings.name}:`, data.error);
+          
+          if (data.error.code === 190 || data.error.message?.includes("expired")) {
+            hasExpiredToken = true;
+            accountResults.push({ name: settings.name, spend: 0, error: "Token expirado" });
+          } else {
+            accountResults.push({ name: settings.name, spend: 0, error: data.error.message });
+          }
+          continue;
+        }
+
+        const insights = data.data?.[0] || {};
+        const spend = parseFloat(insights.spend || "0");
+        
+        aggregated.spend += spend;
+        aggregated.impressions += parseInt(insights.impressions || "0");
+        aggregated.clicks += parseInt(insights.clicks || "0");
+        aggregated.reach += parseInt(insights.reach || "0");
+        
+        const purchases = insights.actions?.find((a: any) => a.action_type === "purchase")?.value || 0;
+        const leads = insights.actions?.find((a: any) => a.action_type === "lead")?.value || 0;
+        aggregated.purchases += parseInt(purchases);
+        aggregated.leads += parseInt(leads);
+
+        accountResults.push({ name: settings.name, spend });
+        console.log(`Account ${settings.name}: R$ ${spend.toFixed(2)}`);
+      } catch (error) {
+        console.error(`Error fetching account ${settings.name}:`, error);
+        accountResults.push({ name: settings.name, spend: 0, error: "Erro de conexão" });
       }
-
-      return new Response(JSON.stringify({ 
-        error: data.error.message || "Erro na API do Meta",
-        configured: true
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
-    // Parse insights data
-    const insights = data.data?.[0] || {};
-    
-    // Find purchase conversions
-    const purchases = insights.actions?.find((a: any) => a.action_type === "purchase")?.value || 0;
-    const leads = insights.actions?.find((a: any) => a.action_type === "lead")?.value || 0;
+    // Calculate averages for CPM, CPC, CTR
+    if (aggregated.impressions > 0) {
+      aggregated.cpm = (aggregated.spend / aggregated.impressions) * 1000;
+    }
+    if (aggregated.clicks > 0) {
+      aggregated.cpc = aggregated.spend / aggregated.clicks;
+      aggregated.ctr = (aggregated.clicks / aggregated.impressions) * 100;
+    }
 
     const result = {
       configured: true,
-      spend: parseFloat(insights.spend || "0"),
-      impressions: parseInt(insights.impressions || "0"),
-      clicks: parseInt(insights.clicks || "0"),
-      reach: parseInt(insights.reach || "0"),
-      cpm: parseFloat(insights.cpm || "0"),
-      cpc: parseFloat(insights.cpc || "0"),
-      ctr: parseFloat(insights.ctr || "0"),
-      purchases: parseInt(purchases),
-      leads: parseInt(leads),
+      tokenExpired: hasExpiredToken && accountResults.every(a => a.error),
+      ...aggregated,
+      accounts: accountResults,
       dateRange: { start, end },
     };
 
-    console.log("Meta Ads insights fetched successfully:", result);
+    console.log("Meta Ads aggregated insights:", result);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
