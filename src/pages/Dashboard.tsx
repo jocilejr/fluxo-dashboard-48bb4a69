@@ -82,8 +82,12 @@ const Dashboard = () => {
     enabled: isRealAdmin === true,
   });
 
-  const startDateStr = dateFilter.startDate.toISOString().split('T')[0];
-  const endDateStr = dateFilter.endDate.toISOString().split('T')[0];
+  // Convert dates to Brazil timezone string (YYYY-MM-DD) to avoid UTC conversion issues
+  const formatDateToBrazil = (date: Date) => {
+    return date.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  };
+  const startDateStr = formatDateToBrazil(dateFilter.startDate);
+  const endDateStr = formatDateToBrazil(dateFilter.endDate);
 
   const { data: metaAdsData } = useQuery<MetaAdsInsights>({
     queryKey: ["meta-ads-insights-dashboard", startDateStr, endDateStr],
