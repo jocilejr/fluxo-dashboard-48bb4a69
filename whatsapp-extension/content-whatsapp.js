@@ -5,12 +5,15 @@ console.log('[WhatsApp Extension] Content script carregado');
 
 // ========== CONFIGURAÇÃO ==========
 const API_URL = 'https://suaznqybxvborpkrtdpm.supabase.co/functions/v1/whatsapp-dashboard';
+const SIDEBAR_WIDTH = 380;
 
 // ========== ESTADO GLOBAL ==========
 let currentPhone = null;
 let sidebarVisible = false;
 let recentTransactions = [];
 let currentLeadData = null;
+let currentTab = 'all'; // 'all', 'lead', 'recovery'
+let currentRecoveryTx = null;
 
 // Registra no background
 chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' }, (response) => {
@@ -21,6 +24,62 @@ chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' }, (response) => {
   }
 });
 
+// ========== NORMALIZAÇÃO DE TELEFONE ==========
+function normalizePhoneForMatching(phone) {
+  if (!phone) return null;
+  
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length < 8) return null;
+  
+  // Remove country code 55 if present
+  if (digits.startsWith('55') && digits.length >= 12) {
+    digits = digits.slice(2);
+  }
+  
+  // Remove 9th digit if present
+  if (digits.length === 11 && digits[2] === '9') {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  
+  if (digits.length === 11) {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  
+  return digits;
+}
+
+function generatePhoneVariations(phone) {
+  if (!phone) return [];
+  
+  const normalized = normalizePhoneForMatching(phone);
+  if (!normalized || normalized.length < 8) return [];
+  
+  const variations = new Set();
+  const originalDigits = phone.replace(/\D/g, '');
+  variations.add(originalDigits);
+  variations.add(normalized);
+  
+  // If we have DDD + 8 digits, also generate with the 9th digit
+  if (normalized.length === 10) {
+    const ddd = normalized.slice(0, 2);
+    const number = normalized.slice(2);
+    const with9 = ddd + '9' + number;
+    variations.add(with9);
+    variations.add('55' + normalized);
+    variations.add('55' + with9);
+  }
+  
+  // If 11 digits (with 9th digit), also generate without
+  if (normalized.length === 11 && normalized[2] === '9') {
+    const without9 = normalized.slice(0, 2) + normalized.slice(3);
+    variations.add(without9);
+    variations.add('55' + without9);
+    variations.add('55' + normalized);
+  }
+  
+  return Array.from(variations);
+}
+
 // ========== ESTILOS CSS ==========
 function injectStyles() {
   if (document.getElementById('ov-dashboard-styles')) return;
@@ -30,11 +89,21 @@ function injectStyles() {
   styles.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
+    /* Ajusta o WhatsApp para não ficar coberto */
+    #app {
+      margin-right: 0 !important;
+      transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    body.ov-sidebar-open #app {
+      margin-right: ${SIDEBAR_WIDTH}px !important;
+    }
+    
     #ov-sidebar {
       position: fixed;
       top: 0;
       right: 0;
-      width: 380px;
+      width: ${SIDEBAR_WIDTH}px;
       height: 100vh;
       background: linear-gradient(180deg, #0a0f14 0%, #0d1318 100%);
       border-left: 1px solid rgba(34, 197, 94, 0.2);
@@ -540,78 +609,59 @@ function injectStyles() {
       fill: white;
     }
     
-    .ov-toggle-btn.sidebar-open {
-      right: 380px;
+    body.ov-sidebar-open .ov-toggle-btn {
+      right: ${SIDEBAR_WIDTH}px;
     }
     
-    /* Recovery Modal */
-    .ov-modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.85);
-      z-index: 100000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
+    /* Recovery Tab - Full screen within sidebar */
+    .ov-recovery-view {
+      padding: 0;
     }
     
-    .ov-modal {
-      background: linear-gradient(180deg, #0f172a 0%, #0a0f14 100%);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 16px;
-      width: 90%;
-      max-width: 520px;
-      max-height: 85vh;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-    }
-    
-    .ov-modal-header {
-      padding: 20px 24px;
-      background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .ov-modal-header-left {
+    .ov-recovery-header {
       display: flex;
       align-items: center;
       gap: 12px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
     
-    .ov-modal-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-      border-radius: 10px;
+    .ov-back-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 8px;
+      font-size: 14px;
+      line-height: 1;
+      border-radius: 8px;
+      transition: all 0.2s;
+      width: 32px;
+      height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
     }
     
-    .ov-modal-title {
-      font-size: 16px;
+    .ov-back-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #f8fafc;
+    }
+    
+    .ov-recovery-title {
+      font-size: 15px;
       font-weight: 600;
       color: #f8fafc;
     }
     
-    .ov-modal-subtitle {
-      font-size: 12px;
-      color: #64748b;
-      margin-top: 2px;
+    .ov-recovery-subtitle {
+      font-size: 11px;
+      color: rgba(148, 163, 184, 0.8);
     }
     
-    .ov-modal-body {
-      padding: 24px;
+    .ov-recovery-body {
+      padding: 16px;
       overflow-y: auto;
       flex: 1;
     }
@@ -709,6 +759,7 @@ function injectStyles() {
       line-height: 1.7;
       white-space: pre-wrap;
       margin-bottom: 12px;
+      padding-right: 70px;
     }
     
     .ov-message-copy {
@@ -852,37 +903,40 @@ function createSidebar() {
     <div id="ov-sidebar-header">
       <div class="ov-header-left">
         <div class="ov-logo-container">
-          <img src="${chrome.runtime.getURL('icon48.png')}" class="ov-logo" alt="Logo">
+          <img src="${chrome.runtime.getURL('icon48.png')}" class="ov-logo" alt="Logo" onerror="this.style.display='none'">
         </div>
         <div>
           <div class="ov-header-title">Origem Viva</div>
           <div class="ov-header-subtitle">Painel de Recuperação</div>
         </div>
       </div>
-      <button class="ov-close-btn" onclick="toggleSidebar()">✕</button>
+      <button class="ov-close-btn" id="ov-close-sidebar">✕</button>
     </div>
     <div id="ov-sidebar-tabs">
-      <button class="ov-tab active" data-tab="lead">Lead Atual</button>
-      <button class="ov-tab" data-tab="today">Hoje</button>
-      <button class="ov-tab" data-tab="history">Histórico</button>
+      <button class="ov-tab active" data-tab="all">Todas</button>
+      <button class="ov-tab" data-tab="lead">Lead Atual</button>
     </div>
     <div id="ov-sidebar-content">
-      <div class="ov-empty">
-        <div class="ov-empty-icon">💬</div>
-        <div class="ov-empty-title">Selecione uma conversa</div>
-        <div class="ov-empty-text">Os dados do lead aparecerão aqui</div>
-      </div>
+      <div class="ov-loading"><div class="ov-spinner"></div><span>Carregando...</span></div>
     </div>
   `;
   
   document.body.appendChild(sidebar);
   
+  // Event listener para fechar
+  document.getElementById('ov-close-sidebar').addEventListener('click', closeSidebar);
+  
   // Event listeners para tabs
   sidebar.querySelectorAll('.ov-tab').forEach(tab => {
     tab.addEventListener('click', () => {
+      if (currentTab === 'recovery') {
+        // Se estiver na aba de recovery, voltar para a tab anterior
+      }
       sidebar.querySelectorAll('.ov-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
-      renderContent(tab.dataset.tab);
+      currentTab = tab.dataset.tab;
+      currentRecoveryTx = null;
+      renderContent();
     });
   });
 }
@@ -900,47 +954,120 @@ function createToggleButton() {
 
 function toggleSidebar() {
   const sidebar = document.getElementById('ov-sidebar');
-  const btn = document.getElementById('ov-toggle-btn');
   
   if (sidebar.classList.contains('hidden')) {
-    sidebar.classList.remove('hidden');
-    btn.classList.add('sidebar-open');
-    sidebarVisible = true;
-    loadRecentTransactions();
-    
-    if (currentPhone) {
-      loadLeadData(currentPhone);
-    }
+    openSidebar();
   } else {
-    sidebar.classList.add('hidden');
-    btn.classList.remove('sidebar-open');
-    sidebarVisible = false;
+    closeSidebar();
   }
 }
+
+function openSidebar() {
+  const sidebar = document.getElementById('ov-sidebar');
+  sidebar.classList.remove('hidden');
+  document.body.classList.add('ov-sidebar-open');
+  sidebarVisible = true;
+  
+  // Carregar dados
+  loadRecentTransactions();
+  
+  if (currentPhone && currentTab === 'lead') {
+    loadLeadData(currentPhone);
+  } else {
+    renderContent();
+  }
+}
+
+function closeSidebar() {
+  const sidebar = document.getElementById('ov-sidebar');
+  sidebar.classList.add('hidden');
+  document.body.classList.remove('ov-sidebar-open');
+  sidebarVisible = false;
+}
+
 window.toggleSidebar = toggleSidebar;
 
 // ========== RENDERIZAÇÃO ==========
-function renderContent(tab) {
+function renderContent() {
   const content = document.getElementById('ov-sidebar-content');
+  const tabsContainer = document.getElementById('ov-sidebar-tabs');
   
-  if (tab === 'lead') {
-    renderLeadContent(content);
-  } else if (tab === 'today') {
-    renderTodayContent(content);
+  // Mostrar/esconder tabs baseado no estado
+  if (currentTab === 'recovery' && currentRecoveryTx) {
+    tabsContainer.style.display = 'none';
+    renderRecoveryView(content);
   } else {
-    renderHistoryContent(content);
+    tabsContainer.style.display = 'flex';
+    if (currentTab === 'all') {
+      renderAllTransactions(content);
+    } else if (currentTab === 'lead') {
+      renderLeadContent(content);
+    }
   }
 }
 
+function renderAllTransactions(container) {
+  if (recentTransactions.length === 0) {
+    container.innerHTML = `
+      <div class="ov-loading"><div class="ov-spinner"></div><span>Carregando transações...</span></div>
+    `;
+    return;
+  }
+  
+  const pendingTxs = recentTransactions.filter(t => ['gerado', 'pendente'].includes(t.status));
+  const paidTxs = recentTransactions.filter(t => t.status === 'pago');
+  
+  container.innerHTML = `
+    ${pendingTxs.length > 0 ? `
+      <div class="ov-section">
+        <div class="ov-section-header">
+          <span class="ov-section-title">🔔 Pendentes</span>
+          <span class="ov-section-count">${pendingTxs.length}</span>
+        </div>
+        <div class="ov-tx-list">
+          ${pendingTxs.slice(0, 20).map(tx => renderPendingCard(tx, true)).join('')}
+        </div>
+      </div>
+    ` : ''}
+    
+    ${paidTxs.length > 0 ? `
+      <div class="ov-section">
+        <div class="ov-section-header">
+          <span class="ov-section-title">✅ Pagas Recentes</span>
+          <span class="ov-section-count">${paidTxs.length}</span>
+        </div>
+        <div class="ov-tx-list">
+          ${paidTxs.slice(0, 10).map(tx => renderSimpleCard(tx, true)).join('')}
+        </div>
+      </div>
+    ` : ''}
+    
+    ${recentTransactions.length === 0 ? `
+      <div class="ov-empty">
+        <div class="ov-empty-icon">📋</div>
+        <div class="ov-empty-title">Nenhuma transação</div>
+        <div class="ov-empty-text">As transações recentes aparecerão aqui</div>
+      </div>
+    ` : ''}
+  `;
+  
+  attachCardListeners(container, recentTransactions);
+}
+
 function renderLeadContent(container) {
-  if (!currentLeadData || !currentPhone) {
+  if (!currentPhone) {
     container.innerHTML = `
       <div class="ov-empty">
         <div class="ov-empty-icon">💬</div>
         <div class="ov-empty-title">Selecione uma conversa</div>
-        <div class="ov-empty-text">Os dados do lead aparecerão aqui</div>
+        <div class="ov-empty-text">Os dados do lead aparecerão aqui quando você abrir uma conversa no WhatsApp</div>
       </div>
     `;
+    return;
+  }
+  
+  if (!currentLeadData) {
+    container.innerHTML = `<div class="ov-loading"><div class="ov-spinner"></div><span>Carregando lead...</span></div>`;
     return;
   }
   
@@ -962,7 +1089,7 @@ function renderLeadContent(container) {
           <div class="ov-lead-name">${customerName}</div>
           <div class="ov-lead-phone">
             ${displayPhone}
-            <button class="ov-copy-phone" onclick="copyToClipboard('${currentPhone}')" title="Copiar">📋</button>
+            <button class="ov-copy-phone" data-copy="${currentPhone}" title="Copiar">📋</button>
           </div>
         </div>
       </div>
@@ -993,7 +1120,7 @@ function renderLeadContent(container) {
           <span class="ov-section-count">${pendingTxs.length} boleto(s)</span>
         </div>
         <div class="ov-tx-list">
-          ${pendingTxs.map(tx => renderPendingCard(tx)).join('')}
+          ${pendingTxs.map(tx => renderPendingCard(tx, false)).join('')}
         </div>
       </div>
     ` : ''}
@@ -1005,7 +1132,7 @@ function renderLeadContent(container) {
           <span class="ov-section-count">${paidTxs.length}</span>
         </div>
         <div class="ov-tx-list">
-          ${paidTxs.slice(0, 5).map(tx => renderSimpleCard(tx)).join('')}
+          ${paidTxs.slice(0, 5).map(tx => renderSimpleCard(tx, false)).join('')}
         </div>
       </div>
     ` : ''}
@@ -1013,18 +1140,230 @@ function renderLeadContent(container) {
     ${transactions.length === 0 && abandoned.length === 0 ? `
       <div class="ov-empty" style="padding: 30px;">
         <div class="ov-empty-title">Sem dados</div>
-        <div class="ov-empty-text">Nenhuma transação encontrada</div>
+        <div class="ov-empty-text">Nenhuma transação encontrada para este lead</div>
       </div>
     ` : ''}
   `;
   
-  // Event listeners
+  // Event listener for copy phone
+  container.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyToClipboard(btn.dataset.copy);
+    });
+  });
+  
+  attachCardListeners(container, transactions);
+}
+
+function renderRecoveryView(container) {
+  const tx = currentRecoveryTx;
+  if (!tx) {
+    currentTab = 'all';
+    renderContent();
+    return;
+  }
+  
+  const templates = currentLeadData?.recoveryTemplates;
+  const blocks = templates?.blocks || [];
+  const customerName = tx.customer_name || 'Cliente';
+  const firstName = customerName.split(' ')[0];
+  const amount = formatCurrency(tx.amount);
+  const barcode = tx.external_id || '';
+  const dueDate = tx.metadata?.due_date || tx.metadata?.vencimento || '-';
+  const boletoUrl = tx.metadata?.boleto_url || tx.metadata?.boletoUrl;
+  const greeting = getGreeting();
+  
+  // Process template blocks
+  const processedBlocks = blocks.map(block => {
+    if (block.type === 'text') {
+      let text = block.content || '';
+      text = text
+        .replace(/{saudação}/gi, greeting)
+        .replace(/{saudacao}/gi, greeting)
+        .replace(/{nome}/gi, customerName)
+        .replace(/{primeiro_nome}/gi, firstName)
+        .replace(/{valor}/gi, amount)
+        .replace(/{vencimento}/gi, dueDate)
+        .replace(/{codigo_barras}/gi, barcode);
+      return { ...block, processedContent: text };
+    }
+    return block;
+  });
+  
+  container.innerHTML = `
+    <div class="ov-recovery-view">
+      <div class="ov-recovery-header">
+        <button class="ov-back-btn" id="ov-back-btn">←</button>
+        <div>
+          <div class="ov-recovery-title">Recuperação de Boleto</div>
+          <div class="ov-recovery-subtitle">Copie as mensagens para enviar ao cliente</div>
+        </div>
+      </div>
+      <div class="ov-recovery-body">
+        <div class="ov-client-section">
+          <div class="ov-client-section-title">Dados do Cliente</div>
+          
+          <div class="ov-client-row">
+            <span class="ov-client-icon">👤</span>
+            <div class="ov-client-content">
+              <div class="ov-client-label">Nome do Cliente</div>
+              <div class="ov-client-value">${customerName}</div>
+            </div>
+            <button class="ov-client-copy-btn" data-copy="${customerName}">📋</button>
+          </div>
+          
+          <div class="ov-client-row">
+            <span class="ov-client-icon">📞</span>
+            <div class="ov-client-content">
+              <div class="ov-client-label">Telefone</div>
+              <div class="ov-client-value mono">${tx.customer_phone || currentPhone || '-'}</div>
+            </div>
+            <button class="ov-client-copy-btn" data-copy="${tx.customer_phone || currentPhone || ''}">📋</button>
+          </div>
+          
+          <div class="ov-client-row">
+            <span class="ov-client-icon">💰</span>
+            <div class="ov-client-content">
+              <div class="ov-client-label">Valor do Boleto</div>
+              <div class="ov-client-value success">${amount}</div>
+            </div>
+            <button class="ov-client-copy-btn" data-copy="${amount}">📋</button>
+          </div>
+          
+          ${barcode ? `
+            <div class="ov-client-row">
+              <span class="ov-client-icon">📊</span>
+              <div class="ov-client-content">
+                <div class="ov-client-label">Código de Barras</div>
+                <div class="ov-client-value mono" style="font-size: 10px; word-break: break-all;">${barcode}</div>
+              </div>
+              <button class="ov-client-copy-btn" data-copy="${barcode}">📋</button>
+            </div>
+          ` : ''}
+        </div>
+        
+        <div class="ov-messages-section">
+          <div class="ov-client-section-title">Mensagens de Recuperação</div>
+          
+          ${processedBlocks.length > 0 ? processedBlocks.map((block, idx) => {
+            if (block.type === 'text') {
+              return `
+                <div class="ov-message-block">
+                  <button class="ov-message-copy" data-text="${encodeURIComponent(block.processedContent)}">📋 Copiar</button>
+                  <div class="ov-message-text">${block.processedContent}</div>
+                </div>
+              `;
+            } else if (block.type === 'pdf' && boletoUrl) {
+              return `
+                <div class="ov-file-block">
+                  <div class="ov-file-icon">📄</div>
+                  <div class="ov-file-info">
+                    <div class="ov-file-name">boleto-${firstName}.pdf</div>
+                    <div class="ov-file-hint">Clique para baixar</div>
+                  </div>
+                  <button class="ov-file-download" data-download-pdf="${boletoUrl}">📥 Baixar PDF</button>
+                </div>
+              `;
+            } else if (block.type === 'image' && boletoUrl) {
+              return `
+                <div class="ov-file-block">
+                  <div class="ov-file-icon">🖼️</div>
+                  <div class="ov-file-info">
+                    <div class="ov-file-name">boleto-${firstName}.jpg</div>
+                    <div class="ov-file-hint">Imagem do boleto</div>
+                  </div>
+                  <button class="ov-file-download" data-download-jpg="${boletoUrl}">📥 Baixar JPG</button>
+                </div>
+              `;
+            }
+            return '';
+          }).join('') : `
+            <div class="ov-message-block">
+              <button class="ov-message-copy" data-text="${encodeURIComponent(generateDefaultMessage(tx))}">📋 Copiar</button>
+              <div class="ov-message-text">${generateDefaultMessage(tx)}</div>
+            </div>
+          `}
+          
+          ${boletoUrl ? `
+            <div class="ov-file-block">
+              <div class="ov-file-icon">📄</div>
+              <div class="ov-file-info">
+                <div class="ov-file-name">Boleto PDF</div>
+                <div class="ov-file-hint">Baixar arquivo original</div>
+              </div>
+              <button class="ov-file-download" data-download-pdf="${boletoUrl}">📥 PDF</button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Event listener para voltar
+  document.getElementById('ov-back-btn').addEventListener('click', () => {
+    currentTab = 'lead';
+    currentRecoveryTx = null;
+    document.getElementById('ov-sidebar-tabs').style.display = 'flex';
+    // Re-activate the lead tab
+    document.querySelectorAll('.ov-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.ov-tab[data-tab="lead"]')?.classList.add('active');
+    renderContent();
+  });
+  
+  // Event listeners para copiar
+  container.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyToClipboard(btn.dataset.copy);
+    });
+  });
+  
+  container.querySelectorAll('.ov-message-copy').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const text = decodeURIComponent(btn.dataset.text);
+      copyToClipboard(text);
+      showToast('Mensagem copiada!');
+    });
+  });
+  
+  // Event listeners para download PDF
+  container.querySelectorAll('[data-download-pdf]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = btn.dataset.downloadPdf;
+      if (url) {
+        downloadFile(url, `boleto-${firstName}.pdf`);
+      }
+    });
+  });
+  
+  // Event listeners para download JPG
+  container.querySelectorAll('[data-download-jpg]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const url = btn.dataset.downloadJpg;
+      if (url) {
+        // Para JPG, simplesmente abre o PDF já que conversão requer mais lógica
+        downloadFile(url, `boleto-${firstName}.pdf`);
+        showToast('Baixando PDF (conversão para JPG não disponível na extensão)');
+      }
+    });
+  });
+}
+
+function attachCardListeners(container, transactions) {
   container.querySelectorAll('[data-action="recovery"]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const txId = btn.dataset.txId;
-      const tx = transactions.find(t => t.id === txId);
-      if (tx) showRecoveryModal(tx);
+      const tx = transactions.find(t => t.id === txId) || recentTransactions.find(t => t.id === txId);
+      if (tx) {
+        currentRecoveryTx = tx;
+        currentTab = 'recovery';
+        renderContent();
+      }
     });
   });
   
@@ -1032,7 +1371,9 @@ function renderLeadContent(container) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const url = btn.dataset.url;
-      if (url) window.open(url, '_blank');
+      if (url) {
+        downloadFile(url, 'boleto.pdf');
+      }
     });
   });
   
@@ -1041,123 +1382,22 @@ function renderLeadContent(container) {
       e.stopPropagation();
       const barcode = btn.dataset.barcode;
       if (barcode) {
-        navigator.clipboard.writeText(barcode);
+        copyToClipboard(barcode);
         showToast('Código de barras copiado!');
       }
     });
   });
 }
 
-function renderTodayContent(container) {
-  if (!currentLeadData) {
-    container.innerHTML = `<div class="ov-empty"><div class="ov-empty-title">Carregue um lead primeiro</div></div>`;
-    return;
-  }
-  
-  const { transactions = [] } = currentLeadData;
-  const today = new Date().toDateString();
-  const todayTxs = transactions.filter(t => new Date(t.created_at).toDateString() === today);
-  
-  if (todayTxs.length === 0) {
-    container.innerHTML = `
-      <div class="ov-empty">
-        <div class="ov-empty-icon">📅</div>
-        <div class="ov-empty-title">Nenhuma transação hoje</div>
-        <div class="ov-empty-text">Este lead não possui transações no dia de hoje</div>
-      </div>
-    `;
-    return;
-  }
-  
-  container.innerHTML = `
-    <div class="ov-section">
-      <div class="ov-section-header">
-        <span class="ov-section-title">📅 Transações de Hoje</span>
-        <span class="ov-section-count">${todayTxs.length}</span>
-      </div>
-      <div class="ov-tx-list">
-        ${todayTxs.map(tx => ['gerado', 'pendente'].includes(tx.status) ? renderPendingCard(tx) : renderSimpleCard(tx)).join('')}
-      </div>
-    </div>
-  `;
-  
-  attachCardListeners(container);
-}
-
-function renderHistoryContent(container) {
-  if (!currentLeadData) {
-    container.innerHTML = `<div class="ov-empty"><div class="ov-empty-title">Carregue um lead primeiro</div></div>`;
-    return;
-  }
-  
-  const { transactions = [] } = currentLeadData;
-  
-  if (transactions.length === 0) {
-    container.innerHTML = `
-      <div class="ov-empty">
-        <div class="ov-empty-icon">📜</div>
-        <div class="ov-empty-title">Sem histórico</div>
-        <div class="ov-empty-text">Este lead não possui transações anteriores</div>
-      </div>
-    `;
-    return;
-  }
-  
-  container.innerHTML = `
-    <div class="ov-section">
-      <div class="ov-section-header">
-        <span class="ov-section-title">📜 Histórico Completo</span>
-        <span class="ov-section-count">${transactions.length} transações</span>
-      </div>
-      <div class="ov-tx-list">
-        ${transactions.map(tx => ['gerado', 'pendente'].includes(tx.status) ? renderPendingCard(tx) : renderSimpleCard(tx)).join('')}
-      </div>
-    </div>
-  `;
-  
-  attachCardListeners(container);
-}
-
-function attachCardListeners(container) {
-  const { transactions = [] } = currentLeadData || {};
-  
-  container.querySelectorAll('[data-action="recovery"]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const txId = btn.dataset.txId;
-      const tx = transactions.find(t => t.id === txId);
-      if (tx) showRecoveryModal(tx);
-    });
-  });
-  
-  container.querySelectorAll('[data-action="download"]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const url = btn.dataset.url;
-      if (url) window.open(url, '_blank');
-    });
-  });
-  
-  container.querySelectorAll('[data-action="copy-barcode"]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const barcode = btn.dataset.barcode;
-      if (barcode) {
-        navigator.clipboard.writeText(barcode);
-        showToast('Código de barras copiado!');
-      }
-    });
-  });
-}
-
-function renderPendingCard(tx) {
+function renderPendingCard(tx, showCustomerInfo = false) {
   const boletoUrl = tx.metadata?.boleto_url || tx.metadata?.boletoUrl;
   const barcode = tx.external_id;
+  const customerName = tx.customer_name || 'Cliente';
   
   return `
     <div class="ov-tx-card ${tx.type}">
       <div class="ov-tx-row">
-        <div class="ov-tx-product">${tx.description || tx.customer_name || 'Boleto'}</div>
+        <div class="ov-tx-product">${showCustomerInfo ? customerName : (tx.description || customerName || 'Boleto')}</div>
         <div class="ov-tx-amount">${formatCurrency(tx.amount)}</div>
       </div>
       <div class="ov-tx-row">
@@ -1190,11 +1430,13 @@ function renderPendingCard(tx) {
   `;
 }
 
-function renderSimpleCard(tx) {
+function renderSimpleCard(tx, showCustomerInfo = false) {
+  const customerName = tx.customer_name || 'Transação';
+  
   return `
     <div class="ov-tx-card ${tx.type}">
       <div class="ov-tx-row">
-        <div class="ov-tx-product">${tx.description || tx.customer_name || 'Transação'}</div>
+        <div class="ov-tx-product">${showCustomerInfo ? customerName : (tx.description || customerName)}</div>
         <div class="ov-tx-amount">${formatCurrency(tx.amount)}</div>
       </div>
       <div class="ov-tx-row">
@@ -1208,152 +1450,17 @@ function renderSimpleCard(tx) {
   `;
 }
 
-// ========== MODAL DE RECUPERAÇÃO ==========
-function showRecoveryModal(tx) {
-  const templates = currentLeadData?.recoveryTemplates;
-  const blocks = templates?.blocks || [];
-  const customerName = tx.customer_name || 'Cliente';
-  const firstName = customerName.split(' ')[0];
-  const amount = formatCurrency(tx.amount);
-  const barcode = tx.external_id || '';
-  const dueDate = tx.metadata?.due_date || tx.metadata?.vencimento || '-';
-  const boletoUrl = tx.metadata?.boleto_url || tx.metadata?.boletoUrl;
-  const greeting = getGreeting();
-  
-  // Process template blocks
-  const processedBlocks = blocks.map(block => {
-    if (block.type === 'text') {
-      let text = block.content || '';
-      text = text
-        .replace(/{saudação}/gi, greeting)
-        .replace(/{saudacao}/gi, greeting)
-        .replace(/{nome}/gi, customerName)
-        .replace(/{primeiro_nome}/gi, firstName)
-        .replace(/{valor}/gi, amount)
-        .replace(/{vencimento}/gi, dueDate)
-        .replace(/{codigo_barras}/gi, barcode);
-      return { ...block, processedContent: text };
-    }
-    return block;
-  });
-  
-  const overlay = document.createElement('div');
-  overlay.className = 'ov-modal-overlay';
-  overlay.onclick = (e) => {
-    if (e.target === overlay) overlay.remove();
-  };
-  
-  overlay.innerHTML = `
-    <div class="ov-modal">
-      <div class="ov-modal-header">
-        <div class="ov-modal-header-left">
-          <div class="ov-modal-icon">📄</div>
-          <div>
-            <div class="ov-modal-title">Recuperação de Boleto</div>
-            <div class="ov-modal-subtitle">Copie as mensagens para enviar ao cliente</div>
-          </div>
-        </div>
-        <button class="ov-close-btn" onclick="this.closest('.ov-modal-overlay').remove()">✕</button>
-      </div>
-      <div class="ov-modal-body">
-        <div class="ov-client-section">
-          <div class="ov-client-section-title">Dados do Cliente</div>
-          
-          <div class="ov-client-row">
-            <span class="ov-client-icon">👤</span>
-            <div class="ov-client-content">
-              <div class="ov-client-label">Nome do Cliente</div>
-              <div class="ov-client-value">${customerName}</div>
-            </div>
-            <button class="ov-client-copy-btn" onclick="copyToClipboard('${customerName}')">📋</button>
-          </div>
-          
-          <div class="ov-client-row">
-            <span class="ov-client-icon">📞</span>
-            <div class="ov-client-content">
-              <div class="ov-client-label">Telefone</div>
-              <div class="ov-client-value mono">${tx.customer_phone || currentPhone || '-'}</div>
-            </div>
-            <button class="ov-client-copy-btn" onclick="copyToClipboard('${tx.customer_phone || currentPhone || ''}')">📋</button>
-          </div>
-          
-          <div class="ov-client-row">
-            <span class="ov-client-icon">💰</span>
-            <div class="ov-client-content">
-              <div class="ov-client-label">Valor do Boleto</div>
-              <div class="ov-client-value success">${amount}</div>
-            </div>
-            <button class="ov-client-copy-btn" onclick="copyToClipboard('${amount}')">📋</button>
-          </div>
-          
-          ${barcode ? `
-            <div class="ov-client-row">
-              <span class="ov-client-icon">📊</span>
-              <div class="ov-client-content">
-                <div class="ov-client-label">Código de Barras</div>
-                <div class="ov-client-value mono" style="font-size: 10px; word-break: break-all;">${barcode}</div>
-              </div>
-              <button class="ov-client-copy-btn" onclick="copyToClipboard('${barcode}')">📋</button>
-            </div>
-          ` : ''}
-        </div>
-        
-        <div class="ov-messages-section">
-          <div class="ov-client-section-title">Mensagens de Recuperação</div>
-          
-          ${processedBlocks.length > 0 ? processedBlocks.map((block, idx) => {
-            if (block.type === 'text') {
-              return `
-                <div class="ov-message-block">
-                  <button class="ov-message-copy" data-text="${encodeURIComponent(block.processedContent)}">📋 Copiar</button>
-                  <div class="ov-message-text">${block.processedContent}</div>
-                </div>
-              `;
-            } else if (block.type === 'pdf' && boletoUrl) {
-              return `
-                <div class="ov-file-block">
-                  <div class="ov-file-icon">📄</div>
-                  <div class="ov-file-info">
-                    <div class="ov-file-name">boleto-${firstName}.pdf</div>
-                    <div class="ov-file-hint">Clique para baixar</div>
-                  </div>
-                  <button class="ov-file-download" onclick="window.open('${boletoUrl}', '_blank')">📥 Baixar</button>
-                </div>
-              `;
-            } else if (block.type === 'image' && boletoUrl) {
-              return `
-                <div class="ov-file-block">
-                  <div class="ov-file-icon">🖼️</div>
-                  <div class="ov-file-info">
-                    <div class="ov-file-name">boleto-${firstName}.jpg</div>
-                    <div class="ov-file-hint">Imagem do boleto</div>
-                  </div>
-                  <button class="ov-file-download" onclick="window.open('${boletoUrl}', '_blank')">📥 Ver</button>
-                </div>
-              `;
-            }
-            return '';
-          }).join('') : `
-            <div class="ov-message-block">
-              <button class="ov-message-copy" data-text="${encodeURIComponent(generateDefaultMessage(tx))}">📋 Copiar</button>
-              <div class="ov-message-text">${generateDefaultMessage(tx)}</div>
-            </div>
-          `}
-        </div>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(overlay);
-  
-  // Event listeners para copiar mensagens
-  overlay.querySelectorAll('.ov-message-copy').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const text = decodeURIComponent(btn.dataset.text);
-      navigator.clipboard.writeText(text);
-      showToast('Mensagem copiada!');
-    });
-  });
+// ========== FUNÇÕES DE DOWNLOAD ==========
+function downloadFile(url, filename) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast('Download iniciado!');
 }
 
 function generateDefaultMessage(tx) {
@@ -1396,11 +1503,12 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 2500);
 }
 
-// Global copy function
-window.copyToClipboard = function(text) {
+function copyToClipboard(text) {
   navigator.clipboard.writeText(text);
   showToast('Copiado!');
-};
+}
+
+window.copyToClipboard = copyToClipboard;
 
 // ========== UTILIDADES ==========
 function formatCurrency(value) {
@@ -1431,6 +1539,9 @@ async function loadRecentTransactions() {
     const response = await fetch(`${API_URL}?action=recent`);
     const data = await response.json();
     recentTransactions = data.transactions || [];
+    if (currentTab === 'all') {
+      renderContent();
+    }
   } catch (error) {
     console.error('[WhatsApp Extension] Erro ao carregar transações:', error);
   }
@@ -1439,25 +1550,29 @@ async function loadRecentTransactions() {
 async function loadLeadData(phone) {
   console.log('[WhatsApp Extension] Carregando dados do lead:', phone);
   
+  // Generate all phone variations for search
+  const variations = generatePhoneVariations(phone);
+  console.log('[WhatsApp Extension] Variações do telefone:', variations);
+  
   const content = document.getElementById('ov-sidebar-content');
-  if (content) {
+  if (content && currentTab === 'lead') {
     content.innerHTML = `<div class="ov-loading"><div class="ov-spinner"></div><span>Carregando lead...</span></div>`;
   }
   
   try {
-    const response = await fetch(`${API_URL}?action=lead&phone=${encodeURIComponent(phone)}`);
+    // Send all variations to the API
+    const phoneParam = variations.join(',');
+    const response = await fetch(`${API_URL}?action=lead&phone=${encodeURIComponent(phoneParam)}`);
     currentLeadData = await response.json();
     
     console.log('[WhatsApp Extension] Dados recebidos:', currentLeadData);
     
-    // Ativa tab de lead
-    document.querySelectorAll('.ov-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('.ov-tab[data-tab="lead"]')?.classList.add('active');
-    
-    renderContent('lead');
+    if (currentTab === 'lead') {
+      renderContent();
+    }
   } catch (error) {
     console.error('[WhatsApp Extension] Erro ao carregar lead:', error);
-    if (content) {
+    if (content && currentTab === 'lead') {
       content.innerHTML = `<div class="ov-empty"><div class="ov-empty-title">Erro ao carregar</div></div>`;
     }
   }
@@ -1521,7 +1636,7 @@ function observeConversationChanges() {
       lastConversationPhone = phone;
       currentPhone = phone;
       
-      if (sidebarVisible) {
+      if (sidebarVisible && currentTab === 'lead') {
         loadLeadData(phone);
       }
     }

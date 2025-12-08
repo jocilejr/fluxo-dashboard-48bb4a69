@@ -6,6 +6,64 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Normaliza telefone para formato mínimo (DDD + 8 dígitos)
+function normalizePhoneForMatching(phone: string): string | null {
+  if (!phone) return null;
+  
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length < 8) return null;
+  
+  // Remove country code 55 if present
+  if (digits.startsWith('55') && digits.length >= 12) {
+    digits = digits.slice(2);
+  }
+  
+  // Remove 9th digit if present (11 digits with 9 as 3rd digit)
+  if (digits.length === 11 && digits[2] === '9') {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  
+  // If still 11 digits, remove the 9
+  if (digits.length === 11) {
+    digits = digits.slice(0, 2) + digits.slice(3);
+  }
+  
+  return digits;
+}
+
+// Gera todas as variações possíveis de um telefone
+function generatePhoneVariations(phone: string): string[] {
+  if (!phone) return [];
+  
+  const normalized = normalizePhoneForMatching(phone);
+  if (!normalized || normalized.length < 8) return [];
+  
+  const variations = new Set<string>();
+  const originalDigits = phone.replace(/\D/g, '');
+  variations.add(originalDigits);
+  variations.add(normalized);
+  
+  // If we have DDD + 8 digits, also generate with the 9th digit
+  if (normalized.length === 10) {
+    const ddd = normalized.slice(0, 2);
+    const number = normalized.slice(2);
+    const with9 = ddd + '9' + number;
+    variations.add(with9);
+    variations.add('55' + normalized);
+    variations.add('55' + with9);
+  }
+  
+  // If 11 digits (with 9th digit), also generate without
+  if (normalized.length === 11 && normalized[2] === '9') {
+    const without9 = normalized.slice(0, 2) + normalized.slice(3);
+    variations.add(without9);
+    variations.add('55' + without9);
+    variations.add('55' + normalized);
+  }
+  
+  return Array.from(variations);
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -19,9 +77,9 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
-    const phone = url.searchParams.get('phone');
+    const phoneParam = url.searchParams.get('phone');
 
-    console.log('[WhatsApp Dashboard] Action:', action, 'Phone:', phone);
+    console.log('[WhatsApp Dashboard] Action:', action, 'Phone:', phoneParam);
 
     // Busca transações recentes
     if (action === 'recent') {
@@ -39,40 +97,77 @@ serve(async (req) => {
     }
 
     // Busca dados de um lead específico por telefone
-    if (action === 'lead' && phone) {
-      // Normaliza o telefone para busca
-      const cleanPhone = phone.replace(/\D/g, '');
+    if (action === 'lead' && phoneParam) {
+      // Pode receber múltiplos telefones separados por vírgula
+      const phones = phoneParam.split(',').map(p => p.trim()).filter(Boolean);
       
-      // Busca todas as variações possíveis do telefone
-      const phoneVariations = [
-        cleanPhone,
-        cleanPhone.startsWith('55') ? cleanPhone.slice(2) : `55${cleanPhone}`,
-      ];
+      // Gera todas as variações possíveis de todos os telefones
+      const allVariations = new Set<string>();
+      for (const phone of phones) {
+        const variations = generatePhoneVariations(phone);
+        variations.forEach(v => allVariations.add(v));
+      }
+      
+      const phoneVariations = Array.from(allVariations);
+      console.log('[WhatsApp Dashboard] Phone variations:', phoneVariations);
+
+      if (phoneVariations.length === 0) {
+        return new Response(JSON.stringify({ 
+          transactions: [],
+          abandoned: [],
+          customer: null,
+          recoveryTemplates: null,
+          pixCardSettings: null,
+          abandonedSettings: null
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Cria filtros OR para todas as variações
+      const phoneFilters = phoneVariations.map(p => {
+        // Busca exata e parcial (para cobrir casos com/sem código de país)
+        return `normalized_phone.eq.${p},normalized_phone.ilike.%${p}%,customer_phone.ilike.%${p}%`;
+      }).join(',');
 
       // Busca transações
       const { data: transactions, error: txError } = await supabase
         .from('transactions')
         .select('*')
-        .or(phoneVariations.map(p => `normalized_phone.ilike.%${p}%`).join(','))
+        .or(phoneFilters)
         .order('created_at', { ascending: false });
 
-      if (txError) throw txError;
+      if (txError) {
+        console.error('[WhatsApp Dashboard] Transactions error:', txError);
+        throw txError;
+      }
 
       // Busca abandonos
       const { data: abandoned, error: abError } = await supabase
         .from('abandoned_events')
         .select('*')
-        .or(phoneVariations.map(p => `normalized_phone.ilike.%${p}%`).join(','))
+        .or(phoneFilters)
         .order('created_at', { ascending: false });
 
-      if (abError) throw abError;
+      if (abError) {
+        console.error('[WhatsApp Dashboard] Abandoned error:', abError);
+        throw abError;
+      }
 
-      // Busca customer
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('*')
-        .or(phoneVariations.map(p => `normalized_phone.ilike.%${p}%`).join(','))
-        .maybeSingle();
+      // Busca customer - tenta todas as variações
+      let customer = null;
+      for (const variation of phoneVariations) {
+        const { data: customerData } = await supabase
+          .from('customers')
+          .select('*')
+          .or(`normalized_phone.eq.${variation},normalized_phone.ilike.%${variation}%`)
+          .maybeSingle();
+        
+        if (customerData) {
+          customer = customerData;
+          break;
+        }
+      }
 
       // Busca templates de recuperação de boleto
       const { data: recoveryTemplates } = await supabase
@@ -92,6 +187,12 @@ serve(async (req) => {
         .from('abandoned_recovery_settings')
         .select('*')
         .maybeSingle();
+
+      console.log('[WhatsApp Dashboard] Found:', {
+        transactions: transactions?.length || 0,
+        abandoned: abandoned?.length || 0,
+        customer: customer ? 'yes' : 'no'
+      });
 
       return new Response(JSON.stringify({ 
         transactions: transactions || [],
