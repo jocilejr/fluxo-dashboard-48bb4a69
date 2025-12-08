@@ -70,13 +70,14 @@ function formatDisplayPhone(phone) {
   return phone;
 }
 
-// ========== CSS - PROFESSIONAL DESIGN (NO CSS VARIABLES) ==========
+// ========== CSS - PROFESSIONAL DESIGN v1.3.2 ==========
 function injectStyles() {
-  const oldStyle = document.getElementById('ov-styles');
-  if (oldStyle) oldStyle.remove();
+  // Force remove any old styles
+  document.querySelectorAll('#ov-styles, style[data-ov]').forEach(s => s.remove());
   
   const style = document.createElement('style');
   style.id = 'ov-styles';
+  style.setAttribute('data-ov', 'v1.3.2');
   style.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
