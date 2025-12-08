@@ -32,16 +32,15 @@ function injectStyles() {
       position: fixed;
       top: 0;
       right: 0;
-      width: 380px;
+      width: 340px;
       height: 100vh;
-      background: #111827;
-      border-left: 1px solid #374151;
+      background: #0b141a;
+      border-left: 1px solid #233138;
       z-index: 99999;
       display: flex;
       flex-direction: column;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      transition: transform 0.3s ease;
-      box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+      font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+      transition: transform 0.25s ease;
     }
     
     #ov-sidebar.hidden {
@@ -49,9 +48,9 @@ function injectStyles() {
     }
     
     #ov-sidebar-header {
-      padding: 16px;
-      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-      border-bottom: 1px solid #374151;
+      padding: 14px 16px;
+      background: #111b21;
+      border-bottom: 1px solid #233138;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -59,97 +58,103 @@ function injectStyles() {
     
     #ov-sidebar-header h2 {
       margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #f9fafb;
+      font-size: 15px;
+      font-weight: 500;
+      color: #e9edef;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
     
-    #ov-sidebar-header h2::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      background: #10b981;
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+    .ov-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
     }
     
     .ov-close-btn {
       background: none;
       border: none;
-      color: #9ca3af;
+      color: #8696a0;
       cursor: pointer;
-      padding: 4px;
-      font-size: 20px;
+      padding: 6px;
+      font-size: 18px;
       line-height: 1;
+      border-radius: 50%;
+      transition: background 0.2s;
     }
     
     .ov-close-btn:hover {
-      color: #f9fafb;
+      background: rgba(255,255,255,0.1);
+      color: #e9edef;
     }
     
     #ov-sidebar-tabs {
       display: flex;
-      border-bottom: 1px solid #374151;
-      background: #1f2937;
+      background: #111b21;
     }
     
     .ov-tab {
       flex: 1;
-      padding: 12px;
+      padding: 12px 8px;
       background: none;
       border: none;
-      color: #9ca3af;
+      color: #8696a0;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 400;
       cursor: pointer;
       border-bottom: 2px solid transparent;
       transition: all 0.2s;
     }
     
     .ov-tab.active {
-      color: #10b981;
-      border-bottom-color: #10b981;
-      background: rgba(16, 185, 129, 0.1);
+      color: #00a884;
+      border-bottom-color: #00a884;
     }
     
     .ov-tab:hover:not(.active) {
-      color: #f9fafb;
-      background: rgba(255,255,255,0.05);
+      color: #e9edef;
     }
     
     #ov-sidebar-content {
       flex: 1;
       overflow-y: auto;
       padding: 12px;
+      background: #0b141a;
+    }
+    
+    #ov-sidebar-content::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #ov-sidebar-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    #ov-sidebar-content::-webkit-scrollbar-thumb {
+      background: #374045;
+      border-radius: 3px;
     }
     
     .ov-lead-info {
-      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-      border: 1px solid #374151;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
+      background: #111b21;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 12px;
     }
     
     .ov-lead-name {
-      font-size: 18px;
-      font-weight: 600;
-      color: #f9fafb;
-      margin-bottom: 4px;
+      font-size: 16px;
+      font-weight: 500;
+      color: #e9edef;
+      margin-bottom: 2px;
     }
     
     .ov-lead-phone {
-      font-size: 13px;
-      color: #9ca3af;
-      margin-bottom: 12px;
+      font-size: 12px;
+      color: #8696a0;
+      margin-bottom: 14px;
+      font-family: monospace;
     }
     
     .ov-lead-stats {
@@ -159,78 +164,95 @@ function injectStyles() {
     }
     
     .ov-stat {
-      background: rgba(255,255,255,0.05);
+      background: #1f2c33;
       border-radius: 8px;
-      padding: 10px;
+      padding: 12px 10px;
       text-align: center;
     }
     
     .ov-stat-value {
-      font-size: 18px;
-      font-weight: 700;
-      color: #10b981;
+      font-size: 16px;
+      font-weight: 600;
+      color: #00a884;
     }
     
     .ov-stat-value.pending {
-      color: #f59e0b;
+      color: #ffc107;
     }
     
     .ov-stat-value.abandoned {
-      color: #ef4444;
+      color: #ea4335;
     }
     
     .ov-stat-label {
-      font-size: 11px;
-      color: #9ca3af;
-      margin-top: 2px;
+      font-size: 10px;
+      color: #8696a0;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
     
     .ov-section-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: #9ca3af;
+      font-size: 11px;
+      font-weight: 500;
+      color: #00a884;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
+      margin: 16px 0 8px;
+      padding-left: 4px;
     }
     
     .ov-tx-list {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
     
     .ov-tx-card {
-      background: #1f2937;
-      border: 1px solid #374151;
-      border-radius: 10px;
+      background: #111b21;
+      border-radius: 8px;
       padding: 12px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.15s;
+      border-left: 3px solid transparent;
     }
     
     .ov-tx-card:hover {
-      border-color: #10b981;
-      transform: translateY(-1px);
+      background: #1f2c33;
     }
     
     .ov-tx-card.boleto {
-      border-left: 3px solid #f59e0b;
+      border-left-color: #ffc107;
     }
     
     .ov-tx-card.pix {
-      border-left: 3px solid #10b981;
+      border-left-color: #00a884;
     }
     
     .ov-tx-card.cartao {
-      border-left: 3px solid #8b5cf6;
+      border-left-color: #8b5cf6;
     }
     
     .ov-tx-card.abandoned {
-      border-left: 3px solid #ef4444;
+      border-left-color: #ea4335;
+    }
+    
+    .ov-tx-card.recoverable {
+      position: relative;
+    }
+    
+    .ov-tx-card.recoverable::after {
+      content: '💬';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      opacity: 0.6;
+    }
+    
+    .ov-tx-card.recoverable:hover::after {
+      opacity: 1;
     }
     
     .ov-tx-header {
@@ -241,19 +263,19 @@ function injectStyles() {
     }
     
     .ov-tx-name {
-      font-size: 14px;
-      font-weight: 500;
-      color: #f9fafb;
-      max-width: 180px;
+      font-size: 13px;
+      font-weight: 400;
+      color: #e9edef;
+      max-width: 150px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     
     .ov-tx-amount {
-      font-size: 14px;
-      font-weight: 700;
-      color: #10b981;
+      font-size: 13px;
+      font-weight: 600;
+      color: #00a884;
     }
     
     .ov-tx-meta {
@@ -262,36 +284,43 @@ function injectStyles() {
       align-items: center;
     }
     
-    .ov-tx-type {
-      font-size: 11px;
+    .ov-tx-badge {
+      font-size: 10px;
       padding: 2px 6px;
       border-radius: 4px;
       text-transform: uppercase;
-      font-weight: 600;
+      font-weight: 500;
+      letter-spacing: 0.2px;
     }
     
-    .ov-tx-type.gerado { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
-    .ov-tx-type.pendente { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
-    .ov-tx-type.pago { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-    .ov-tx-type.cancelado { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
-    .ov-tx-type.expirado { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
-    .ov-tx-type.abandoned { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .ov-tx-badge.gerado { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+    .ov-tx-badge.pendente { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+    .ov-tx-badge.pago { background: rgba(0, 168, 132, 0.15); color: #00a884; }
+    .ov-tx-badge.cancelado { background: rgba(234, 67, 53, 0.15); color: #ea4335; }
+    .ov-tx-badge.expirado { background: rgba(134, 150, 160, 0.15); color: #8696a0; }
+    .ov-tx-badge.abandoned { background: rgba(234, 67, 53, 0.15); color: #ea4335; }
     
     .ov-tx-date {
       font-size: 11px;
-      color: #6b7280;
+      color: #667781;
     }
     
     .ov-empty {
       text-align: center;
-      padding: 40px 20px;
-      color: #6b7280;
+      padding: 50px 24px;
+      color: #8696a0;
     }
     
     .ov-empty-icon {
-      font-size: 48px;
-      margin-bottom: 12px;
-      opacity: 0.5;
+      font-size: 40px;
+      margin-bottom: 14px;
+      opacity: 0.4;
+    }
+    
+    .ov-empty p {
+      font-size: 13px;
+      margin: 0;
+      line-height: 1.5;
     }
     
     .ov-toggle-btn {
@@ -299,9 +328,9 @@ function injectStyles() {
       top: 50%;
       right: 0;
       transform: translateY(-50%);
-      width: 32px;
-      height: 80px;
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      width: 28px;
+      height: 72px;
+      background: #00a884;
       border: none;
       border-radius: 8px 0 0 8px;
       cursor: pointer;
@@ -309,23 +338,22 @@ function injectStyles() {
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: -2px 0 10px rgba(0,0,0,0.3);
       transition: all 0.2s;
     }
     
     .ov-toggle-btn:hover {
-      width: 40px;
-      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      width: 34px;
+      background: #00d9a5;
     }
     
     .ov-toggle-btn svg {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       fill: white;
     }
     
     .ov-toggle-btn.sidebar-open {
-      right: 380px;
+      right: 340px;
     }
     
     /* Modal de recuperação */
@@ -335,51 +363,69 @@ function injectStyles() {
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(11, 20, 26, 0.85);
       z-index: 100000;
       display: flex;
       align-items: center;
       justify-content: center;
+      backdrop-filter: blur(2px);
     }
     
     .ov-modal {
-      background: #1f2937;
-      border-radius: 16px;
+      background: #111b21;
+      border-radius: 12px;
       width: 90%;
-      max-width: 500px;
-      max-height: 80vh;
+      max-width: 420px;
+      max-height: 75vh;
       overflow-y: auto;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      border: 1px solid #233138;
     }
     
     .ov-modal-header {
-      padding: 20px;
-      border-bottom: 1px solid #374151;
+      padding: 16px;
+      border-bottom: 1px solid #233138;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      position: sticky;
+      top: 0;
+      background: #111b21;
     }
     
     .ov-modal-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #f9fafb;
+      font-size: 15px;
+      font-weight: 500;
+      color: #e9edef;
     }
     
     .ov-modal-body {
-      padding: 20px;
+      padding: 16px;
+    }
+    
+    .ov-tx-info-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #233138;
+    }
+    
+    .ov-tx-info-row .ov-tx-name {
+      max-width: none;
+      flex: 1;
     }
     
     .ov-recovery-message {
-      background: #111827;
-      border: 1px solid #374151;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
+      background: #1f2c33;
+      border: 1px solid #233138;
+      border-radius: 8px;
+      padding: 14px;
       white-space: pre-wrap;
-      font-size: 14px;
-      color: #e5e7eb;
+      font-size: 13px;
+      color: #e9edef;
       line-height: 1.6;
+      margin-bottom: 14px;
     }
     
     .ov-btn {
@@ -387,56 +433,42 @@ function injectStyles() {
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 12px 20px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
       border: none;
-      transition: all 0.2s;
+      transition: all 0.15s;
+      width: 100%;
     }
     
     .ov-btn-primary {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: white;
+      background: #00a884;
+      color: #111b21;
     }
     
     .ov-btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-    }
-    
-    .ov-btn-secondary {
-      background: #374151;
-      color: #f9fafb;
-    }
-    
-    .ov-btn-secondary:hover {
-      background: #4b5563;
-    }
-    
-    .ov-btn-group {
-      display: flex;
-      gap: 12px;
-      margin-top: 16px;
+      background: #00d9a5;
     }
     
     .ov-loading {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px;
-      color: #9ca3af;
+      padding: 50px;
+      color: #8696a0;
+      gap: 14px;
     }
     
     .ov-spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid #374151;
-      border-top-color: #10b981;
+      width: 28px;
+      height: 28px;
+      border: 2px solid #233138;
+      border-top-color: #00a884;
       border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-right: 12px;
+      animation: spin 0.8s linear infinite;
     }
     
     @keyframes spin {
@@ -445,22 +477,32 @@ function injectStyles() {
     
     .ov-toast {
       position: fixed;
-      bottom: 20px;
+      bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
-      background: #10b981;
-      color: white;
-      padding: 12px 24px;
-      border-radius: 10px;
-      font-size: 14px;
+      background: #00a884;
+      color: #111b21;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
       font-weight: 500;
       z-index: 100001;
-      animation: slideUp 0.3s ease;
+      animation: toastIn 0.25s ease;
     }
     
-    @keyframes slideUp {
-      from { opacity: 0; transform: translate(-50%, 20px); }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translate(-50%, 16px); }
       to { opacity: 1; transform: translate(-50%, 0); }
+    }
+    
+    .ov-phone-debug {
+      background: #1f2c33;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+      font-size: 11px;
+      color: #667781;
+      font-family: monospace;
     }
   `;
   document.head.appendChild(styles);
@@ -475,8 +517,11 @@ function createSidebar() {
   sidebar.className = 'hidden';
   sidebar.innerHTML = `
     <div id="ov-sidebar-header">
-      <h2>Origem Viva</h2>
-      <button class="ov-close-btn" onclick="toggleSidebar()">×</button>
+      <h2>
+        <img src="${chrome.runtime.getURL('icon48.png')}" class="ov-logo" alt="Logo">
+        Origem Viva
+      </h2>
+      <button class="ov-close-btn" onclick="toggleSidebar()">✕</button>
     </div>
     <div id="ov-sidebar-tabs">
       <button class="ov-tab active" data-tab="lead">Lead Atual</button>
@@ -484,8 +529,8 @@ function createSidebar() {
     </div>
     <div id="ov-sidebar-content">
       <div class="ov-empty">
-        <div class="ov-empty-icon">📱</div>
-        <p>Abra uma conversa para ver informações do lead</p>
+        <div class="ov-empty-icon">💬</div>
+        <p>Selecione uma conversa<br>para ver dados do lead</p>
       </div>
     </div>
   `;
@@ -522,6 +567,11 @@ function toggleSidebar() {
     btn.classList.add('sidebar-open');
     sidebarVisible = true;
     loadRecentTransactions();
+    
+    // Carrega lead atual se já houver um telefone detectado
+    if (currentPhone) {
+      loadLeadData(currentPhone);
+    }
   } else {
     sidebar.classList.add('hidden');
     btn.classList.remove('sidebar-open');
@@ -542,24 +592,27 @@ function renderContent(tab) {
 }
 
 function renderLeadContent(container) {
-  if (!currentLeadData) {
+  if (!currentLeadData || !currentPhone) {
     container.innerHTML = `
       <div class="ov-empty">
-        <div class="ov-empty-icon">📱</div>
-        <p>Abra uma conversa para ver informações do lead</p>
+        <div class="ov-empty-icon">💬</div>
+        <p>Selecione uma conversa<br>para ver dados do lead</p>
       </div>
     `;
     return;
   }
   
-  const { customer, transactions, abandoned } = currentLeadData;
-  const totalPaid = transactions.filter(t => t.status === 'pago').reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalPending = transactions.filter(t => ['gerado', 'pendente'].includes(t.status)).reduce((sum, t) => sum + Number(t.amount), 0);
+  const { customer, transactions = [], abandoned = [] } = currentLeadData;
+  const totalPaid = transactions.filter(t => t.status === 'pago').reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const totalPending = transactions.filter(t => ['gerado', 'pendente'].includes(t.status)).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  
+  const displayPhone = formatDisplayPhone(currentPhone);
+  const customerName = customer?.name || transactions[0]?.customer_name || abandoned[0]?.customer_name || 'Lead';
   
   container.innerHTML = `
     <div class="ov-lead-info">
-      <div class="ov-lead-name">${customer?.name || 'Lead sem nome'}</div>
-      <div class="ov-lead-phone">${currentPhone}</div>
+      <div class="ov-lead-name">${customerName}</div>
+      <div class="ov-lead-phone">${displayPhone}</div>
       <div class="ov-lead-stats">
         <div class="ov-stat">
           <div class="ov-stat-value">${formatCurrency(totalPaid)}</div>
@@ -581,21 +634,27 @@ function renderLeadContent(container) {
     </div>
     
     ${transactions.length > 0 ? `
-      <div class="ov-section-title">📊 Transações</div>
+      <div class="ov-section-title">Transações</div>
       <div class="ov-tx-list">
         ${transactions.map(tx => renderTransactionCard(tx, false)).join('')}
       </div>
     ` : ''}
     
     ${abandoned.length > 0 ? `
-      <div class="ov-section-title" style="margin-top: 16px;">⚠️ Abandonos</div>
+      <div class="ov-section-title">Abandonos</div>
       <div class="ov-tx-list">
         ${abandoned.map(ab => renderAbandonedCard(ab)).join('')}
       </div>
     ` : ''}
+    
+    ${transactions.length === 0 && abandoned.length === 0 ? `
+      <div class="ov-empty" style="padding: 30px;">
+        <p>Nenhum dado encontrado para este lead</p>
+      </div>
+    ` : ''}
   `;
   
-  // Adiciona event listeners
+  // Adiciona event listeners para cards recuperáveis
   container.querySelectorAll('.ov-tx-card[data-tx-id]').forEach(card => {
     card.addEventListener('click', () => {
       const txId = card.dataset.txId;
@@ -609,12 +668,12 @@ function renderLeadContent(container) {
 
 function renderRecentContent(container) {
   if (recentTransactions.length === 0) {
-    container.innerHTML = `<div class="ov-loading"><div class="ov-spinner"></div>Carregando...</div>`;
+    container.innerHTML = `<div class="ov-loading"><div class="ov-spinner"></div><span>Carregando...</span></div>`;
     return;
   }
   
   container.innerHTML = `
-    <div class="ov-section-title">📋 Transações Recentes</div>
+    <div class="ov-section-title">Últimas 50 Transações</div>
     <div class="ov-tx-list">
       ${recentTransactions.map(tx => renderTransactionCard(tx, true)).join('')}
     </div>
@@ -636,13 +695,15 @@ function renderTransactionCard(tx, showPhone = false) {
   const isRecoverable = ['gerado', 'pendente'].includes(tx.status);
   
   return `
-    <div class="ov-tx-card ${typeClass}" data-tx-id="${tx.id}" ${showPhone && tx.customer_phone ? `data-phone="${tx.customer_phone}"` : ''} style="${isRecoverable ? 'cursor: pointer' : ''}">
+    <div class="ov-tx-card ${typeClass} ${isRecoverable ? 'recoverable' : ''}" 
+         data-tx-id="${tx.id}" 
+         ${showPhone && tx.customer_phone ? `data-phone="${tx.customer_phone}"` : ''}>
       <div class="ov-tx-header">
         <div class="ov-tx-name">${tx.customer_name || 'Sem nome'}</div>
         <div class="ov-tx-amount">${formatCurrency(tx.amount)}</div>
       </div>
       <div class="ov-tx-meta">
-        <span class="ov-tx-type ${statusClass}">${tx.type} • ${tx.status}</span>
+        <span class="ov-tx-badge ${statusClass}">${tx.type} · ${tx.status}</span>
         <span class="ov-tx-date">${formatDate(tx.created_at)}</span>
       </div>
     </div>
@@ -657,7 +718,7 @@ function renderAbandonedCard(ab) {
         <div class="ov-tx-amount">${ab.amount ? formatCurrency(ab.amount) : '-'}</div>
       </div>
       <div class="ov-tx-meta">
-        <span class="ov-tx-type abandoned">${ab.event_type}</span>
+        <span class="ov-tx-badge abandoned">${ab.event_type || 'abandono'}</span>
         <span class="ov-tx-date">${formatDate(ab.created_at)}</span>
       </div>
     </div>
@@ -677,19 +738,19 @@ function showRecoveryModal(tx) {
   overlay.innerHTML = `
     <div class="ov-modal">
       <div class="ov-modal-header">
-        <span class="ov-modal-title">💬 Recuperação de ${tx.type.toUpperCase()}</span>
-        <button class="ov-close-btn" onclick="this.closest('.ov-modal-overlay').remove()">×</button>
+        <span class="ov-modal-title">Recuperação de ${tx.type.toUpperCase()}</span>
+        <button class="ov-close-btn" onclick="this.closest('.ov-modal-overlay').remove()">✕</button>
       </div>
       <div class="ov-modal-body">
-        <div style="margin-bottom: 12px; color: #9ca3af; font-size: 13px;">
-          ${tx.customer_name || 'Lead'} • ${formatCurrency(tx.amount)} • ${tx.status}
+        <div class="ov-tx-info-row">
+          <span class="ov-tx-name">${tx.customer_name || 'Lead'}</span>
+          <span class="ov-tx-badge ${tx.status}">${tx.status}</span>
+          <span class="ov-tx-amount">${formatCurrency(tx.amount)}</span>
         </div>
         <div class="ov-recovery-message">${message}</div>
-        <div class="ov-btn-group">
-          <button class="ov-btn ov-btn-primary" id="ov-copy-msg">
-            📋 Copiar Mensagem
-          </button>
-        </div>
+        <button class="ov-btn ov-btn-primary" id="ov-copy-msg">
+          📋 Copiar Mensagem
+        </button>
       </div>
     </div>
   `;
@@ -746,7 +807,7 @@ function showToast(message) {
   toast.textContent = message;
   document.body.appendChild(toast);
   
-  setTimeout(() => toast.remove(), 3000);
+  setTimeout(() => toast.remove(), 2500);
 }
 
 // ========== UTILIDADES ==========
@@ -755,8 +816,21 @@ function formatCurrency(value) {
 }
 
 function formatDate(dateStr) {
+  if (!dateStr) return '';
   const date = new Date(dateStr);
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatDisplayPhone(phone) {
+  if (!phone) return '';
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 13 && cleaned.startsWith('55')) {
+    return `+${cleaned.slice(0,2)} ${cleaned.slice(2,4)} ${cleaned.slice(4,9)}-${cleaned.slice(9)}`;
+  }
+  if (cleaned.length === 12 && cleaned.startsWith('55')) {
+    return `+${cleaned.slice(0,2)} ${cleaned.slice(2,4)} ${cleaned.slice(4,8)}-${cleaned.slice(8)}`;
+  }
+  return phone;
 }
 
 // ========== API ==========
@@ -780,12 +854,14 @@ async function loadLeadData(phone) {
   
   const content = document.getElementById('ov-sidebar-content');
   if (content) {
-    content.innerHTML = `<div class="ov-loading"><div class="ov-spinner"></div>Carregando...</div>`;
+    content.innerHTML = `<div class="ov-loading"><div class="ov-spinner"></div><span>Carregando lead...</span></div>`;
   }
   
   try {
     const response = await fetch(`${API_URL}?action=lead&phone=${encodeURIComponent(phone)}`);
     currentLeadData = await response.json();
+    
+    console.log('[WhatsApp Extension] Dados recebidos:', currentLeadData);
     
     // Ativa tab de lead
     document.querySelectorAll('.ov-tab').forEach(t => t.classList.remove('active'));
@@ -802,33 +878,70 @@ async function loadLeadData(phone) {
 
 // ========== DETECÇÃO DE CONVERSA ==========
 function extractPhoneFromConversation() {
-  // Tenta extrair o telefone do header da conversa
-  const headerEl = document.querySelector('[data-testid="conversation-header"]') 
-    || document.querySelector('header._amid');
-  
-  if (!headerEl) return null;
-  
-  // Procura o título com o nome/número
-  const titleEl = headerEl.querySelector('[data-testid="conversation-info-header-chat-title"]')
-    || headerEl.querySelector('._amig span')
-    || headerEl.querySelector('span[title]');
-  
-  if (!titleEl) return null;
-  
-  const text = titleEl.textContent || titleEl.getAttribute('title') || '';
-  
-  // Se for um número de telefone
-  const phoneMatch = text.match(/[\d\s\-\+\(\)]{10,}/);
-  if (phoneMatch) {
-    return phoneMatch[0].replace(/\D/g, '');
+  // Método 1: Tenta pegar do header da conversa (span com título)
+  const headerSpans = document.querySelectorAll('header span[title], header span[dir="auto"]');
+  for (const span of headerSpans) {
+    const text = span.getAttribute('title') || span.textContent || '';
+    const phone = extractPhoneFromText(text);
+    if (phone) {
+      console.log('[WhatsApp Extension] Telefone encontrado no header:', phone);
+      return phone;
+    }
   }
   
-  // Se for um nome, tenta pegar do data-jid ou outro atributo
-  const chatEl = document.querySelector('[data-testid="conversation-panel-wrapper"]');
-  const jid = chatEl?.querySelector('[data-jid]')?.getAttribute('data-jid');
-  if (jid) {
-    const phone = jid.split('@')[0];
-    if (/^\d+$/.test(phone)) return phone;
+  // Método 2: Tenta o seletor específico do WhatsApp
+  const conversationTitle = document.querySelector('[data-testid="conversation-info-header-chat-title"]');
+  if (conversationTitle) {
+    const text = conversationTitle.textContent || '';
+    const phone = extractPhoneFromText(text);
+    if (phone) {
+      console.log('[WhatsApp Extension] Telefone do título:', phone);
+      return phone;
+    }
+  }
+  
+  // Método 3: Procura em qualquer elemento com data-jid
+  const jidElements = document.querySelectorAll('[data-jid]');
+  for (const el of jidElements) {
+    const jid = el.getAttribute('data-jid');
+    if (jid && jid.includes('@')) {
+      const phone = jid.split('@')[0];
+      if (/^\d{10,15}$/.test(phone)) {
+        console.log('[WhatsApp Extension] Telefone do JID:', phone);
+        return phone;
+      }
+    }
+  }
+  
+  // Método 4: URL da página
+  const urlMatch = window.location.href.match(/phone=(\d+)/);
+  if (urlMatch) {
+    console.log('[WhatsApp Extension] Telefone da URL:', urlMatch[1]);
+    return urlMatch[1];
+  }
+  
+  return null;
+}
+
+function extractPhoneFromText(text) {
+  if (!text) return null;
+  
+  // Remove caracteres de formatação e extrai números
+  const cleaned = text.replace(/[\s\-\(\)\.]/g, '');
+  
+  // Padrão brasileiro: +55 XX XXXXX-XXXX ou variações
+  const patterns = [
+    /\+?55\d{10,11}/,        // +5511999999999 ou 5511999999999
+    /\d{12,13}/,              // 5511999999999 sem +
+    /\+\d{10,15}/,            // Qualquer número internacional
+  ];
+  
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (match) {
+      let phone = match[0].replace(/^\+/, '');
+      return phone;
+    }
   }
   
   return null;
@@ -841,6 +954,7 @@ function observeConversationChanges() {
     const phone = extractPhoneFromConversation();
     
     if (phone && phone !== lastConversationPhone) {
+      console.log('[WhatsApp Extension] Conversa mudou para:', phone);
       lastConversationPhone = phone;
       currentPhone = phone;
       
@@ -850,20 +964,23 @@ function observeConversationChanges() {
     }
   };
   
-  // Observa mudanças no DOM para detectar troca de conversa
+  // Verifica periodicamente (mais confiável que MutationObserver para WhatsApp)
+  setInterval(checkConversation, 1000);
+  
+  // Também observa mudanças no DOM
   const observer = new MutationObserver(() => {
-    checkConversation();
+    setTimeout(checkConversation, 200);
   });
   
-  // Inicia observação quando o main aparecer
-  const waitForMain = setInterval(() => {
-    const main = document.querySelector('#main') || document.querySelector('[data-testid="conversation-panel-wrapper"]');
-    if (main) {
-      clearInterval(waitForMain);
-      observer.observe(main, { childList: true, subtree: true });
+  // Inicia observação quando o app aparecer
+  const waitForApp = setInterval(() => {
+    const app = document.querySelector('#app, [data-testid="chat-list"]');
+    if (app) {
+      clearInterval(waitForApp);
+      observer.observe(document.body, { childList: true, subtree: true });
       checkConversation();
     }
-  }, 1000);
+  }, 500);
 }
 
 // ========== FUNÇÕES ORIGINAIS (mantidas) ==========
@@ -1039,5 +1156,5 @@ setInterval(() => {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
-  setTimeout(init, 2000); // Aguarda WhatsApp carregar
+  init();
 }
