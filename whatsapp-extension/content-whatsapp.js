@@ -1,863 +1,489 @@
 // Content Script - WhatsApp Web
-// Executa ações na interface do WhatsApp + Mini Dashboard Corporativo Premium
+// Dashboard Premium + Recuperação de Leads
 
-console.log('[WhatsApp Extension] Content script carregado');
+console.log('[OV] Content script carregado');
 
-// ========== CONFIGURAÇÃO ==========
+// ========== CONFIG ==========
 const API_URL = 'https://suaznqybxvborpkrtdpm.supabase.co/functions/v1/whatsapp-dashboard';
-const SIDEBAR_WIDTH = 360;
+const SIDEBAR_WIDTH = 340;
 
-// ========== ESTADO GLOBAL ==========
+// ========== STATE ==========
 let currentPhone = null;
 let sidebarVisible = false;
 let currentLeadData = null;
 
-// Registra no background
-chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' }, (response) => {
+// Register with background
+chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' }, () => {
   if (chrome.runtime.lastError) {
-    console.error('[WhatsApp Extension] Erro ao registrar:', chrome.runtime.lastError);
-  } else {
-    console.log('[WhatsApp Extension] Registrado no background');
+    console.error('[OV] Erro ao registrar:', chrome.runtime.lastError);
   }
 });
 
-// ========== NORMALIZAÇÃO DE TELEFONE ==========
-function normalizePhoneForMatching(phone) {
-  if (!phone) return null;
-  
-  let digits = phone.replace(/\D/g, '');
-  if (digits.length < 8) return null;
-  
-  // Remove código do país se presente
-  if (digits.startsWith('55') && digits.length >= 12) {
-    digits = digits.slice(2);
-  }
-  
-  // Remove o 9º dígito se tiver 11 dígitos (DDD + 9 + 8 dígitos)
-  if (digits.length === 11 && digits[2] === '9') {
-    digits = digits.slice(0, 2) + digits.slice(3);
-  }
-  
-  return digits;
-}
-
+// ========== PHONE UTILS ==========
 function generatePhoneVariations(phone) {
   if (!phone) return [];
   
-  const originalDigits = phone.replace(/\D/g, '');
-  if (originalDigits.length < 8) return [];
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 10) return [digits];
   
   const variations = new Set();
+  let base = digits;
   
-  // Normaliza para base (DDD + 8 dígitos)
-  let base = originalDigits;
-  
-  // Remove 55 se presente
+  // Remove country code if present
   if (base.startsWith('55') && base.length >= 12) {
     base = base.slice(2);
   }
   
-  // Remove 9º dígito se presente
+  // Remove 9th digit if present (11 digits = DDD + 9 + 8)
   if (base.length === 11 && base[2] === '9') {
     base = base.slice(0, 2) + base.slice(3);
   }
   
-  // Se ainda tem 11 dígitos, tenta remover
-  if (base.length === 11) {
-    base = base.slice(0, 2) + base.slice(3);
-  }
-  
-  // Gera variações a partir da base
+  // Generate all variations from 10-digit base
   if (base.length === 10) {
     const ddd = base.slice(0, 2);
-    const number = base.slice(2);
-    const with9 = ddd + '9' + number;
+    const num = base.slice(2);
+    const with9 = ddd + '9' + num;
     
-    variations.add(base);           // DDD + 8 dígitos
-    variations.add(with9);          // DDD + 9 + 8 dígitos  
-    variations.add('55' + base);    // 55 + DDD + 8 dígitos
-    variations.add('55' + with9);   // 55 + DDD + 9 + 8 dígitos
+    variations.add(base);
+    variations.add(with9);
+    variations.add('55' + base);
+    variations.add('55' + with9);
+  } else {
+    variations.add(digits);
+    if (!digits.startsWith('55')) {
+      variations.add('55' + digits);
+    }
   }
   
   return Array.from(variations);
 }
 
-// ========== CSS DESIGN SYSTEM - ENTERPRISE PREMIUM ==========
-function injectStyles() {
-  if (document.getElementById('ov-dashboard-styles')) return;
+function formatPhoneForWhatsApp(phone) {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
   
-  const styles = document.createElement('style');
-  styles.id = 'ov-dashboard-styles';
-  styles.textContent = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  // Already has country code
+  if (digits.startsWith('55') && digits.length >= 12) {
+    return digits;
+  }
+  
+  // Add country code
+  if (digits.length >= 10 && digits.length <= 11) {
+    return '55' + digits;
+  }
+  
+  return digits;
+}
+
+function formatDisplayPhone(phone) {
+  if (!phone) return '';
+  const d = phone.replace(/\D/g, '');
+  if (d.length === 13 && d.startsWith('55')) {
+    return `+${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4,9)}-${d.slice(9)}`;
+  }
+  if (d.length === 12 && d.startsWith('55')) {
+    return `+${d.slice(0,2)} ${d.slice(2,4)} ${d.slice(4,8)}-${d.slice(8)}`;
+  }
+  return phone;
+}
+
+// ========== CSS - DARK PREMIUM DESIGN ==========
+function injectStyles() {
+  if (document.getElementById('ov-styles')) return;
+  
+  const style = document.createElement('style');
+  style.id = 'ov-styles';
+  style.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
-    :root {
-      --ov-bg-base: #09090b;
-      --ov-bg-subtle: #18181b;
-      --ov-bg-muted: #27272a;
-      --ov-bg-elevated: #3f3f46;
-      --ov-border-subtle: rgba(255,255,255,0.06);
-      --ov-border-default: rgba(255,255,255,0.1);
-      --ov-border-strong: rgba(255,255,255,0.2);
-      --ov-text-primary: #fafafa;
-      --ov-text-secondary: #a1a1aa;
-      --ov-text-muted: #71717a;
-      --ov-brand: #10b981;
-      --ov-brand-dark: #059669;
-      --ov-brand-glow: rgba(16, 185, 129, 0.15);
-      --ov-warning: #f59e0b;
-      --ov-warning-glow: rgba(245, 158, 11, 0.15);
-      --ov-danger: #ef4444;
-      --ov-danger-glow: rgba(239, 68, 68, 0.15);
-      --ov-info: #3b82f6;
-      --ov-radius-sm: 6px;
-      --ov-radius-md: 10px;
-      --ov-radius-lg: 14px;
-      --ov-shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-      --ov-shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-      --ov-shadow-lg: 0 12px 40px rgba(0,0,0,0.5);
-    }
-    
-    body.ov-sidebar-open #app {
+    body.ov-open #app {
       width: calc(100% - ${SIDEBAR_WIDTH}px) !important;
-      transition: width 0.25s ease;
+      transition: width 0.2s ease;
     }
     
-    #ov-sidebar {
+    #ov-panel {
       position: fixed;
       top: 0;
       right: 0;
       width: ${SIDEBAR_WIDTH}px;
       height: 100vh;
-      background: var(--ov-bg-base);
-      border-left: 1px solid var(--ov-border-subtle);
+      background: #111827;
+      border-left: 1px solid rgba(255,255,255,0.08);
       z-index: 99999;
+      font-family: 'Inter', system-ui, sans-serif;
       display: flex;
       flex-direction: column;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      transition: transform 0.25s ease;
-      box-shadow: -8px 0 32px rgba(0,0,0,0.6);
-    }
-    
-    #ov-sidebar.hidden { transform: translateX(100%); }
-    #ov-sidebar * { box-sizing: border-box; margin: 0; padding: 0; }
-    
-    /* ====== HEADER ====== */
-    .ov-header {
-      padding: 16px 20px;
-      background: linear-gradient(180deg, var(--ov-bg-subtle) 0%, var(--ov-bg-base) 100%);
-      border-bottom: 1px solid var(--ov-border-subtle);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    
-    .ov-header-brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    
-    .ov-logo {
-      width: 36px;
-      height: 36px;
-      border-radius: var(--ov-radius-md);
-      overflow: hidden;
-      background: var(--ov-brand-glow);
-      border: 1px solid rgba(16,185,129,0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .ov-logo img { width: 100%; height: 100%; object-fit: cover; }
-    
-    .ov-brand-text {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-    }
-    
-    .ov-brand-name {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--ov-text-primary);
-      letter-spacing: -0.3px;
-    }
-    
-    .ov-brand-label {
-      font-size: 10px;
-      color: var(--ov-text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .ov-close {
-      width: 28px;
-      height: 28px;
-      border-radius: var(--ov-radius-sm);
-      background: var(--ov-bg-muted);
-      border: 1px solid var(--ov-border-subtle);
-      color: var(--ov-text-muted);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      transition: all 0.15s ease;
-    }
-    
-    .ov-close:hover {
-      background: var(--ov-danger-glow);
-      border-color: rgba(239,68,68,0.3);
-      color: var(--ov-danger);
-    }
-    
-    /* ====== PROFILE CARD ====== */
-    .ov-profile {
-      padding: 20px;
-      background: var(--ov-bg-subtle);
-      border-bottom: 1px solid var(--ov-border-subtle);
-    }
-    
-    .ov-profile-main {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 16px;
-    }
-    
-    .ov-avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--ov-radius-lg);
-      background: linear-gradient(135deg, var(--ov-brand) 0%, var(--ov-brand-dark) 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-weight: 600;
-      color: white;
-      text-transform: uppercase;
-      box-shadow: 0 4px 16px rgba(16,185,129,0.3);
-      flex-shrink: 0;
-    }
-    
-    .ov-profile-info { flex: 1; min-width: 0; }
-    
-    .ov-profile-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--ov-text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 3px;
-    }
-    
-    .ov-profile-phone {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    
-    .ov-phone-text {
-      font-size: 12px;
-      color: var(--ov-text-secondary);
-      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-    }
-    
-    .ov-copy-btn {
-      background: none;
-      border: none;
-      padding: 2px;
-      cursor: pointer;
-      opacity: 0.5;
-      transition: opacity 0.15s;
-      font-size: 10px;
-      color: var(--ov-text-muted);
-    }
-    
-    .ov-copy-btn:hover { opacity: 1; color: var(--ov-brand); }
-    
-    /* ====== STATS GRID ====== */
-    .ov-stats {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-    
-    .ov-stat {
-      background: var(--ov-bg-base);
-      border: 1px solid var(--ov-border-subtle);
-      border-radius: var(--ov-radius-md);
-      padding: 12px;
-      text-align: center;
-      transition: all 0.15s ease;
-    }
-    
-    .ov-stat:hover {
-      border-color: var(--ov-border-default);
-      background: var(--ov-bg-muted);
-    }
-    
-    .ov-stat-value {
-      font-size: 18px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      margin-bottom: 2px;
-    }
-    
-    .ov-stat-value.brand { color: var(--ov-brand); }
-    .ov-stat-value.warning { color: var(--ov-warning); }
-    .ov-stat-value.danger { color: var(--ov-danger); }
-    .ov-stat-value.muted { color: var(--ov-text-muted); }
-    
-    .ov-stat-label {
-      font-size: 9px;
-      color: var(--ov-text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-      font-weight: 500;
-    }
-    
-    /* ====== CONTENT AREA ====== */
-    .ov-content {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 16px 20px;
-    }
-    
-    .ov-content::-webkit-scrollbar { width: 4px; }
-    .ov-content::-webkit-scrollbar-track { background: transparent; }
-    .ov-content::-webkit-scrollbar-thumb { background: var(--ov-bg-elevated); border-radius: 2px; }
-    
-    /* ====== ACCORDION ====== */
-    .ov-accordion {
-      margin-bottom: 20px;
-      border-radius: var(--ov-radius-md);
-      overflow: hidden;
-      border: 1px solid var(--ov-border-subtle);
-    }
-    
-    .ov-accordion-header {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: var(--ov-bg-subtle);
-      border: none;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    
-    .ov-accordion-header:hover { background: var(--ov-bg-muted); }
-    
-    .ov-accordion-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .ov-accordion-icon {
-      width: 28px;
-      height: 28px;
-      border-radius: var(--ov-radius-sm);
-      background: rgba(59,130,246,0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-    }
-    
-    .ov-accordion-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--ov-text-primary);
-    }
-    
-    .ov-accordion-badge {
-      font-size: 10px;
-      background: rgba(59,130,246,0.15);
-      color: var(--ov-info);
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-weight: 500;
-    }
-    
-    .ov-accordion-arrow {
-      font-size: 10px;
-      color: var(--ov-text-muted);
       transition: transform 0.2s ease;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.5);
     }
     
-    .ov-accordion-header.open .ov-accordion-arrow { transform: rotate(180deg); }
+    #ov-panel.hidden { transform: translateX(100%); }
+    #ov-panel * { box-sizing: border-box; margin: 0; padding: 0; }
     
-    .ov-accordion-body {
-      display: none;
-      background: var(--ov-bg-base);
-      border-top: 1px solid var(--ov-border-subtle);
-    }
-    
-    .ov-accordion-body.open { display: block; }
-    
-    .ov-links-list { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-    
-    .ov-link-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      background: var(--ov-bg-subtle);
-      border-radius: var(--ov-radius-sm);
-      transition: all 0.15s ease;
-    }
-    
-    .ov-link-row:hover { background: var(--ov-bg-muted); }
-    
-    .ov-link-icon {
-      width: 24px;
-      height: 24px;
-      border-radius: 4px;
-      background: rgba(59,130,246,0.1);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      flex-shrink: 0;
-    }
-    
-    .ov-link-info { flex: 1; min-width: 0; }
-    
-    .ov-link-name {
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--ov-text-primary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .ov-link-desc {
-      font-size: 9px;
-      color: var(--ov-text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .ov-link-copy {
-      font-size: 9px;
-      padding: 4px 10px;
-      background: var(--ov-bg-base);
-      border: 1px solid var(--ov-border-subtle);
-      border-radius: 4px;
-      color: var(--ov-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      white-space: nowrap;
-    }
-    
-    .ov-link-copy:hover {
-      background: var(--ov-brand-glow);
-      border-color: rgba(16,185,129,0.3);
-      color: var(--ov-brand);
-    }
-    
-    /* ====== SECTION ====== */
-    .ov-section { margin-bottom: 20px; }
-    
-    .ov-section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--ov-border-subtle);
-    }
-    
-    .ov-section-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--ov-text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    
-    .ov-section-count {
-      font-size: 10px;
-      background: var(--ov-bg-muted);
-      color: var(--ov-text-muted);
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-weight: 500;
-    }
-    
-    .ov-tx-list { display: flex; flex-direction: column; gap: 8px; }
-    
-    /* ====== TRANSACTION CARD ====== */
-    .ov-tx {
-      background: var(--ov-bg-subtle);
-      border: 1px solid var(--ov-border-subtle);
-      border-radius: var(--ov-radius-md);
-      padding: 12px;
-      transition: all 0.15s ease;
-    }
-    
-    .ov-tx:hover {
-      border-color: var(--ov-border-default);
-      background: var(--ov-bg-muted);
-    }
-    
-    .ov-tx.boleto { border-left: 3px solid var(--ov-warning); }
-    .ov-tx.pix { border-left: 3px solid var(--ov-brand); }
-    .ov-tx.cartao { border-left: 3px solid var(--ov-info); }
-    .ov-tx.abandoned { border-left: 3px solid var(--ov-danger); }
-    
-    .ov-tx-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    
-    .ov-tx-info { flex: 1; min-width: 0; }
-    
-    .ov-tx-product {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--ov-text-primary);
-      margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .ov-tx-meta {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    
-    .ov-badge {
-      font-size: 9px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: 500;
-      text-transform: uppercase;
-    }
-    
-    .ov-badge.boleto { background: var(--ov-warning-glow); color: var(--ov-warning); }
-    .ov-badge.pix { background: var(--ov-brand-glow); color: var(--ov-brand); }
-    .ov-badge.cartao { background: rgba(59,130,246,0.15); color: var(--ov-info); }
-    .ov-badge.gerado { background: var(--ov-warning-glow); color: var(--ov-warning); }
-    .ov-badge.pago { background: var(--ov-brand-glow); color: var(--ov-brand); }
-    .ov-badge.pendente { background: var(--ov-warning-glow); color: var(--ov-warning); }
-    .ov-badge.abandoned { background: var(--ov-danger-glow); color: var(--ov-danger); }
-    
-    .ov-tx-date {
-      font-size: 9px;
-      color: var(--ov-text-muted);
-    }
-    
-    .ov-tx-amount {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--ov-brand);
-      white-space: nowrap;
-    }
-    
-    .ov-tx-amount.pending { color: var(--ov-warning); }
-    .ov-tx-amount.danger { color: var(--ov-danger); }
-    
-    /* ====== BARCODE ====== */
-    .ov-barcode {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px dashed var(--ov-border-subtle);
-    }
-    
-    .ov-barcode-label {
-      font-size: 9px;
-      color: var(--ov-text-muted);
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-    
-    .ov-barcode-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .ov-barcode-value {
-      flex: 1;
-      font-size: 10px;
-      font-family: 'SF Mono', Monaco, monospace;
-      color: var(--ov-text-secondary);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .ov-barcode-copy {
-      font-size: 9px;
-      padding: 4px 10px;
-      background: var(--ov-bg-base);
-      border: 1px solid var(--ov-border-subtle);
-      border-radius: 4px;
-      color: var(--ov-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    
-    .ov-barcode-copy:hover {
-      background: var(--ov-brand-glow);
-      border-color: rgba(16,185,129,0.3);
-      color: var(--ov-brand);
-    }
-    
-    /* ====== ACTION BUTTON ====== */
-    .ov-tx-actions {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid var(--ov-border-subtle);
-    }
-    
-    .ov-action-btn {
-      width: 100%;
-      padding: 8px 12px;
-      background: var(--ov-bg-base);
-      border: 1px solid var(--ov-border-subtle);
-      border-radius: var(--ov-radius-sm);
-      color: var(--ov-text-secondary);
-      font-size: 11px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-    
-    .ov-action-btn:hover {
-      background: var(--ov-brand-glow);
-      border-color: rgba(16,185,129,0.3);
-      color: var(--ov-brand);
-    }
-    
-    /* ====== EMPTY STATE ====== */
-    .ov-empty {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 24px;
-      text-align: center;
-    }
-    
-    .ov-empty-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: var(--ov-bg-muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      margin-bottom: 14px;
-    }
-    
-    .ov-empty-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--ov-text-primary);
-      margin-bottom: 6px;
-    }
-    
-    .ov-empty-text {
-      font-size: 12px;
-      color: var(--ov-text-muted);
-      line-height: 1.5;
-      max-width: 220px;
-    }
-    
-    /* ====== LOADING ====== */
-    .ov-loading {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px 24px;
-      gap: 12px;
-    }
-    
-    .ov-spinner {
-      width: 24px;
-      height: 24px;
-      border: 2px solid var(--ov-bg-muted);
-      border-top-color: var(--ov-brand);
-      border-radius: 50%;
-      animation: ov-spin 0.8s linear infinite;
-    }
-    
-    @keyframes ov-spin { to { transform: rotate(360deg); } }
-    
-    .ov-loading-text {
-      font-size: 12px;
-      color: var(--ov-text-muted);
-    }
-    
-    /* ====== TOGGLE BUTTON ====== */
-    #ov-toggle-btn {
+    /* Toggle Button */
+    #ov-toggle {
       position: fixed;
       top: 50%;
       right: 0;
       transform: translateY(-50%);
       z-index: 99998;
-      background: var(--ov-bg-subtle);
-      border: 1px solid var(--ov-border-subtle);
+      background: #1f2937;
+      border: 1px solid rgba(255,255,255,0.1);
       border-right: none;
       border-radius: 8px 0 0 8px;
-      padding: 10px 6px;
+      padding: 12px 8px;
       cursor: pointer;
-      box-shadow: var(--ov-shadow-md);
-      transition: all 0.2s ease;
+      transition: all 0.2s;
     }
     
-    #ov-toggle-btn:hover {
-      background: var(--ov-bg-muted);
-      padding-right: 10px;
+    #ov-toggle:hover { background: #374151; padding-right: 12px; }
+    body.ov-open #ov-toggle { right: ${SIDEBAR_WIDTH}px; }
+    .ov-toggle-icon { font-size: 10px; color: #9ca3af; }
+    
+    /* Header */
+    .ov-head {
+      padding: 14px 16px;
+      background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
     
-    body.ov-sidebar-open #ov-toggle-btn {
-      right: ${SIDEBAR_WIDTH}px;
+    .ov-brand { display: flex; align-items: center; gap: 10px; }
+    
+    .ov-logo {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.2);
     }
     
-    .ov-toggle-icon { font-size: 11px; color: var(--ov-text-secondary); }
+    .ov-logo img { width: 100%; height: 100%; object-fit: cover; }
     
-    /* ====== TOAST ====== */
+    .ov-brand-info { display: flex; flex-direction: column; gap: 1px; }
+    .ov-brand-name { font-size: 13px; font-weight: 600; color: #f9fafb; }
+    .ov-brand-sub { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .ov-close {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: #374151;
+      border: none;
+      color: #9ca3af;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      transition: all 0.15s;
+    }
+    
+    .ov-close:hover { background: #dc2626; color: #fff; }
+    
+    /* Profile */
+    .ov-profile {
+      padding: 16px;
+      background: #1f2937;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    
+    .ov-profile-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    
+    .ov-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+    }
+    
+    .ov-info { flex: 1; min-width: 0; }
+    .ov-name { font-size: 14px; font-weight: 600; color: #f9fafb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+    .ov-phone { font-size: 11px; color: #9ca3af; font-family: 'SF Mono', Monaco, monospace; display: flex; align-items: center; gap: 6px; }
+    .ov-copy { background: none; border: none; cursor: pointer; color: #6b7280; font-size: 10px; transition: color 0.15s; }
+    .ov-copy:hover { color: #10b981; }
+    
+    /* Stats */
+    .ov-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    
+    .ov-stat {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    
+    .ov-stat:hover { border-color: rgba(255,255,255,0.12); }
+    
+    .ov-stat-val { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+    .ov-stat-val.green { color: #10b981; }
+    .ov-stat-val.yellow { color: #f59e0b; }
+    .ov-stat-val.red { color: #ef4444; }
+    .ov-stat-val.gray { color: #6b7280; }
+    
+    .ov-stat-lbl { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; }
+    
+    /* Content */
+    .ov-body {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 14px 16px;
+    }
+    
+    .ov-body::-webkit-scrollbar { width: 4px; }
+    .ov-body::-webkit-scrollbar-track { background: transparent; }
+    .ov-body::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+    
+    /* Accordion */
+    .ov-acc {
+      margin-bottom: 16px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    .ov-acc-head {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #1f2937;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    
+    .ov-acc-head:hover { background: #374151; }
+    
+    .ov-acc-left { display: flex; align-items: center; gap: 8px; }
+    .ov-acc-icon { width: 24px; height: 24px; border-radius: 6px; background: rgba(59,130,246,0.1); display: flex; align-items: center; justify-content: center; font-size: 11px; }
+    .ov-acc-title { font-size: 11px; font-weight: 600; color: #f9fafb; }
+    .ov-acc-badge { font-size: 9px; background: rgba(59,130,246,0.15); color: #3b82f6; padding: 2px 6px; border-radius: 8px; }
+    .ov-acc-arrow { font-size: 9px; color: #6b7280; transition: transform 0.2s; }
+    .ov-acc-head.open .ov-acc-arrow { transform: rotate(180deg); }
+    
+    .ov-acc-body { display: none; background: #111827; padding: 10px; }
+    .ov-acc-body.open { display: block; }
+    
+    .ov-links { display: flex; flex-direction: column; gap: 6px; }
+    
+    .ov-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: #1f2937;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    
+    .ov-link:hover { background: #374151; }
+    .ov-link-icon { width: 20px; height: 20px; border-radius: 4px; background: rgba(59,130,246,0.1); display: flex; align-items: center; justify-content: center; font-size: 9px; }
+    .ov-link-info { flex: 1; min-width: 0; }
+    .ov-link-name { font-size: 10px; font-weight: 500; color: #f9fafb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ov-link-desc { font-size: 8px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ov-link-btn { font-size: 8px; padding: 3px 8px; background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #9ca3af; cursor: pointer; transition: all 0.15s; }
+    .ov-link-btn:hover { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: #10b981; }
+    
+    /* Section */
+    .ov-section { margin-bottom: 16px; }
+    .ov-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .ov-section-title { font-size: 10px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.4px; display: flex; align-items: center; gap: 5px; }
+    .ov-section-count { font-size: 9px; background: #374151; color: #9ca3af; padding: 2px 6px; border-radius: 8px; }
+    
+    .ov-list { display: flex; flex-direction: column; gap: 6px; }
+    
+    /* Transaction Card */
+    .ov-card {
+      background: #1f2937;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 10px 12px;
+      transition: all 0.15s;
+    }
+    
+    .ov-card:hover { border-color: rgba(255,255,255,0.12); }
+    .ov-card.boleto { border-left: 3px solid #f59e0b; }
+    .ov-card.pix { border-left: 3px solid #10b981; }
+    .ov-card.cartao { border-left: 3px solid #3b82f6; }
+    .ov-card.abandoned { border-left: 3px solid #ef4444; }
+    
+    .ov-card-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .ov-card-info { flex: 1; min-width: 0; }
+    .ov-card-product { font-size: 11px; font-weight: 500; color: #f9fafb; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ov-card-meta { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    
+    .ov-tag { font-size: 8px; padding: 2px 5px; border-radius: 4px; font-weight: 500; text-transform: uppercase; }
+    .ov-tag.boleto { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .ov-tag.pix { background: rgba(16,185,129,0.15); color: #10b981; }
+    .ov-tag.cartao { background: rgba(59,130,246,0.15); color: #3b82f6; }
+    .ov-tag.gerado, .ov-tag.pendente { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .ov-tag.pago { background: rgba(16,185,129,0.15); color: #10b981; }
+    .ov-tag.abandoned { background: rgba(239,68,68,0.15); color: #ef4444; }
+    
+    .ov-card-date { font-size: 8px; color: #6b7280; }
+    .ov-card-amount { font-size: 13px; font-weight: 700; color: #10b981; white-space: nowrap; }
+    .ov-card-amount.pending { color: #f59e0b; }
+    .ov-card-amount.danger { color: #ef4444; }
+    
+    /* Barcode */
+    .ov-barcode { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); }
+    .ov-barcode-lbl { font-size: 8px; color: #6b7280; text-transform: uppercase; margin-bottom: 3px; }
+    .ov-barcode-row { display: flex; align-items: center; gap: 6px; }
+    .ov-barcode-val { flex: 1; font-size: 9px; font-family: 'SF Mono', Monaco, monospace; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ov-barcode-copy { font-size: 8px; padding: 3px 8px; background: #111827; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #9ca3af; cursor: pointer; transition: all 0.15s; }
+    .ov-barcode-copy:hover { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: #10b981; }
+    
+    /* Action */
+    .ov-action { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); }
+    .ov-action-btn {
+      width: 100%;
+      padding: 7px 10px;
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      color: #9ca3af;
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    
+    .ov-action-btn:hover { background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.3); color: #10b981; }
+    
+    /* Empty */
+    .ov-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; }
+    .ov-empty-icon { width: 40px; height: 40px; border-radius: 50%; background: #374151; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 12px; }
+    .ov-empty-title { font-size: 13px; font-weight: 600; color: #f9fafb; margin-bottom: 4px; }
+    .ov-empty-text { font-size: 11px; color: #6b7280; line-height: 1.4; max-width: 200px; }
+    
+    /* Loading */
+    .ov-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; gap: 10px; }
+    .ov-spinner { width: 20px; height: 20px; border: 2px solid #374151; border-top-color: #10b981; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ov-loading-text { font-size: 11px; color: #6b7280; }
+    
+    /* Toast */
     .ov-toast {
       position: fixed;
-      bottom: 24px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      background: var(--ov-bg-subtle);
-      border: 1px solid var(--ov-border-default);
-      color: var(--ov-text-primary);
-      padding: 10px 20px;
-      border-radius: var(--ov-radius-md);
-      font-size: 12px;
+      background: #1f2937;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #f9fafb;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 11px;
       font-weight: 500;
       z-index: 999999;
-      box-shadow: var(--ov-shadow-lg);
-      animation: ov-toast-in 0.2s ease;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      animation: toast-in 0.2s ease;
     }
     
-    @keyframes ov-toast-in {
-      from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(8px); }
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
   `;
-  document.head.appendChild(styles);
+  document.head.appendChild(style);
 }
 
-// ========== SIDEBAR CREATION ==========
+// ========== SIDEBAR ==========
 function createSidebar() {
-  if (document.getElementById('ov-sidebar')) return;
+  if (document.getElementById('ov-panel')) return;
   
-  const sidebar = document.createElement('div');
-  sidebar.id = 'ov-sidebar';
-  sidebar.className = 'hidden';
+  const panel = document.createElement('div');
+  panel.id = 'ov-panel';
+  panel.className = 'hidden';
   
   const logoUrl = chrome.runtime.getURL('logo-ov.png');
   
-  sidebar.innerHTML = `
-    <div class="ov-header">
-      <div class="ov-header-brand">
-        <div class="ov-logo"><img src="${logoUrl}" alt="Logo" /></div>
-        <div class="ov-brand-text">
+  panel.innerHTML = `
+    <div class="ov-head">
+      <div class="ov-brand">
+        <div class="ov-logo"><img src="${logoUrl}" alt="" /></div>
+        <div class="ov-brand-info">
           <div class="ov-brand-name">Origem Viva</div>
-          <div class="ov-brand-label">CRM Dashboard</div>
+          <div class="ov-brand-sub">CRM Dashboard</div>
         </div>
       </div>
       <button class="ov-close" onclick="toggleSidebar()">✕</button>
     </div>
-    <div class="ov-content" id="ov-sidebar-content"></div>
+    <div class="ov-body" id="ov-content"></div>
   `;
   
-  document.body.appendChild(sidebar);
+  document.body.appendChild(panel);
 }
 
 function createToggleButton() {
-  if (document.getElementById('ov-toggle-btn')) return;
+  if (document.getElementById('ov-toggle')) return;
   
   const btn = document.createElement('button');
-  btn.id = 'ov-toggle-btn';
+  btn.id = 'ov-toggle';
   btn.innerHTML = `<span class="ov-toggle-icon">◀</span>`;
   btn.onclick = toggleSidebar;
   document.body.appendChild(btn);
 }
 
 function toggleSidebar() {
-  const sidebar = document.getElementById('ov-sidebar');
-  if (!sidebar) return;
+  const panel = document.getElementById('ov-panel');
+  if (!panel) return;
   
-  if (sidebar.classList.contains('hidden')) {
-    openSidebar();
+  if (panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden');
+    document.body.classList.add('ov-open');
+    sidebarVisible = true;
+    document.getElementById('ov-toggle').innerHTML = `<span class="ov-toggle-icon">▶</span>`;
+    if (currentPhone) loadLeadData(currentPhone);
+    else renderContent();
   } else {
-    closeSidebar();
+    panel.classList.add('hidden');
+    document.body.classList.remove('ov-open');
+    sidebarVisible = false;
+    document.getElementById('ov-toggle').innerHTML = `<span class="ov-toggle-icon">◀</span>`;
   }
-}
-
-function openSidebar() {
-  const sidebar = document.getElementById('ov-sidebar');
-  sidebar.classList.remove('hidden');
-  document.body.classList.add('ov-sidebar-open');
-  sidebarVisible = true;
-  
-  const toggleBtn = document.getElementById('ov-toggle-btn');
-  if (toggleBtn) toggleBtn.innerHTML = `<span class="ov-toggle-icon">▶</span>`;
-  
-  if (currentPhone) {
-    loadLeadData(currentPhone);
-  } else {
-    renderContent();
-  }
-}
-
-function closeSidebar() {
-  const sidebar = document.getElementById('ov-sidebar');
-  sidebar.classList.add('hidden');
-  document.body.classList.remove('ov-sidebar-open');
-  sidebarVisible = false;
-  
-  const toggleBtn = document.getElementById('ov-toggle-btn');
-  if (toggleBtn) toggleBtn.innerHTML = `<span class="ov-toggle-icon">◀</span>`;
 }
 
 window.toggleSidebar = toggleSidebar;
 
-// ========== RENDERIZAÇÃO ==========
+// ========== RENDER ==========
 function renderContent() {
-  const content = document.getElementById('ov-sidebar-content');
-  renderLeadContent(content);
-}
-
-function renderLeadContent(container) {
+  const container = document.getElementById('ov-content');
+  if (!container) return;
+  
   if (!currentPhone) {
     container.innerHTML = `
       <div class="ov-empty">
         <div class="ov-empty-icon">💬</div>
         <div class="ov-empty-title">Selecione uma conversa</div>
-        <div class="ov-empty-text">Os dados do lead aparecerão aqui quando você abrir uma conversa</div>
+        <div class="ov-empty-text">Os dados do lead aparecerão aqui</div>
       </div>
     `;
     return;
@@ -880,64 +506,52 @@ function renderLeadContent(container) {
   const totalPending = pendingTxs.reduce((sum, t) => sum + Number(t.amount || 0), 0);
   
   const displayPhone = formatDisplayPhone(currentPhone);
-  const customerName = customer?.name || transactions[0]?.customer_name || abandoned[0]?.customer_name || 'Lead';
-  const initials = customerName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+  const name = customer?.name || transactions[0]?.customer_name || abandoned[0]?.customer_name || 'Lead';
+  const initials = name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
   
   let html = `
     <div class="ov-profile">
-      <div class="ov-profile-main">
+      <div class="ov-profile-row">
         <div class="ov-avatar">${initials || '?'}</div>
-        <div class="ov-profile-info">
-          <div class="ov-profile-name">${customerName}</div>
-          <div class="ov-profile-phone">
-            <span class="ov-phone-text">${displayPhone}</span>
-            <button class="ov-copy-btn" data-copy="${currentPhone}" title="Copiar">📋</button>
+        <div class="ov-info">
+          <div class="ov-name">${name}</div>
+          <div class="ov-phone">
+            <span>${displayPhone}</span>
+            <button class="ov-copy" data-copy="${currentPhone}" title="Copiar">📋</button>
           </div>
         </div>
       </div>
       <div class="ov-stats">
-        <div class="ov-stat">
-          <div class="ov-stat-value brand">${formatCurrency(totalPaid)}</div>
-          <div class="ov-stat-label">Total Pago</div>
-        </div>
-        <div class="ov-stat">
-          <div class="ov-stat-value warning">${formatCurrency(totalPending)}</div>
-          <div class="ov-stat-label">Pendente</div>
-        </div>
-        <div class="ov-stat">
-          <div class="ov-stat-value muted">${transactions.length}</div>
-          <div class="ov-stat-label">Transações</div>
-        </div>
-        <div class="ov-stat">
-          <div class="ov-stat-value danger">${abandoned.length}</div>
-          <div class="ov-stat-label">Abandonos</div>
-        </div>
+        <div class="ov-stat"><div class="ov-stat-val green">${formatCurrency(totalPaid)}</div><div class="ov-stat-lbl">Total Pago</div></div>
+        <div class="ov-stat"><div class="ov-stat-val yellow">${formatCurrency(totalPending)}</div><div class="ov-stat-lbl">Pendente</div></div>
+        <div class="ov-stat"><div class="ov-stat-val gray">${transactions.length}</div><div class="ov-stat-lbl">Transações</div></div>
+        <div class="ov-stat"><div class="ov-stat-val red">${abandoned.length}</div><div class="ov-stat-lbl">Abandonos</div></div>
       </div>
     </div>
   `;
   
-  // Accordion Links Úteis
+  // Links Accordion
   if (usefulLinks.length > 0) {
     html += `
-      <div class="ov-accordion">
-        <button class="ov-accordion-header" id="ov-links-trigger">
-          <div class="ov-accordion-left">
-            <div class="ov-accordion-icon">🔗</div>
-            <span class="ov-accordion-title">Links Úteis</span>
-            <span class="ov-accordion-badge">${usefulLinks.length}</span>
+      <div class="ov-acc">
+        <button class="ov-acc-head" id="ov-links-trigger">
+          <div class="ov-acc-left">
+            <div class="ov-acc-icon">🔗</div>
+            <span class="ov-acc-title">Links Úteis</span>
+            <span class="ov-acc-badge">${usefulLinks.length}</span>
           </div>
-          <span class="ov-accordion-arrow">▼</span>
+          <span class="ov-acc-arrow">▼</span>
         </button>
-        <div class="ov-accordion-body" id="ov-links-panel">
-          <div class="ov-links-list">
-            ${usefulLinks.map(link => `
-              <div class="ov-link-row">
+        <div class="ov-acc-body" id="ov-links-panel">
+          <div class="ov-links">
+            ${usefulLinks.map(l => `
+              <div class="ov-link">
                 <div class="ov-link-icon">🌐</div>
                 <div class="ov-link-info">
-                  <div class="ov-link-name">${link.title}</div>
-                  ${link.description ? `<div class="ov-link-desc">${link.description}</div>` : ''}
+                  <div class="ov-link-name">${l.title}</div>
+                  ${l.description ? `<div class="ov-link-desc">${l.description}</div>` : ''}
                 </div>
-                <button class="ov-link-copy" data-copy="${link.url}">Copiar</button>
+                <button class="ov-link-btn" data-copy="${l.url}">Copiar</button>
               </div>
             `).join('')}
           </div>
@@ -950,13 +564,11 @@ function renderLeadContent(container) {
   if (transactions.length > 0) {
     html += `
       <div class="ov-section">
-        <div class="ov-section-header">
+        <div class="ov-section-head">
           <span class="ov-section-title">📋 Transações</span>
           <span class="ov-section-count">${transactions.length}</span>
         </div>
-        <div class="ov-tx-list">
-          ${transactions.map(tx => renderTransactionCard(tx)).join('')}
-        </div>
+        <div class="ov-list">${transactions.map(renderTxCard).join('')}</div>
       </div>
     `;
   }
@@ -965,13 +577,11 @@ function renderLeadContent(container) {
   if (abandoned.length > 0) {
     html += `
       <div class="ov-section">
-        <div class="ov-section-header">
+        <div class="ov-section-head">
           <span class="ov-section-title">⚠️ Abandonos</span>
           <span class="ov-section-count">${abandoned.length}</span>
         </div>
-        <div class="ov-tx-list">
-          ${abandoned.map(ab => renderAbandonedCard(ab)).join('')}
-        </div>
+        <div class="ov-list">${abandoned.map(renderAbCard).join('')}</div>
       </div>
     `;
   }
@@ -979,10 +589,10 @@ function renderLeadContent(container) {
   // Empty
   if (transactions.length === 0 && abandoned.length === 0) {
     html += `
-      <div class="ov-empty" style="padding: 32px 20px;">
+      <div class="ov-empty" style="padding: 28px 16px;">
         <div class="ov-empty-icon">📭</div>
         <div class="ov-empty-title">Sem histórico</div>
-        <div class="ov-empty-text">Nenhuma transação ou evento encontrado</div>
+        <div class="ov-empty-text">Nenhum registro encontrado</div>
       </div>
     `;
   }
@@ -990,49 +600,49 @@ function renderLeadContent(container) {
   container.innerHTML = html;
   
   // Events
-  container.querySelectorAll('[data-copy]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  container.querySelectorAll('[data-copy]').forEach(el => {
+    el.addEventListener('click', e => {
       e.stopPropagation();
-      copyToClipboard(btn.dataset.copy);
+      copyToClipboard(el.dataset.copy);
     });
   });
   
-  const accordionTrigger = container.querySelector('#ov-links-trigger');
-  const accordionPanel = container.querySelector('#ov-links-panel');
-  if (accordionTrigger && accordionPanel) {
-    accordionTrigger.addEventListener('click', () => {
-      accordionTrigger.classList.toggle('open');
-      accordionPanel.classList.toggle('open');
-    });
+  const trigger = document.getElementById('ov-links-trigger');
+  const panel = document.getElementById('ov-links-panel');
+  if (trigger && panel) {
+    trigger.onclick = () => {
+      trigger.classList.toggle('open');
+      panel.classList.toggle('open');
+    };
   }
 }
 
-function renderTransactionCard(tx) {
+function renderTxCard(tx) {
   const boletoUrl = tx.metadata?.boleto_url || tx.metadata?.boletoUrl;
   const barcode = tx.external_id;
   const isPending = ['gerado', 'pendente'].includes(tx.status);
   
   let html = `
-    <div class="ov-tx ${tx.type}">
-      <div class="ov-tx-row">
-        <div class="ov-tx-info">
-          <div class="ov-tx-product">${tx.description || tx.customer_name || 'Transação'}</div>
-          <div class="ov-tx-meta">
-            <span class="ov-badge ${tx.type}">${tx.type}</span>
-            <span class="ov-badge ${tx.status}">${tx.status}</span>
-            <span class="ov-tx-date">${formatDate(tx.created_at)}</span>
+    <div class="ov-card ${tx.type}">
+      <div class="ov-card-row">
+        <div class="ov-card-info">
+          <div class="ov-card-product">${tx.description || tx.customer_name || 'Transação'}</div>
+          <div class="ov-card-meta">
+            <span class="ov-tag ${tx.type}">${tx.type}</span>
+            <span class="ov-tag ${tx.status}">${tx.status}</span>
+            <span class="ov-card-date">${formatDate(tx.created_at)}</span>
           </div>
         </div>
-        <div class="ov-tx-amount ${isPending ? 'pending' : ''}">${formatCurrency(tx.amount)}</div>
+        <div class="ov-card-amount ${isPending ? 'pending' : ''}">${formatCurrency(tx.amount)}</div>
       </div>
   `;
   
   if (barcode && isPending) {
     html += `
       <div class="ov-barcode">
-        <div class="ov-barcode-label">Código de barras</div>
+        <div class="ov-barcode-lbl">Código de barras</div>
         <div class="ov-barcode-row">
-          <div class="ov-barcode-value">${barcode}</div>
+          <div class="ov-barcode-val">${barcode}</div>
           <button class="ov-barcode-copy" data-copy="${barcode}">Copiar</button>
         </div>
       </div>
@@ -1041,47 +651,43 @@ function renderTransactionCard(tx) {
   
   if (boletoUrl && isPending) {
     html += `
-      <div class="ov-tx-actions">
-        <button class="ov-action-btn" onclick="window.open('${boletoUrl}', '_blank')">
-          📥 Ver Boleto
-        </button>
+      <div class="ov-action">
+        <button class="ov-action-btn" onclick="window.open('${boletoUrl}', '_blank')">📥 Ver Boleto</button>
       </div>
     `;
   }
   
-  html += `</div>`;
-  return html;
+  return html + '</div>';
 }
 
-function renderAbandonedCard(ab) {
+function renderAbCard(ab) {
   return `
-    <div class="ov-tx abandoned">
-      <div class="ov-tx-row">
-        <div class="ov-tx-info">
-          <div class="ov-tx-product">${ab.product_name || ab.event_type || 'Abandono'}</div>
-          <div class="ov-tx-meta">
-            <span class="ov-badge abandoned">${ab.event_type || 'abandono'}</span>
-            ${ab.funnel_stage ? `<span class="ov-badge" style="background: var(--ov-bg-muted); color: var(--ov-text-muted);">${ab.funnel_stage}</span>` : ''}
-            <span class="ov-tx-date">${formatDate(ab.created_at)}</span>
+    <div class="ov-card abandoned">
+      <div class="ov-card-row">
+        <div class="ov-card-info">
+          <div class="ov-card-product">${ab.product_name || ab.event_type || 'Abandono'}</div>
+          <div class="ov-card-meta">
+            <span class="ov-tag abandoned">${ab.event_type || 'abandono'}</span>
+            ${ab.funnel_stage ? `<span class="ov-tag" style="background:#374151;color:#9ca3af;">${ab.funnel_stage}</span>` : ''}
+            <span class="ov-card-date">${formatDate(ab.created_at)}</span>
           </div>
         </div>
-        ${ab.amount ? `<div class="ov-tx-amount danger">${formatCurrency(ab.amount)}</div>` : ''}
+        ${ab.amount ? `<div class="ov-card-amount danger">${formatCurrency(ab.amount)}</div>` : ''}
       </div>
     </div>
   `;
 }
 
 // ========== UTILS ==========
-function showToast(message) {
+function showToast(msg) {
   const existing = document.querySelector('.ov-toast');
   if (existing) existing.remove();
   
-  const toast = document.createElement('div');
-  toast.className = 'ov-toast';
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  
-  setTimeout(() => toast.remove(), 2000);
+  const t = document.createElement('div');
+  t.className = 'ov-toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1800);
 }
 
 function copyToClipboard(text) {
@@ -1091,66 +697,43 @@ function copyToClipboard(text) {
 
 window.copyToClipboard = copyToClipboard;
 
-function formatCurrency(value) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+function formatCurrency(v) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-function formatDisplayPhone(phone) {
-  if (!phone) return '';
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length === 13 && cleaned.startsWith('55')) {
-    return `+${cleaned.slice(0,2)} ${cleaned.slice(2,4)} ${cleaned.slice(4,9)}-${cleaned.slice(9)}`;
-  }
-  if (cleaned.length === 12 && cleaned.startsWith('55')) {
-    return `+${cleaned.slice(0,2)} ${cleaned.slice(2,4)} ${cleaned.slice(4,8)}-${cleaned.slice(8)}`;
-  }
-  return phone;
+function formatDate(d) {
+  if (!d) return '';
+  return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // ========== API ==========
 async function loadLeadData(phone) {
-  console.log('[WhatsApp Extension] Carregando lead:', phone);
+  console.log('[OV] Carregando lead:', phone);
   
   const variations = generatePhoneVariations(phone);
-  console.log('[WhatsApp Extension] Variações:', variations);
+  console.log('[OV] Variações:', variations);
   
-  const content = document.getElementById('ov-sidebar-content');
-  if (content) {
-    content.innerHTML = `
-      <div class="ov-loading">
-        <div class="ov-spinner"></div>
-        <span class="ov-loading-text">Carregando...</span>
-      </div>
-    `;
+  const container = document.getElementById('ov-content');
+  if (container) {
+    container.innerHTML = `<div class="ov-loading"><div class="ov-spinner"></div><span class="ov-loading-text">Carregando...</span></div>`;
   }
   
   try {
-    const phoneParam = variations.join(',');
-    const response = await fetch(`${API_URL}?action=lead&phone=${encodeURIComponent(phoneParam)}`);
-    currentLeadData = await response.json();
-    console.log('[WhatsApp Extension] Dados:', currentLeadData);
+    const res = await fetch(`${API_URL}?action=lead&phone=${encodeURIComponent(variations.join(','))}`);
+    currentLeadData = await res.json();
+    console.log('[OV] Dados:', currentLeadData);
     renderContent();
-  } catch (error) {
-    console.error('[WhatsApp Extension] Erro:', error);
-    if (content) {
-      content.innerHTML = `
-        <div class="ov-empty">
-          <div class="ov-empty-icon">❌</div>
-          <div class="ov-empty-title">Erro ao carregar</div>
-        </div>
-      `;
+  } catch (err) {
+    console.error('[OV] Erro:', err);
+    if (container) {
+      container.innerHTML = `<div class="ov-empty"><div class="ov-empty-icon">❌</div><div class="ov-empty-title">Erro</div></div>`;
     }
   }
 }
 
 // ========== PHONE DETECTION ==========
 function extractPhoneFromConversation() {
+  // Try header spans first
   const headerSpans = document.querySelectorAll('header span[title], header span[dir="auto"]');
   for (const span of headerSpans) {
     const text = span.getAttribute('title') || span.textContent || '';
@@ -1158,15 +741,16 @@ function extractPhoneFromConversation() {
     if (phone) return phone;
   }
   
-  const conversationTitle = document.querySelector('[data-testid="conversation-info-header-chat-title"]');
-  if (conversationTitle) {
-    const text = conversationTitle.textContent || '';
-    const phone = extractPhoneFromText(text);
+  // Try conversation title
+  const title = document.querySelector('[data-testid="conversation-info-header-chat-title"]');
+  if (title) {
+    const phone = extractPhoneFromText(title.textContent || '');
     if (phone) return phone;
   }
   
-  const jidElements = document.querySelectorAll('[data-jid]');
-  for (const el of jidElements) {
+  // Try JID
+  const jidEls = document.querySelectorAll('[data-jid]');
+  for (const el of jidEls) {
     const jid = el.getAttribute('data-jid');
     if (jid && jid.includes('@')) {
       const phone = jid.split('@')[0];
@@ -1182,76 +766,102 @@ function extractPhoneFromText(text) {
   const cleaned = text.replace(/[\s\-\(\)\.]/g, '');
   const patterns = [/\+?55\d{10,11}/, /\d{12,13}/, /\+\d{10,15}/];
   
-  for (const pattern of patterns) {
-    const match = cleaned.match(pattern);
-    if (match) return match[0].replace(/^\+/, '');
+  for (const p of patterns) {
+    const m = cleaned.match(p);
+    if (m) return m[0].replace(/^\+/, '');
   }
   return null;
 }
 
 function observeConversationChanges() {
-  let lastConversationPhone = null;
+  let lastPhone = null;
   
-  const checkConversation = () => {
+  const check = () => {
     const phone = extractPhoneFromConversation();
-    
-    if (phone && phone !== lastConversationPhone) {
-      console.log('[WhatsApp Extension] Conversa:', phone);
-      lastConversationPhone = phone;
+    if (phone && phone !== lastPhone) {
+      console.log('[OV] Conversa:', phone);
+      lastPhone = phone;
       currentPhone = phone;
-      
-      if (sidebarVisible) {
-        loadLeadData(phone);
-      }
+      if (sidebarVisible) loadLeadData(phone);
     }
   };
   
-  setInterval(checkConversation, 1000);
+  setInterval(check, 1000);
   
-  const observer = new MutationObserver(() => {
-    setTimeout(checkConversation, 200);
-  });
+  const observer = new MutationObserver(() => setTimeout(check, 200));
   
   const waitForApp = setInterval(() => {
     const app = document.querySelector('#app, [data-testid="chat-list"]');
     if (app) {
       clearInterval(waitForApp);
       observer.observe(document.body, { childList: true, subtree: true });
-      checkConversation();
+      check();
     }
   }, 500);
 }
 
-// ========== OPEN CHAT FUNCTION ==========
-function formatPhoneForWhatsApp(phone) {
-  if (!phone) return '';
-  let cleaned = phone.replace(/\D/g, '');
+// ========== SIMULATED CLICK (WhatsApp Web compatible) ==========
+function simulatedClick(target, options = {}) {
+  if (!target || !target.ownerDocument) return;
   
-  // Se já começa com 55, retorna como está
-  if (cleaned.startsWith('55') && cleaned.length >= 12) {
-    return cleaned;
-  }
+  const event = target.ownerDocument.createEvent('MouseEvents');
+  const opts = {
+    type: 'click',
+    canBubble: true,
+    cancelable: true,
+    view: target.ownerDocument.defaultView,
+    detail: 1,
+    screenX: 0,
+    screenY: 0,
+    clientX: 0,
+    clientY: 0,
+    ctrlKey: false,
+    altKey: false,
+    shiftKey: false,
+    metaKey: false,
+    button: 0,
+    relatedTarget: null,
+    ...options
+  };
   
-  // Se tem 10 ou 11 dígitos (DDD + número), adiciona 55
-  if (cleaned.length >= 10 && cleaned.length <= 11) {
-    return '55' + cleaned;
-  }
+  event.initMouseEvent(
+    opts.type, opts.canBubble, opts.cancelable, opts.view, opts.detail,
+    opts.screenX, opts.screenY, opts.clientX, opts.clientY,
+    opts.ctrlKey, opts.altKey, opts.shiftKey, opts.metaKey,
+    opts.button, opts.relatedTarget
+  );
   
-  return cleaned;
+  target.dispatchEvent(event);
 }
 
+function simClick(target) {
+  if (!target) return;
+  
+  // Get center coordinates
+  const rect = target.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  
+  const coords = { clientX: x, clientY: y, screenX: x, screenY: y };
+  
+  simulatedClick(target, { type: 'mousedown', ...coords });
+  simulatedClick(target, { type: 'mouseup', ...coords });
+  simulatedClick(target, { type: 'click', ...coords });
+}
+
+// ========== OPEN CHAT ==========
 async function openChat(phone) {
   const formatted = formatPhoneForWhatsApp(phone);
-  console.log('[WhatsApp Extension] Abrindo chat:', formatted);
+  console.log('[OV] Abrindo chat:', formatted);
   
   try {
     await new Promise(r => setTimeout(r, 300));
     
-    // Procura botão nova conversa
+    // Find new chat button
     const newChatSelectors = [
-      '[data-testid="menu-bar-new-chat"]',
       'span[data-icon="new-chat"]',
       'span[data-icon="new-chat-outline"]',
+      '[data-testid="menu-bar-new-chat"]',
       'div[title="Nova conversa"]',
       '[aria-label="Nova conversa"]'
     ];
@@ -1266,27 +876,29 @@ async function openChat(phone) {
     }
     
     if (!newChatBtn) {
-      console.error('[WhatsApp Extension] Botão nova conversa não encontrado');
+      console.error('[OV] Botão nova conversa não encontrado');
       return false;
     }
     
-    simulateRealClick(newChatBtn);
+    console.log('[OV] Clicando nova conversa...');
+    simClick(newChatBtn);
     await new Promise(r => setTimeout(r, 1000));
     
-    // Procura campo de busca
-    let searchInput = null;
+    // Find search input
     const searchSelectors = [
-      '[data-testid="chat-list-search"]',
       'div[contenteditable="true"][data-tab="3"]',
-      'div[contenteditable="true"][role="textbox"]',
-      'p.selectable-text[data-tab="3"]'
+      'p.selectable-text[data-tab="3"]',
+      '[data-testid="chat-list-search"]',
+      'div[contenteditable="true"][role="textbox"]'
     ];
     
+    let searchInput = null;
     for (const sel of searchSelectors) {
       searchInput = document.querySelector(sel);
       if (searchInput) break;
     }
     
+    // Fallback
     if (!searchInput) {
       const panel = document.querySelector('[data-testid="chat-list"]') || document.querySelector('#pane-side');
       if (panel) {
@@ -1295,112 +907,150 @@ async function openChat(phone) {
     }
     
     if (!searchInput) {
-      console.error('[WhatsApp Extension] Campo busca não encontrado');
+      console.error('[OV] Campo busca não encontrado');
       return false;
     }
     
-    console.log('[WhatsApp Extension] Digitando:', formatted);
+    console.log('[OV] Digitando:', formatted);
     searchInput.focus();
     await new Promise(r => setTimeout(r, 200));
     
+    // Clear and type
     searchInput.textContent = '';
     document.execCommand('insertText', false, formatted);
     searchInput.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
     
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 2500));
     
-    // Procura contato na lista
+    console.log('[OV] Procurando contato...');
+    
+    // Find contact in list
     const searchPanel = document.querySelector('[data-testid="chat-list"]') || 
                         document.querySelector('#pane-side') ||
                         document.querySelector('[aria-label="Lista de conversas"]');
     
     if (!searchPanel) {
-      console.error('[WhatsApp Extension] Painel não encontrado');
+      console.error('[OV] Painel não encontrado');
       return false;
     }
     
-    // Procura por elemento clicável com o número
+    // Try to find clickable contact
     const lastDigits = formatted.slice(-8);
     let contactItem = null;
     
-    // Tenta seletores específicos primeiro
-    const cellFrames = searchPanel.querySelectorAll('div[data-testid="cell-frame-container"], div[tabindex="-1"]');
-    for (const cell of cellFrames) {
+    // Method 1: Find by data-testid cell-frame-container
+    const cells = searchPanel.querySelectorAll('[data-testid="cell-frame-container"]');
+    for (const cell of cells) {
       const text = cell.textContent || '';
-      if (text.includes(formatted) || text.includes(lastDigits)) {
+      if (text.replace(/\D/g, '').includes(lastDigits)) {
         contactItem = cell;
         break;
       }
     }
     
-    // Fallback: primeiro resultado
+    // Method 2: Find by listitem role
     if (!contactItem) {
-      contactItem = searchPanel.querySelector('div[data-testid="cell-frame-container"]') ||
+      const listitems = searchPanel.querySelectorAll('[role="listitem"], [role="option"], [role="row"]');
+      for (const item of listitems) {
+        const text = item.textContent || '';
+        if (text.replace(/\D/g, '').includes(lastDigits)) {
+          contactItem = item;
+          break;
+        }
+      }
+    }
+    
+    // Method 3: Find by tabindex
+    if (!contactItem) {
+      const tabItems = searchPanel.querySelectorAll('div[tabindex="-1"]');
+      for (const item of tabItems) {
+        const text = item.textContent || '';
+        if (text.replace(/\D/g, '').includes(lastDigits) && text.length < 500) {
+          contactItem = item;
+          break;
+        }
+      }
+    }
+    
+    // Fallback: first visible result
+    if (!contactItem) {
+      contactItem = searchPanel.querySelector('[data-testid="cell-frame-container"]') ||
                     searchPanel.querySelector('div[tabindex="-1"]');
     }
     
     if (contactItem) {
-      console.log('[WhatsApp Extension] Clicando contato...');
-      simulateRealClick(contactItem);
+      console.log('[OV] Clicando contato:', contactItem.textContent?.slice(0, 50));
+      
+      // Try clicking the element and its children
+      simClick(contactItem);
       await new Promise(r => setTimeout(r, 500));
+      
+      // Check if chat opened
+      const chatOpened = document.querySelector('[data-testid="conversation-compose-box-input"]') ||
+                         document.querySelector('footer div[contenteditable="true"]');
+      
+      if (chatOpened) {
+        console.log('[OV] Chat aberto com sucesso!');
+        return true;
+      }
+      
+      // Try clicking child elements
+      const clickTargets = [
+        contactItem.querySelector('[data-testid="cell-frame-container"]'),
+        contactItem.querySelector('span'),
+        contactItem.querySelector('div > div'),
+        contactItem.firstElementChild
+      ].filter(Boolean);
+      
+      for (const target of clickTargets) {
+        simClick(target);
+        await new Promise(r => setTimeout(r, 300));
+        
+        const opened = document.querySelector('[data-testid="conversation-compose-box-input"]');
+        if (opened) {
+          console.log('[OV] Chat aberto após retry!');
+          return true;
+        }
+      }
+      
       return true;
     }
     
-    console.error('[WhatsApp Extension] Contato não encontrado');
+    console.error('[OV] Contato não encontrado na lista');
     return false;
     
-  } catch (error) {
-    console.error('[WhatsApp Extension] Erro:', error);
+  } catch (err) {
+    console.error('[OV] Erro ao abrir chat:', err);
     return false;
   }
-}
-
-function simulateRealClick(element) {
-  if (!element) return;
-  
-  const rect = element.getBoundingClientRect();
-  const x = rect.left + rect.width / 2;
-  const y = rect.top + rect.height / 2;
-  
-  ['mousedown', 'mouseup', 'click'].forEach(eventType => {
-    element.dispatchEvent(new MouseEvent(eventType, {
-      bubbles: true,
-      cancelable: true,
-      view: window,
-      clientX: x,
-      clientY: y,
-      button: 0
-    }));
-  });
-}
-
-function insertTextWithLineBreaks(element, text) {
-  element.focus();
-  element.textContent = '';
-  const lines = text.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    document.execCommand('insertText', false, lines[i]);
-    if (i < lines.length - 1) document.execCommand('insertLineBreak');
-  }
-  element.dispatchEvent(new InputEvent('input', { bubbles: true }));
 }
 
 async function sendTextMessage(text) {
   try {
     const input = document.querySelector('[data-testid="conversation-compose-box-input"], footer [contenteditable="true"]');
     if (!input) return false;
-    insertTextWithLineBreaks(input, text);
+    
+    input.focus();
+    input.textContent = '';
+    
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      document.execCommand('insertText', false, lines[i]);
+      if (i < lines.length - 1) document.execCommand('insertLineBreak');
+    }
+    
+    input.dispatchEvent(new InputEvent('input', { bubbles: true }));
     await new Promise(r => setTimeout(r, 300));
     return true;
-  } catch (error) {
-    console.error('[WhatsApp Extension] Erro ao enviar:', error);
+  } catch (err) {
+    console.error('[OV] Erro ao enviar:', err);
     return false;
   }
 }
 
 // ========== MESSAGE LISTENER ==========
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('[WhatsApp Extension] Mensagem:', request);
+  console.log('[OV] Mensagem:', request);
   
   if (request.type === 'PING') {
     sendResponse({ status: 'ok', location: window.location.href });
@@ -1417,13 +1067,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   
-  sendResponse({ success: false, error: 'Ação desconhecida' });
+  sendResponse({ success: false, error: 'Unknown action' });
   return true;
 });
 
 // ========== INIT ==========
 function init() {
-  console.log('[WhatsApp Extension] Inicializando...');
+  console.log('[OV] Inicializando...');
   injectStyles();
   createSidebar();
   createToggleButton();
