@@ -68,8 +68,10 @@ const Configuracoes = () => {
   const [editedTemplates, setEditedTemplates] = useState<Record<string, WirePusherTemplate>>({});
   
   // Meta Ads states
-  const [metaAccessToken, setMetaAccessToken] = useState("");
-  const [metaAdAccountId, setMetaAdAccountId] = useState("");
+  const [metaAccounts, setMetaAccounts] = useState<{id?: string; name: string; access_token: string; ad_account_id: string; is_active: boolean}[]>([]);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccessToken, setNewAccessToken] = useState("");
+  const [newAdAccountId, setNewAdAccountId] = useState("");
   const [isSavingMeta, setIsSavingMeta] = useState(false);
 
   // Fetch users with their permissions
@@ -183,16 +185,16 @@ const Configuracoes = () => {
     },
   });
 
-  // Fetch Meta Ads settings
+  // Fetch Meta Ads settings (multiple accounts)
   const { data: metaAdsSettings, refetch: refetchMetaAds } = useQuery({
     queryKey: ["meta-ads-settings"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meta_ads_settings")
         .select("*")
-        .maybeSingle();
+        .order("created_at", { ascending: true });
       if (error) throw error;
-      return data;
+      return data || [];
     },
   });
 
@@ -210,9 +212,14 @@ const Configuracoes = () => {
   }, [wirePusherSettings]);
 
   useEffect(() => {
-    if (metaAdsSettings) {
-      setMetaAccessToken(metaAdsSettings.access_token || "");
-      setMetaAdAccountId(metaAdsSettings.ad_account_id || "");
+    if (metaAdsSettings && Array.isArray(metaAdsSettings)) {
+      setMetaAccounts(metaAdsSettings.map((s: any) => ({
+        id: s.id,
+        name: s.name || 'Conta Principal',
+        access_token: s.access_token,
+        ad_account_id: s.ad_account_id,
+        is_active: s.is_active ?? true,
+      })));
     }
   }, [metaAdsSettings]);
 
@@ -494,59 +501,59 @@ const Configuracoes = () => {
     }
   };
 
-  const saveMetaAdsSettings = async () => {
-    if (!metaAccessToken.trim() || !metaAdAccountId.trim()) {
+  const addMetaAdsAccount = async () => {
+    if (!newAccessToken.trim() || !newAdAccountId.trim()) {
       toast.error("Preencha o Access Token e o Ad Account ID");
       return;
     }
 
     setIsSavingMeta(true);
     try {
-      const { data: existing } = await supabase
+      const { error } = await supabase
         .from("meta_ads_settings")
-        .select("id")
-        .maybeSingle();
-
-      if (existing) {
-        const { error } = await supabase
-          .from("meta_ads_settings")
-          .update({ 
-            access_token: metaAccessToken.trim(), 
-            ad_account_id: metaAdAccountId.trim() 
-          })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("meta_ads_settings")
-          .insert({ 
-            access_token: metaAccessToken.trim(), 
-            ad_account_id: metaAdAccountId.trim() 
-          });
-        if (error) throw error;
-      }
+        .insert({ 
+          name: newAccountName.trim() || `Conta ${metaAccounts.length + 1}`,
+          access_token: newAccessToken.trim(), 
+          ad_account_id: newAdAccountId.trim(),
+          is_active: true,
+        });
+      if (error) throw error;
       
+      setNewAccountName("");
+      setNewAccessToken("");
+      setNewAdAccountId("");
       refetchMetaAds();
-      toast.success("Configurações do Meta Ads salvas");
+      toast.success("Conta adicionada");
     } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar");
+      toast.error(error.message || "Erro ao adicionar conta");
     } finally {
       setIsSavingMeta(false);
     }
   };
 
-  const deleteMetaAdsSettings = async () => {
+  const updateMetaAccount = async (id: string, updates: { name?: string; is_active?: boolean }) => {
+    try {
+      const { error } = await supabase
+        .from("meta_ads_settings")
+        .update(updates)
+        .eq("id", id);
+      if (error) throw error;
+      refetchMetaAds();
+      toast.success("Conta atualizada");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao atualizar");
+    }
+  };
+
+  const deleteMetaAccount = async (id: string) => {
     try {
       const { error } = await supabase
         .from("meta_ads_settings")
         .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+        .eq("id", id);
       if (error) throw error;
-      
-      setMetaAccessToken("");
-      setMetaAdAccountId("");
       refetchMetaAds();
-      toast.success("Configurações removidas");
+      toast.success("Conta removida");
     } catch (error: any) {
       toast.error(error.message || "Erro ao remover");
     }
@@ -933,7 +940,7 @@ const Configuracoes = () => {
               <TrendingUp className="h-5 w-5 text-primary" />
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Meta Ads (Facebook/Instagram)</h3>
-                <p className="text-xs text-muted-foreground">Configure o token de acesso para visualizar gastos com anúncios</p>
+                <p className="text-xs text-muted-foreground">Configure múltiplas contas de anúncios para visualizar gastos</p>
               </div>
             </div>
             
@@ -945,63 +952,107 @@ const Configuracoes = () => {
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label className="text-sm">Access Token</Label>
-                  <Input
-                    type="password"
-                    placeholder="EAAxxxxxxx..."
-                    value={metaAccessToken}
-                    onChange={(e) => setMetaAccessToken(e.target.value)}
-                    className="bg-secondary/30 border-border/30 h-9 text-sm font-mono"
-                  />
+              {/* Existing accounts */}
+              {metaAccounts.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-foreground">Contas configuradas</h4>
+                  {metaAccounts.map((account) => (
+                    <div key={account.id} className="p-4 rounded-lg bg-secondary/20 border border-border/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Input
+                            value={account.name}
+                            onChange={(e) => {
+                              setMetaAccounts(prev => prev.map(a => 
+                                a.id === account.id ? { ...a, name: e.target.value } : a
+                              ));
+                            }}
+                            onBlur={() => account.id && updateMetaAccount(account.id, { name: account.name })}
+                            className="bg-secondary/30 border-border/30 h-8 text-sm w-48"
+                          />
+                          <Switch
+                            checked={account.is_active}
+                            onCheckedChange={(checked) => account.id && updateMetaAccount(account.id, { is_active: checked })}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {account.is_active ? "Ativo" : "Inativo"}
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => account.id && deleteMetaAccount(account.id)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        <span>Ad Account: {account.ad_account_id}</span>
+                        <span className="mx-2">•</span>
+                        <span>Token: {account.access_token.substring(0, 20)}...</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new account */}
+              <div className="p-4 rounded-lg bg-secondary/10 border border-dashed border-border/50 space-y-3">
+                <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Adicionar nova conta
+                </h4>
+                
+                <div className="grid gap-3 lg:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Nome da Conta</Label>
+                    <Input
+                      placeholder="Ex: Conta Principal"
+                      value={newAccountName}
+                      onChange={(e) => setNewAccountName(e.target.value)}
+                      className="bg-secondary/30 border-border/30 h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Ad Account ID</Label>
+                    <Input
+                      placeholder="123456789"
+                      value={newAdAccountId}
+                      onChange={(e) => setNewAdAccountId(e.target.value)}
+                      className="bg-secondary/30 border-border/30 h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Access Token</Label>
+                    <Input
+                      type="password"
+                      placeholder="EAAxxxxxxx..."
+                      value={newAccessToken}
+                      onChange={(e) => setNewAccessToken(e.target.value)}
+                      className="bg-secondary/30 border-border/30 h-9 text-sm font-mono"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm">Ad Account ID</Label>
-                  <Input
-                    placeholder="123456789 (apenas números)"
-                    value={metaAdAccountId}
-                    onChange={(e) => setMetaAdAccountId(e.target.value)}
-                    className="bg-secondary/30 border-border/30 h-9 text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Encontre em: Meta Business Suite → Configurações → Contas de Anúncios
+                <Button 
+                  onClick={addMetaAdsAccount}
+                  disabled={isSavingMeta}
+                  size="sm" 
+                  className="h-9"
+                >
+                  {isSavingMeta ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Plus className="h-3.5 w-3.5 mr-2" />}
+                  Adicionar Conta
+                </Button>
+              </div>
+
+              {metaAccounts.length > 0 && (
+                <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <p className="text-xs text-green-300">
+                    ✓ {metaAccounts.filter(a => a.is_active).length} conta(s) ativa(s). Os gastos serão somados e exibidos no Dashboard.
                   </p>
                 </div>
-
-                <div className="flex gap-3">
-                  <Button 
-                    onClick={saveMetaAdsSettings}
-                    disabled={isSavingMeta}
-                    size="sm" 
-                    className="h-9"
-                  >
-                    {isSavingMeta ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
-                    Salvar
-                  </Button>
-                  
-                  {metaAdsSettings && (
-                    <Button 
-                      variant="destructive"
-                      onClick={deleteMetaAdsSettings}
-                      size="sm" 
-                      className="h-9"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      Remover
-                    </Button>
-                  )}
-                </div>
-
-                {metaAdsSettings && (
-                  <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <p className="text-xs text-green-300">
-                      ✓ Meta Ads configurado. Os gastos serão exibidos no Dashboard.
-                    </p>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </TabsContent>

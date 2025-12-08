@@ -649,6 +649,8 @@ export type Database = {
           ad_account_id: string
           created_at: string
           id: string
+          is_active: boolean
+          name: string
           token_expires_at: string | null
           updated_at: string
         }
@@ -657,6 +659,8 @@ export type Database = {
           ad_account_id: string
           created_at?: string
           id?: string
+          is_active?: boolean
+          name?: string
           token_expires_at?: string | null
           updated_at?: string
         }
@@ -665,6 +669,8 @@ export type Database = {
           ad_account_id?: string
           created_at?: string
           id?: string
+          is_active?: boolean
+          name?: string
           token_expires_at?: string | null
           updated_at?: string
         }
