@@ -24,11 +24,10 @@ export function BoletoRecoveryIcon({ transaction }: BoletoRecoveryIconProps) {
 
   return (
     <div className="relative inline-flex">
-      <MessageSquare className="h-3.5 w-3.5 text-primary" />
+      <MessageSquare className={`h-3.5 w-3.5 ${clickCount > 0 ? "text-success" : "text-primary"}`} />
       {clickCount > 0 && (
         <Badge 
-          variant="destructive" 
-          className="absolute -top-2 -right-2 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] font-bold"
+          className="absolute -top-2 -right-2 h-4 min-w-4 p-0 flex items-center justify-center text-[10px] font-bold bg-success hover:bg-success text-success-foreground"
         >
           {clickCount}
         </Badge>
