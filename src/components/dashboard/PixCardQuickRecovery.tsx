@@ -90,25 +90,16 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
       return;
     }
 
-    if (extensionStatus !== "connected") {
-      toast.error("Extensão WhatsApp não detectada");
-      return;
-    }
-
     // Primeiro copia a mensagem
     await navigator.clipboard.writeText(message);
 
     // Depois abre o chat sem enviar mensagem
     const phone = transaction.customer_phone.replace(/\D/g, "");
-    const success = await openChat(phone);
+    await openChat(phone);
     
-    if (success) {
-      toast.success("Mensagem copiada! Cole com Ctrl+V");
-      setIsOpen(false);
-      await registerClick();
-    } else {
-      toast.error("Erro ao abrir conversa");
-    }
+    toast.success("Mensagem copiada! Cole com Ctrl+V");
+    setIsOpen(false);
+    await registerClick();
   };
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
