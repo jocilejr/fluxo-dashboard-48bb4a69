@@ -1,11 +1,11 @@
 // Content Script - WhatsApp Web
-// Executa ações na interface do WhatsApp + Mini Dashboard Refinado
+// Executa ações na interface do WhatsApp + Mini Dashboard Corporativo
 
 console.log('[WhatsApp Extension] Content script carregado');
 
 // ========== CONFIGURAÇÃO ==========
 const API_URL = 'https://suaznqybxvborpkrtdpm.supabase.co/functions/v1/whatsapp-dashboard';
-const SIDEBAR_WIDTH = 360;
+const SIDEBAR_WIDTH = 380;
 
 // ========== ESTADO GLOBAL ==========
 let currentPhone = null;
@@ -28,17 +28,14 @@ function normalizePhoneForMatching(phone) {
   let digits = phone.replace(/\D/g, '');
   if (digits.length < 8) return null;
   
-  // Remove country code 55 if present
   if (digits.startsWith('55') && digits.length >= 12) {
     digits = digits.slice(2);
   }
   
-  // Remove 9th digit if present (Brazilian mobile)
   if (digits.length === 11 && digits[2] === '9') {
     digits = digits.slice(0, 2) + digits.slice(3);
   }
   
-  // Also handle case where we have 11 digits but 3rd digit is NOT 9 (landline with leading 0 or other)
   if (digits.length === 11) {
     digits = digits.slice(0, 2) + digits.slice(3);
   }
@@ -53,23 +50,19 @@ function generatePhoneVariations(phone) {
   if (originalDigits.length < 8) return [];
   
   const variations = new Set();
-  
-  // Add original
   variations.add(originalDigits);
   
-  // Work with digits without country code
   let withoutCountry = originalDigits;
   if (originalDigits.startsWith('55') && originalDigits.length >= 12) {
     withoutCountry = originalDigits.slice(2);
     variations.add(withoutCountry);
   }
   
-  // Generate base form (DDD + 8 digits without 9th digit)
   let base = withoutCountry;
   if (base.length === 11 && base[2] === '9') {
-    base = base.slice(0, 2) + base.slice(3); // Remove 9th digit
+    base = base.slice(0, 2) + base.slice(3);
   } else if (base.length === 11) {
-    base = base.slice(0, 2) + base.slice(3); // Force 10 digits
+    base = base.slice(0, 2) + base.slice(3);
   }
   
   if (base.length === 10) {
@@ -77,18 +70,15 @@ function generatePhoneVariations(phone) {
     const number = base.slice(2);
     const with9 = ddd + '9' + number;
     
-    // All variations
-    variations.add(base);           // 4181503356
-    variations.add(with9);          // 41981503356
-    variations.add('55' + base);    // 554181503356
-    variations.add('55' + with9);   // 5541981503356
+    variations.add(base);
+    variations.add(with9);
+    variations.add('55' + base);
+    variations.add('55' + with9);
   } else if (base.length === 9) {
-    // Missing DDD digit - try adding common patterns
     variations.add(base);
     variations.add('55' + base);
   }
   
-  // Also handle if input was already with country code
   if (!originalDigits.startsWith('55') && originalDigits.length <= 11) {
     variations.add('55' + originalDigits);
   }
@@ -96,16 +86,32 @@ function generatePhoneVariations(phone) {
   return Array.from(variations);
 }
 
-// ========== ESTILOS CSS ==========
+// ========== ESTILOS CSS CORPORATIVO PREMIUM ==========
 function injectStyles() {
   if (document.getElementById('ov-dashboard-styles')) return;
   
   const styles = document.createElement('style');
   styles.id = 'ov-dashboard-styles';
   styles.textContent = `
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
-    /* Ajusta o WhatsApp para dar espaço à sidebar */
+    :root {
+      --ov-bg-primary: #0c1117;
+      --ov-bg-secondary: #141b24;
+      --ov-bg-tertiary: #1a232e;
+      --ov-bg-card: rgba(20, 27, 36, 0.8);
+      --ov-border: rgba(255, 255, 255, 0.06);
+      --ov-border-accent: rgba(34, 197, 94, 0.3);
+      --ov-text-primary: #f1f5f9;
+      --ov-text-secondary: #94a3b8;
+      --ov-text-muted: #64748b;
+      --ov-accent: #22c55e;
+      --ov-accent-glow: rgba(34, 197, 94, 0.15);
+      --ov-warning: #f59e0b;
+      --ov-danger: #ef4444;
+      --ov-info: #3b82f6;
+    }
+    
     body.ov-sidebar-open #app {
       width: calc(100% - ${SIDEBAR_WIDTH}px) !important;
       transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -117,14 +123,14 @@ function injectStyles() {
       right: 0;
       width: ${SIDEBAR_WIDTH}px;
       height: 100vh;
-      background: linear-gradient(180deg, #0a0f14 0%, #0d1318 100%);
-      border-left: 1px solid rgba(34, 197, 94, 0.2);
+      background: var(--ov-bg-primary);
+      border-left: 1px solid var(--ov-border);
       z-index: 99999;
       display: flex;
       flex-direction: column;
-      font-family: 'Inter', -apple-system, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+      box-shadow: -20px 0 60px rgba(0, 0, 0, 0.5);
       overflow: hidden;
     }
     
@@ -136,10 +142,11 @@ function injectStyles() {
       box-sizing: border-box;
     }
     
+    /* ===== HEADER PREMIUM ===== */
     #ov-sidebar-header {
-      padding: 14px 16px;
-      background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 20px 24px;
+      background: linear-gradient(180deg, var(--ov-bg-secondary) 0%, var(--ov-bg-primary) 100%);
+      border-bottom: 1px solid var(--ov-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -149,20 +156,21 @@ function injectStyles() {
     .ov-header-left {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 14px;
       min-width: 0;
     }
     
     .ov-logo-container {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
       flex-shrink: 0;
       overflow: hidden;
+      background: var(--ov-accent-glow);
+      border: 1px solid var(--ov-border-accent);
     }
     
     .ov-logo-container img {
@@ -171,31 +179,37 @@ function injectStyles() {
       object-fit: cover;
     }
     
+    .ov-header-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    
     .ov-header-title {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 600;
-      color: #f8fafc;
+      color: var(--ov-text-primary);
       letter-spacing: -0.3px;
     }
     
     .ov-header-subtitle {
-      font-size: 10px;
-      color: rgba(148, 163, 184, 0.8);
-      margin-top: 1px;
+      font-size: 11px;
+      color: var(--ov-text-muted);
+      font-weight: 400;
     }
     
     .ov-close-btn {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #94a3b8;
+      background: var(--ov-bg-tertiary);
+      border: 1px solid var(--ov-border);
+      color: var(--ov-text-muted);
       cursor: pointer;
       padding: 0;
-      font-size: 16px;
+      font-size: 14px;
       line-height: 1;
-      border-radius: 6px;
+      border-radius: 8px;
       transition: all 0.2s;
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -203,126 +217,136 @@ function injectStyles() {
     }
     
     .ov-close-btn:hover {
-      background: rgba(239, 68, 68, 0.15);
+      background: rgba(239, 68, 68, 0.1);
       border-color: rgba(239, 68, 68, 0.3);
-      color: #ef4444;
+      color: var(--ov-danger);
     }
     
-    /* Lead Info Card */
-    .ov-lead-card {
-      margin: 12px;
-      background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 185, 129, 0.04) 100%);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 12px;
-      padding: 14px;
+    /* ===== LEAD PROFILE CARD ===== */
+    .ov-profile-section {
+      padding: 20px 24px;
+      background: var(--ov-bg-secondary);
+      border-bottom: 1px solid var(--ov-border);
     }
     
-    .ov-lead-header {
+    .ov-profile-header {
       display: flex;
-      align-items: flex-start;
-      margin-bottom: 14px;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
     }
     
-    .ov-lead-avatar {
-      width: 42px;
-      height: 42px;
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-      border-radius: 10px;
+    .ov-profile-avatar {
+      width: 56px;
+      height: 56px;
+      background: linear-gradient(135deg, var(--ov-accent) 0%, #16a34a 100%);
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 16px;
+      font-size: 20px;
       font-weight: 600;
       color: white;
       text-transform: uppercase;
-      margin-right: 12px;
       flex-shrink: 0;
+      box-shadow: 0 8px 24px rgba(34, 197, 94, 0.25);
     }
     
-    .ov-lead-info {
+    .ov-profile-info {
       flex: 1;
       min-width: 0;
-      overflow: hidden;
     }
     
-    .ov-lead-name {
-      font-size: 14px;
+    .ov-profile-name {
+      font-size: 18px;
       font-weight: 600;
-      color: #f8fafc;
-      margin-bottom: 3px;
+      color: var(--ov-text-primary);
+      margin-bottom: 4px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     
-    .ov-lead-phone {
-      font-size: 11px;
-      color: #64748b;
-      font-family: 'SF Mono', Monaco, monospace;
+    .ov-profile-phone {
       display: flex;
       align-items: center;
-      gap: 6px;
-    }
-    
-    .ov-copy-phone {
-      background: none;
-      border: none;
-      color: #64748b;
-      cursor: pointer;
-      padding: 2px;
-      font-size: 11px;
-      opacity: 0.7;
-      transition: all 0.2s;
-    }
-    
-    .ov-copy-phone:hover {
-      opacity: 1;
-      color: #22c55e;
-    }
-    
-    .ov-lead-stats {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
       gap: 8px;
     }
     
-    .ov-stat-box {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 8px;
-      padding: 10px;
+    .ov-profile-phone-text {
+      font-size: 13px;
+      color: var(--ov-text-secondary);
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    }
+    
+    .ov-copy-btn {
+      background: none;
+      border: none;
+      color: var(--ov-text-muted);
+      cursor: pointer;
+      padding: 4px;
+      font-size: 12px;
+      opacity: 0.6;
+      transition: all 0.2s;
+    }
+    
+    .ov-copy-btn:hover {
+      opacity: 1;
+      color: var(--ov-accent);
+    }
+    
+    /* ===== STATS GRID ===== */
+    .ov-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    
+    .ov-stat-card {
+      background: var(--ov-bg-primary);
+      border: 1px solid var(--ov-border);
+      border-radius: 12px;
+      padding: 16px;
       text-align: center;
+      transition: all 0.2s;
+    }
+    
+    .ov-stat-card:hover {
+      border-color: var(--ov-border-accent);
+      background: var(--ov-accent-glow);
     }
     
     .ov-stat-value {
-      font-size: 16px;
+      font-size: 20px;
       font-weight: 700;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
+      letter-spacing: -0.5px;
     }
     
-    .ov-stat-value.success { color: #22c55e; }
-    .ov-stat-value.warning { color: #f59e0b; }
-    .ov-stat-value.danger { color: #ef4444; }
-    .ov-stat-value.info { color: #64748b; }
+    .ov-stat-value.success { color: var(--ov-accent); }
+    .ov-stat-value.warning { color: var(--ov-warning); }
+    .ov-stat-value.danger { color: var(--ov-danger); }
+    .ov-stat-value.muted { color: var(--ov-text-muted); }
     
     .ov-stat-label {
-      font-size: 9px;
-      color: #64748b;
+      font-size: 10px;
+      color: var(--ov-text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       font-weight: 500;
     }
     
-    /* Content */
+    /* ===== CONTENT AREA ===== */
     #ov-sidebar-content {
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 12px;
+      padding: 20px 24px;
+      background: var(--ov-bg-primary);
     }
     
     #ov-sidebar-content::-webkit-scrollbar {
-      width: 4px;
+      width: 6px;
     }
     
     #ov-sidebar-content::-webkit-scrollbar-track {
@@ -330,211 +354,356 @@ function injectStyles() {
     }
     
     #ov-sidebar-content::-webkit-scrollbar-thumb {
-      background: rgba(100, 116, 139, 0.3);
-      border-radius: 2px;
+      background: var(--ov-bg-tertiary);
+      border-radius: 3px;
     }
     
+    #ov-sidebar-content::-webkit-scrollbar-thumb:hover {
+      background: var(--ov-text-muted);
+    }
+    
+    /* ===== ACCORDION (LINKS ÚTEIS) ===== */
+    .ov-accordion {
+      margin-bottom: 24px;
+    }
+    
+    .ov-accordion-trigger {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      background: linear-gradient(135deg, var(--ov-bg-secondary) 0%, var(--ov-bg-tertiary) 100%);
+      border: 1px solid var(--ov-border);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .ov-accordion-trigger:hover {
+      border-color: rgba(59, 130, 246, 0.3);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, var(--ov-bg-tertiary) 100%);
+    }
+    
+    .ov-accordion-trigger.open {
+      border-radius: 12px 12px 0 0;
+      border-bottom-color: transparent;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, var(--ov-bg-tertiary) 100%);
+    }
+    
+    .ov-accordion-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .ov-accordion-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    
+    .ov-accordion-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ov-text-primary);
+    }
+    
+    .ov-accordion-count {
+      font-size: 11px;
+      color: var(--ov-info);
+      background: rgba(59, 130, 246, 0.1);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    
+    .ov-accordion-arrow {
+      font-size: 12px;
+      color: var(--ov-text-muted);
+      transition: transform 0.2s;
+    }
+    
+    .ov-accordion-trigger.open .ov-accordion-arrow {
+      transform: rotate(180deg);
+    }
+    
+    .ov-accordion-panel {
+      display: none;
+      padding: 16px;
+      background: var(--ov-bg-secondary);
+      border: 1px solid var(--ov-border);
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+    }
+    
+    .ov-accordion-panel.open {
+      display: block;
+    }
+    
+    .ov-links-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .ov-link-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: var(--ov-bg-primary);
+      border: 1px solid var(--ov-border);
+      border-radius: 10px;
+      transition: all 0.2s;
+    }
+    
+    .ov-link-item:hover {
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(59, 130, 246, 0.05);
+    }
+    
+    .ov-link-icon-box {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.04) 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    
+    .ov-link-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .ov-link-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ov-text-primary);
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .ov-link-desc {
+      font-size: 11px;
+      color: var(--ov-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .ov-link-copy {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 8px;
+      padding: 10px 16px;
+      color: var(--ov-info);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      font-family: inherit;
+    }
+    
+    .ov-link-copy:hover {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.4);
+    }
+    
+    /* ===== SECTION HEADER ===== */
     .ov-section {
-      margin-bottom: 16px;
+      margin-bottom: 24px;
     }
     
     .ov-section-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--ov-border);
     }
     
     .ov-section-title {
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 600;
-      color: #64748b;
+      color: var(--ov-text-secondary);
       text-transform: uppercase;
       letter-spacing: 0.8px;
-    }
-    
-    .ov-section-count {
-      font-size: 10px;
-      color: #475569;
-    }
-    
-    /* Transaction Cards */
-    .ov-tx-list {
       display: flex;
-      flex-direction: column;
+      align-items: center;
       gap: 8px;
     }
     
-    .ov-tx-card {
-      background: rgba(15, 23, 42, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+    .ov-section-count {
+      font-size: 11px;
+      color: var(--ov-text-muted);
+      background: var(--ov-bg-tertiary);
+      padding: 2px 8px;
       border-radius: 10px;
-      padding: 12px;
-      cursor: pointer;
+    }
+    
+    /* ===== TRANSACTION CARDS ===== */
+    .ov-tx-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .ov-tx-card {
+      background: var(--ov-bg-secondary);
+      border: 1px solid var(--ov-border);
+      border-radius: 14px;
+      padding: 16px 18px;
       transition: all 0.2s;
       position: relative;
       overflow: hidden;
     }
     
+    .ov-tx-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+    }
+    
+    .ov-tx-card.boleto::before { background: var(--ov-warning); }
+    .ov-tx-card.pix::before { background: var(--ov-accent); }
+    .ov-tx-card.cartao::before { background: #8b5cf6; }
+    .ov-tx-card.abandoned::before { background: var(--ov-danger); }
+    
     .ov-tx-card:hover {
-      background: rgba(15, 23, 42, 0.8);
-      border-color: rgba(34, 197, 94, 0.3);
+      border-color: var(--ov-border-accent);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
     
-    .ov-tx-card.boleto { border-left: 3px solid #f59e0b; }
-    .ov-tx-card.pix { border-left: 3px solid #22c55e; }
-    .ov-tx-card.cartao { border-left: 3px solid #8b5cf6; }
-    
-    .ov-tx-row {
+    .ov-tx-main {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 8px;
+      margin-bottom: 12px;
     }
     
-    .ov-tx-row + .ov-tx-row {
-      margin-top: 6px;
+    .ov-tx-info {
+      flex: 1;
+      min-width: 0;
     }
     
     .ov-tx-product {
-      font-size: 12px;
-      font-weight: 500;
-      color: #e2e8f0;
-      flex: 1;
-      min-width: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ov-text-primary);
+      margin-bottom: 4px;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
     }
     
-    .ov-tx-amount {
-      font-size: 13px;
-      font-weight: 700;
-      color: #22c55e;
-      flex-shrink: 0;
-    }
-    
-    .ov-tx-badges {
+    .ov-tx-meta {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     
     .ov-tx-badge {
-      font-size: 9px;
-      padding: 2px 6px;
-      border-radius: 4px;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 6px;
       text-transform: uppercase;
       font-weight: 600;
       letter-spacing: 0.3px;
     }
     
-    .ov-tx-badge.boleto { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-    .ov-tx-badge.pix { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-    .ov-tx-badge.cartao { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
-    .ov-tx-badge.gerado { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-    .ov-tx-badge.pendente { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-    .ov-tx-badge.pago { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
-    .ov-tx-badge.cancelado { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-    .ov-tx-badge.expirado { background: rgba(100, 116, 139, 0.15); color: #64748b; }
+    .ov-tx-badge.boleto { background: rgba(245, 158, 11, 0.12); color: var(--ov-warning); }
+    .ov-tx-badge.pix { background: rgba(34, 197, 94, 0.12); color: var(--ov-accent); }
+    .ov-tx-badge.cartao { background: rgba(139, 92, 246, 0.12); color: #a78bfa; }
+    .ov-tx-badge.gerado { background: rgba(245, 158, 11, 0.12); color: var(--ov-warning); }
+    .ov-tx-badge.pendente { background: rgba(245, 158, 11, 0.12); color: var(--ov-warning); }
+    .ov-tx-badge.pago { background: rgba(34, 197, 94, 0.12); color: var(--ov-accent); }
+    .ov-tx-badge.cancelado { background: rgba(239, 68, 68, 0.12); color: var(--ov-danger); }
+    .ov-tx-badge.expirado { background: rgba(100, 116, 139, 0.12); color: var(--ov-text-muted); }
     
     .ov-tx-date {
-      font-size: 10px;
-      color: #475569;
+      font-size: 11px;
+      color: var(--ov-text-muted);
+    }
+    
+    .ov-tx-amount {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ov-accent);
       flex-shrink: 0;
+      letter-spacing: -0.5px;
     }
     
-    .ov-tx-actions {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    .ov-tx-amount.pending {
+      color: var(--ov-warning);
     }
     
-    .ov-tx-action-btn {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      padding: 6px 8px;
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 6px;
-      color: #22c55e;
-      font-size: 10px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: inherit;
+    .ov-tx-amount.danger {
+      color: var(--ov-danger);
     }
     
-    .ov-tx-action-btn:hover {
-      background: rgba(34, 197, 94, 0.2);
-      border-color: rgba(34, 197, 94, 0.4);
-    }
-    
-    .ov-tx-action-btn.download {
-      background: rgba(59, 130, 246, 0.1);
-      border-color: rgba(59, 130, 246, 0.2);
-      color: #3b82f6;
-    }
-    
-    .ov-tx-action-btn.download:hover {
-      background: rgba(59, 130, 246, 0.2);
-      border-color: rgba(59, 130, 246, 0.4);
-    }
-    
-    /* Barcode */
-    .ov-barcode-box {
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px;
-      padding: 8px 10px;
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    
-    .ov-barcode-info {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
+    /* Barcode Box */
+    .ov-barcode-section {
+      background: var(--ov-bg-primary);
+      border: 1px solid var(--ov-border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-top: 12px;
     }
     
     .ov-barcode-label {
-      font-size: 8px;
-      color: #64748b;
+      font-size: 9px;
+      color: var(--ov-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 2px;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    
+    .ov-barcode-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     
     .ov-barcode-value {
-      font-size: 10px;
-      color: #94a3b8;
-      font-family: 'SF Mono', Monaco, monospace;
-      word-break: break-all;
+      flex: 1;
+      font-size: 11px;
+      color: var(--ov-text-secondary);
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
     }
     
     .ov-barcode-copy {
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 4px;
-      padding: 4px 8px;
-      color: #22c55e;
-      font-size: 9px;
+      background: var(--ov-accent-glow);
+      border: 1px solid var(--ov-border-accent);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: var(--ov-accent);
+      font-size: 11px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
-      white-space: nowrap;
       font-family: inherit;
       flex-shrink: 0;
     }
@@ -543,210 +712,91 @@ function injectStyles() {
       background: rgba(34, 197, 94, 0.2);
     }
     
-    /* Empty State */
-    .ov-empty {
-      text-align: center;
-      padding: 40px 20px;
-    }
-    
-    .ov-empty-icon {
-      width: 56px;
-      height: 56px;
-      background: rgba(100, 116, 139, 0.1);
-      border-radius: 14px;
+    /* Boleto Action */
+    .ov-tx-actions {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 14px;
-      font-size: 24px;
-    }
-    
-    .ov-empty-title {
-      font-size: 13px;
-      font-weight: 500;
-      color: #94a3b8;
-      margin-bottom: 4px;
-    }
-    
-    .ov-empty-text {
-      font-size: 11px;
-      color: #64748b;
-      line-height: 1.5;
-    }
-    
-    /* Accordion Links Úteis */
-    .ov-accordion {
-      margin-bottom: 16px;
-    }
-    
-    .ov-accordion-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
-      border: 1px solid rgba(59, 130, 246, 0.2);
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .ov-accordion-header:hover {
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%);
-      border-color: rgba(59, 130, 246, 0.3);
-    }
-    
-    .ov-accordion-header.open {
-      border-radius: 10px 10px 0 0;
-      border-bottom: none;
-    }
-    
-    .ov-accordion-title-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .ov-accordion-icon {
-      font-size: 14px;
-    }
-    
-    .ov-accordion-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: #e2e8f0;
-    }
-    
-    .ov-accordion-count {
-      font-size: 10px;
-      color: #64748b;
-      background: rgba(100, 116, 139, 0.2);
-      padding: 2px 8px;
-      border-radius: 10px;
-    }
-    
-    .ov-accordion-arrow {
-      font-size: 10px;
-      color: #64748b;
-      transition: transform 0.2s;
-    }
-    
-    .ov-accordion-header.open .ov-accordion-arrow {
-      transform: rotate(180deg);
-    }
-    
-    .ov-accordion-content {
-      display: none;
-      padding: 10px;
-      background: rgba(15, 23, 42, 0.4);
-      border: 1px solid rgba(59, 130, 246, 0.2);
-      border-top: none;
-      border-radius: 0 0 10px 10px;
-    }
-    
-    .ov-accordion-content.open {
-      display: block;
-    }
-    
-    .ov-links-list {
-      display: flex;
-      flex-direction: column;
       gap: 8px;
+      margin-top: 12px;
     }
     
-    .ov-link-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 8px;
-      transition: all 0.2s;
-    }
-    
-    .ov-link-card:hover {
-      background: rgba(15, 23, 42, 0.8);
-      border-color: rgba(59, 130, 246, 0.3);
-    }
-    
-    .ov-link-icon {
-      width: 32px;
-      height: 32px;
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(59, 130, 246, 0.1) 100%);
-      border-radius: 8px;
+    .ov-tx-action-btn {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-    
-    .ov-link-info {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-    }
-    
-    .ov-link-title {
-      font-size: 12px;
-      font-weight: 600;
-      color: #f1f5f9;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .ov-link-desc {
-      font-size: 10px;
-      color: #64748b;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-top: 3px;
-    }
-    
-    .ov-link-copy-btn {
+      gap: 6px;
+      padding: 10px 14px;
       background: rgba(59, 130, 246, 0.1);
-      border: 1px solid rgba(59, 130, 246, 0.25);
-      border-radius: 6px;
-      padding: 8px 12px;
-      color: #60a5fa;
-      font-size: 11px;
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 8px;
+      color: var(--ov-info);
+      font-size: 12px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
-      flex-shrink: 0;
       font-family: inherit;
     }
     
-    .ov-link-copy-btn:hover {
+    .ov-tx-action-btn:hover {
       background: rgba(59, 130, 246, 0.2);
       border-color: rgba(59, 130, 246, 0.4);
     }
     
-    /* Toggle Button */
+    /* ===== EMPTY STATE ===== */
+    .ov-empty-state {
+      text-align: center;
+      padding: 48px 24px;
+    }
+    
+    .ov-empty-icon {
+      width: 72px;
+      height: 72px;
+      background: var(--ov-bg-secondary);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 32px;
+    }
+    
+    .ov-empty-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--ov-text-primary);
+      margin-bottom: 8px;
+    }
+    
+    .ov-empty-text {
+      font-size: 13px;
+      color: var(--ov-text-muted);
+      line-height: 1.6;
+      max-width: 280px;
+      margin: 0 auto;
+    }
+    
+    /* ===== TOGGLE BUTTON ===== */
     .ov-toggle-btn {
       position: fixed;
       top: 50%;
       right: 0;
       transform: translateY(-50%);
-      width: 28px;
-      height: 70px;
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      width: 32px;
+      height: 80px;
+      background: linear-gradient(180deg, var(--ov-accent) 0%, #16a34a 100%);
       border: none;
-      border-radius: 8px 0 0 8px;
+      border-radius: 10px 0 0 10px;
       cursor: pointer;
       z-index: 99998;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.2s;
-      box-shadow: -4px 0 20px rgba(34, 197, 94, 0.3);
+      box-shadow: -4px 0 24px rgba(34, 197, 94, 0.3);
     }
     
     .ov-toggle-btn:hover {
-      width: 36px;
+      width: 40px;
     }
     
     .ov-toggle-btn-icon {
@@ -758,274 +808,22 @@ function injectStyles() {
       right: ${SIDEBAR_WIDTH}px;
     }
     
-    /* Recovery View */
-    .ov-recovery-view {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-    }
-    
-    .ov-recovery-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 16px;
-      background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      flex-shrink: 0;
-    }
-    
-    .ov-back-btn {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #94a3b8;
-      cursor: pointer;
-      padding: 0;
-      font-size: 16px;
-      line-height: 1;
-      border-radius: 6px;
-      transition: all 0.2s;
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    
-    .ov-back-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #f8fafc;
-    }
-    
-    .ov-recovery-title-box {
-      min-width: 0;
-    }
-    
-    .ov-recovery-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #f8fafc;
-    }
-    
-    .ov-recovery-subtitle {
-      font-size: 10px;
-      color: rgba(148, 163, 184, 0.8);
-    }
-    
-    .ov-recovery-body {
-      padding: 12px;
-      overflow-y: auto;
-      flex: 1;
-    }
-    
-    /* Client Data Section */
-    .ov-client-section {
-      margin-bottom: 20px;
-    }
-    
-    .ov-client-section-title {
-      font-size: 9px;
-      font-weight: 600;
-      color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 10px;
-    }
-    
-    .ov-client-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      background: rgba(15, 23, 42, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 8px;
-      margin-bottom: 6px;
-    }
-    
-    .ov-client-icon {
-      font-size: 12px;
-      color: #64748b;
-      width: 18px;
-      text-align: center;
-      flex-shrink: 0;
-    }
-    
-    .ov-client-content {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-    }
-    
-    .ov-client-label {
-      font-size: 9px;
-      color: #64748b;
-      margin-bottom: 1px;
-    }
-    
-    .ov-client-value {
-      font-size: 12px;
-      color: #e2e8f0;
-      font-weight: 500;
-      word-break: break-all;
-      overflow-wrap: break-word;
-    }
-    
-    .ov-client-value.mono {
-      font-family: 'SF Mono', Monaco, monospace;
-      font-size: 11px;
-    }
-    
-    .ov-client-value.success {
-      color: #22c55e;
-    }
-    
-    .ov-client-copy-btn {
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 6px;
-      padding: 6px;
-      color: #22c55e;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: 12px;
-      flex-shrink: 0;
-    }
-    
-    .ov-client-copy-btn:hover {
-      background: rgba(34, 197, 94, 0.2);
-    }
-    
-    /* Messages Section */
-    .ov-messages-section {
-      margin-top: 20px;
-    }
-    
-    .ov-message-block {
-      background: rgba(15, 23, 42, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 10px;
-      position: relative;
-    }
-    
-    .ov-message-text {
-      font-size: 12px;
-      color: #e2e8f0;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-      overflow-wrap: break-word;
-      margin-bottom: 10px;
-      padding-right: 60px;
-    }
-    
-    .ov-message-copy {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 4px;
-      padding: 4px 8px;
-      color: #22c55e;
-      font-size: 10px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      font-family: inherit;
-    }
-    
-    .ov-message-copy:hover {
-      background: rgba(34, 197, 94, 0.2);
-    }
-    
-    .ov-file-block {
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .ov-file-icon {
-      width: 38px;
-      height: 38px;
-      background: rgba(59, 130, 246, 0.15);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
-    }
-    
-    .ov-file-info {
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .ov-file-name {
-      font-size: 12px;
-      font-weight: 500;
-      color: #e2e8f0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    
-    .ov-file-hint {
-      font-size: 10px;
-      color: #64748b;
-      margin-top: 1px;
-    }
-    
-    .ov-file-download {
-      background: rgba(59, 130, 246, 0.1);
-      border: 1px solid rgba(59, 130, 246, 0.2);
-      border-radius: 6px;
-      padding: 6px 10px;
-      color: #3b82f6;
-      font-size: 10px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-family: inherit;
-      flex-shrink: 0;
-      white-space: nowrap;
-    }
-    
-    .ov-file-download:hover {
-      background: rgba(59, 130, 246, 0.2);
-    }
-    
-    /* Loading */
+    /* ===== LOADING ===== */
     .ov-loading {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 50px;
-      color: #64748b;
-      gap: 14px;
+      padding: 60px 24px;
+      color: var(--ov-text-muted);
+      gap: 16px;
     }
     
     .ov-spinner {
-      width: 28px;
-      height: 28px;
-      border: 2px solid rgba(34, 197, 94, 0.2);
-      border-top-color: #22c55e;
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--ov-bg-tertiary);
+      border-top-color: var(--ov-accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -1034,25 +832,25 @@ function injectStyles() {
       to { transform: rotate(360deg); }
     }
     
-    /* Toast */
+    /* ===== TOAST ===== */
     .ov-toast {
       position: fixed;
-      bottom: 20px;
+      bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
-      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      background: linear-gradient(135deg, var(--ov-accent) 0%, #16a34a 100%);
       color: white;
-      padding: 10px 20px;
-      border-radius: 8px;
-      font-size: 12px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 13px;
       font-weight: 500;
       z-index: 100001;
       animation: toastIn 0.25s ease;
-      box-shadow: 0 10px 30px rgba(34, 197, 94, 0.3);
+      box-shadow: 0 10px 40px rgba(34, 197, 94, 0.35);
     }
     
     @keyframes toastIn {
-      from { opacity: 0; transform: translate(-50%, 16px); }
+      from { opacity: 0; transform: translate(-50%, 20px); }
       to { opacity: 1; transform: translate(-50%, 0); }
     }
   `;
@@ -1070,7 +868,7 @@ function createSidebar() {
     <div id="ov-sidebar-header">
       <div class="ov-header-left">
         <div class="ov-logo-container"><img src="${chrome.runtime.getURL('logo-ov.png')}" alt="OV"></div>
-        <div>
+        <div class="ov-header-info">
           <div class="ov-header-title">Origem Viva</div>
           <div class="ov-header-subtitle">Histórico do Lead</div>
         </div>
@@ -1083,8 +881,6 @@ function createSidebar() {
   `;
   
   document.body.appendChild(sidebar);
-  
-  // Event listener para fechar
   document.getElementById('ov-close-sidebar').addEventListener('click', closeSidebar);
 }
 
@@ -1115,11 +911,9 @@ function openSidebar() {
   document.body.classList.add('ov-sidebar-open');
   sidebarVisible = true;
   
-  // Update toggle button icon
   const toggleBtn = document.getElementById('ov-toggle-btn');
   if (toggleBtn) toggleBtn.innerHTML = `<span class="ov-toggle-btn-icon">▶</span>`;
   
-  // Carregar dados do lead atual
   if (currentPhone) {
     loadLeadData(currentPhone);
   } else {
@@ -1133,7 +927,6 @@ function closeSidebar() {
   document.body.classList.remove('ov-sidebar-open');
   sidebarVisible = false;
   
-  // Update toggle button icon
   const toggleBtn = document.getElementById('ov-toggle-btn');
   if (toggleBtn) toggleBtn.innerHTML = `<span class="ov-toggle-btn-icon">◀</span>`;
 }
@@ -1149,7 +942,7 @@ function renderContent() {
 function renderLeadContent(container) {
   if (!currentPhone) {
     container.innerHTML = `
-      <div class="ov-empty">
+      <div class="ov-empty-state">
         <div class="ov-empty-icon">💬</div>
         <div class="ov-empty-title">Selecione uma conversa</div>
         <div class="ov-empty-text">Os dados do lead aparecerão aqui quando você abrir uma conversa no WhatsApp</div>
@@ -1173,69 +966,73 @@ function renderLeadContent(container) {
   const customerName = customer?.name || transactions[0]?.customer_name || abandoned[0]?.customer_name || 'Lead';
   const initials = customerName.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
   
-  // Gera HTML para links úteis com accordion
-  const linksHtml = usefulLinks.length > 0 ? `
-    <div class="ov-accordion">
-      <div class="ov-accordion-header" id="ov-links-accordion">
-        <div class="ov-accordion-title-row">
-          <span class="ov-accordion-icon">🔗</span>
-          <span class="ov-accordion-title">Links Úteis</span>
-          <span class="ov-accordion-count">${usefulLinks.length}</span>
-        </div>
-        <span class="ov-accordion-arrow">▼</span>
-      </div>
-      <div class="ov-accordion-content" id="ov-links-content">
-        <div class="ov-links-list">
-          ${usefulLinks.map(link => `
-            <div class="ov-link-card">
-              <div class="ov-link-icon">🌐</div>
-              <div class="ov-link-info">
-                <div class="ov-link-title">${link.title}</div>
-                ${link.description ? `<div class="ov-link-desc">${link.description}</div>` : ''}
-              </div>
-              <button class="ov-link-copy-btn" data-copy="${link.url}">Copiar</button>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-  ` : '';
-  
-  container.innerHTML = `
-    <div class="ov-lead-card">
-      <div class="ov-lead-header">
-        <div class="ov-lead-avatar">${initials || '?'}</div>
-        <div class="ov-lead-info">
-          <div class="ov-lead-name">${customerName}</div>
-          <div class="ov-lead-phone">
-            ${displayPhone}
-            <button class="ov-copy-phone" data-copy="${currentPhone}" title="Copiar">📋</button>
+  // Build HTML
+  let html = `
+    <div class="ov-profile-section">
+      <div class="ov-profile-header">
+        <div class="ov-profile-avatar">${initials || '?'}</div>
+        <div class="ov-profile-info">
+          <div class="ov-profile-name">${customerName}</div>
+          <div class="ov-profile-phone">
+            <span class="ov-profile-phone-text">${displayPhone}</span>
+            <button class="ov-copy-btn" data-copy="${currentPhone}" title="Copiar">📋</button>
           </div>
         </div>
       </div>
-      <div class="ov-lead-stats">
-        <div class="ov-stat-box">
+      <div class="ov-stats-grid">
+        <div class="ov-stat-card">
           <div class="ov-stat-value success">${formatCurrency(totalPaid)}</div>
           <div class="ov-stat-label">Total Pago</div>
         </div>
-        <div class="ov-stat-box">
+        <div class="ov-stat-card">
           <div class="ov-stat-value warning">${formatCurrency(totalPending)}</div>
           <div class="ov-stat-label">Pendente</div>
         </div>
-        <div class="ov-stat-box">
-          <div class="ov-stat-value info">${transactions.length}</div>
+        <div class="ov-stat-card">
+          <div class="ov-stat-value muted">${transactions.length}</div>
           <div class="ov-stat-label">Transações</div>
         </div>
-        <div class="ov-stat-box">
+        <div class="ov-stat-card">
           <div class="ov-stat-value danger">${abandoned.length}</div>
           <div class="ov-stat-label">Abandonos</div>
         </div>
       </div>
     </div>
-    
-    ${linksHtml}
-    
-    ${transactions.length > 0 ? `
+  `;
+  
+  // Accordion Links Úteis
+  if (usefulLinks.length > 0) {
+    html += `
+      <div class="ov-accordion">
+        <button class="ov-accordion-trigger" id="ov-links-trigger">
+          <div class="ov-accordion-left">
+            <div class="ov-accordion-icon">🔗</div>
+            <span class="ov-accordion-label">Links Úteis</span>
+            <span class="ov-accordion-count">${usefulLinks.length}</span>
+          </div>
+          <span class="ov-accordion-arrow">▼</span>
+        </button>
+        <div class="ov-accordion-panel" id="ov-links-panel">
+          <div class="ov-links-grid">
+            ${usefulLinks.map(link => `
+              <div class="ov-link-item">
+                <div class="ov-link-icon-box">🌐</div>
+                <div class="ov-link-content">
+                  <div class="ov-link-title">${link.title}</div>
+                  ${link.description ? `<div class="ov-link-desc">${link.description}</div>` : ''}
+                </div>
+                <button class="ov-link-copy" data-copy="${link.url}">Copiar</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Transactions Section
+  if (transactions.length > 0) {
+    html += `
       <div class="ov-section">
         <div class="ov-section-header">
           <span class="ov-section-title">📋 Histórico de Transações</span>
@@ -1245,9 +1042,12 @@ function renderLeadContent(container) {
           ${transactions.map(tx => renderTransactionCard(tx)).join('')}
         </div>
       </div>
-    ` : ''}
-    
-    ${abandoned.length > 0 ? `
+    `;
+  }
+  
+  // Abandoned Section
+  if (abandoned.length > 0) {
+    html += `
       <div class="ov-section">
         <div class="ov-section-header">
           <span class="ov-section-title">⚠️ Abandonos</span>
@@ -1257,17 +1057,23 @@ function renderLeadContent(container) {
           ${abandoned.map(ab => renderAbandonedCard(ab)).join('')}
         </div>
       </div>
-    ` : ''}
-    
-    ${transactions.length === 0 && abandoned.length === 0 ? `
-      <div class="ov-empty" style="padding: 24px;">
+    `;
+  }
+  
+  // Empty state
+  if (transactions.length === 0 && abandoned.length === 0) {
+    html += `
+      <div class="ov-empty-state" style="padding: 32px 24px;">
+        <div class="ov-empty-icon" style="width: 56px; height: 56px; font-size: 24px;">📭</div>
         <div class="ov-empty-title">Sem histórico</div>
         <div class="ov-empty-text">Nenhuma transação ou evento encontrado para este lead</div>
       </div>
-    ` : ''}
-  `;
+    `;
+  }
   
-  // Event listeners para copiar
+  container.innerHTML = html;
+  
+  // Event listeners
   container.querySelectorAll('[data-copy]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1275,13 +1081,13 @@ function renderLeadContent(container) {
     });
   });
   
-  // Event listener para accordion
-  const accordionHeader = container.querySelector('#ov-links-accordion');
-  const accordionContent = container.querySelector('#ov-links-content');
-  if (accordionHeader && accordionContent) {
-    accordionHeader.addEventListener('click', () => {
-      accordionHeader.classList.toggle('open');
-      accordionContent.classList.toggle('open');
+  // Accordion toggle
+  const accordionTrigger = container.querySelector('#ov-links-trigger');
+  const accordionPanel = container.querySelector('#ov-links-panel');
+  if (accordionTrigger && accordionPanel) {
+    accordionTrigger.addEventListener('click', () => {
+      accordionTrigger.classList.toggle('open');
+      accordionPanel.classList.toggle('open');
     });
   }
 }
@@ -1291,106 +1097,68 @@ function renderTransactionCard(tx) {
   const barcode = tx.external_id;
   const customerName = tx.customer_name || 'Transação';
   const isPending = ['gerado', 'pendente'].includes(tx.status);
+  const isPaid = tx.status === 'pago';
   
-  return `
+  let html = `
     <div class="ov-tx-card ${tx.type}">
-      <div class="ov-tx-row">
-        <div class="ov-tx-product">${tx.description || customerName}</div>
-        <div class="ov-tx-amount">${formatCurrency(tx.amount)}</div>
-      </div>
-      <div class="ov-tx-row">
-        <div class="ov-tx-badges">
-          <span class="ov-tx-badge ${tx.type}">${tx.type}</span>
-          <span class="ov-tx-badge ${tx.status}">${tx.status}</span>
-        </div>
-        <span class="ov-tx-date">${formatDate(tx.created_at)}</span>
-      </div>
-      ${barcode && isPending ? `
-        <div class="ov-barcode-box">
-          <div class="ov-barcode-info">
-            <div class="ov-barcode-label">Código de Barras</div>
-            <div class="ov-barcode-value">${barcode.slice(0, 25)}...</div>
+      <div class="ov-tx-main">
+        <div class="ov-tx-info">
+          <div class="ov-tx-product">${tx.description || customerName}</div>
+          <div class="ov-tx-meta">
+            <span class="ov-tx-badge ${tx.type}">${tx.type}</span>
+            <span class="ov-tx-badge ${tx.status}">${tx.status}</span>
+            <span class="ov-tx-date">${formatDate(tx.created_at)}</span>
           </div>
-          <button class="ov-barcode-copy" data-copy="${barcode}">📋</button>
         </div>
-      ` : ''}
-      ${boletoUrl && isPending ? `
-        <div class="ov-tx-actions">
-          <button class="ov-tx-action-btn download" onclick="window.open('${boletoUrl}', '_blank')">
-            📥 Ver Boleto
-          </button>
-        </div>
-      ` : ''}
-    </div>
+        <div class="ov-tx-amount ${isPending ? 'pending' : ''}">${formatCurrency(tx.amount)}</div>
+      </div>
   `;
+  
+  if (barcode && isPending) {
+    html += `
+      <div class="ov-barcode-section">
+        <div class="ov-barcode-label">Código de Barras</div>
+        <div class="ov-barcode-row">
+          <div class="ov-barcode-value">${barcode}</div>
+          <button class="ov-barcode-copy" data-copy="${barcode}">Copiar</button>
+        </div>
+      </div>
+    `;
+  }
+  
+  if (boletoUrl && isPending) {
+    html += `
+      <div class="ov-tx-actions">
+        <button class="ov-tx-action-btn" onclick="window.open('${boletoUrl}', '_blank')">
+          📥 Ver Boleto
+        </button>
+      </div>
+    `;
+  }
+  
+  html += `</div>`;
+  return html;
 }
 
 function renderAbandonedCard(ab) {
   return `
-    <div class="ov-tx-card" style="border-left: 3px solid #ef4444;">
-      <div class="ov-tx-row">
-        <div class="ov-tx-product">${ab.product_name || ab.event_type || 'Abandono'}</div>
-        ${ab.amount ? `<div class="ov-tx-amount" style="color: #ef4444;">${formatCurrency(ab.amount)}</div>` : ''}
-      </div>
-      <div class="ov-tx-row">
-        <div class="ov-tx-badges">
-          <span class="ov-tx-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">${ab.event_type || 'abandono'}</span>
-          ${ab.funnel_stage ? `<span class="ov-tx-badge" style="background: rgba(100, 116, 139, 0.15); color: #64748b;">${ab.funnel_stage}</span>` : ''}
+    <div class="ov-tx-card abandoned">
+      <div class="ov-tx-main">
+        <div class="ov-tx-info">
+          <div class="ov-tx-product">${ab.product_name || ab.event_type || 'Abandono'}</div>
+          <div class="ov-tx-meta">
+            <span class="ov-tx-badge" style="background: rgba(239, 68, 68, 0.12); color: var(--ov-danger);">${ab.event_type || 'abandono'}</span>
+            ${ab.funnel_stage ? `<span class="ov-tx-badge" style="background: rgba(100, 116, 139, 0.12); color: var(--ov-text-muted);">${ab.funnel_stage}</span>` : ''}
+            <span class="ov-tx-date">${formatDate(ab.created_at)}</span>
+          </div>
         </div>
-        <span class="ov-tx-date">${formatDate(ab.created_at)}</span>
+        ${ab.amount ? `<div class="ov-tx-amount danger">${formatCurrency(ab.amount)}</div>` : ''}
       </div>
     </div>
   `;
 }
 
-// ========== FUNÇÕES DE DOWNLOAD ==========
-function downloadFileDirect(url, filename) {
-  // Usar fetch para baixar o arquivo e criar blob
-  showToast('Iniciando download...');
-  
-  fetch(url)
-    .then(response => {
-      if (!response.ok) throw new Error('Erro no download');
-      return response.blob();
-    })
-    .then(blob => {
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-      showToast('Download concluído!');
-    })
-    .catch(err => {
-      console.error('Erro no download:', err);
-      showToast('Erro no download');
-    });
-}
-
-// JPG não é possível no contexto do WhatsApp devido a CSP
-// Função redirecionada para baixar PDF
-function convertPdfToJpgAndDownload(pdfUrl, filename) {
-  // Baixa o PDF diretamente - conversão JPG bloqueada por CSP
-  downloadFileDirect(pdfUrl, filename.replace('.jpg', '.pdf'));
-}
-
-function generateDefaultMessage(tx) {
-  const greeting = getGreeting();
-  const name = tx.customer_name?.split(' ')[0] || 'Cliente';
-  const amount = formatCurrency(tx.amount);
-  return `${greeting} ${name}, tudo bem? 😊\n\nSeu boleto no valor de ${amount} está disponível. Qualquer dúvida estou à disposição!`;
-}
-
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour >= 6 && hour < 12) return 'Bom dia';
-  if (hour >= 12 && hour < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
-
+// ========== UTILIDADES ==========
 function showToast(message) {
   const existing = document.querySelector('.ov-toast');
   if (existing) existing.remove();
@@ -1410,7 +1178,6 @@ function copyToClipboard(text) {
 
 window.copyToClipboard = copyToClipboard;
 
-// ========== UTILIDADES ==========
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 }
@@ -1437,7 +1204,6 @@ function formatDisplayPhone(phone) {
 async function loadLeadData(phone) {
   console.log('[WhatsApp Extension] Carregando dados do lead:', phone);
   
-  // Generate all phone variations for search
   const variations = generatePhoneVariations(phone);
   console.log('[WhatsApp Extension] Variações do telefone:', variations);
   
@@ -1447,7 +1213,6 @@ async function loadLeadData(phone) {
   }
   
   try {
-    // Send all variations to the API
     const phoneParam = variations.join(',');
     const response = await fetch(`${API_URL}?action=lead&phone=${encodeURIComponent(phoneParam)}`);
     currentLeadData = await response.json();
@@ -1458,14 +1223,13 @@ async function loadLeadData(phone) {
   } catch (error) {
     console.error('[WhatsApp Extension] Erro ao carregar lead:', error);
     if (content) {
-      content.innerHTML = `<div class="ov-empty"><div class="ov-empty-title">Erro ao carregar</div></div>`;
+      content.innerHTML = `<div class="ov-empty-state"><div class="ov-empty-title">Erro ao carregar</div></div>`;
     }
   }
 }
 
 // ========== DETECÇÃO DE CONVERSA ==========
 function extractPhoneFromConversation() {
-  // Método 1: Header da conversa
   const headerSpans = document.querySelectorAll('header span[title], header span[dir="auto"]');
   for (const span of headerSpans) {
     const text = span.getAttribute('title') || span.textContent || '';
@@ -1473,7 +1237,6 @@ function extractPhoneFromConversation() {
     if (phone) return phone;
   }
   
-  // Método 2: Seletor específico do WhatsApp
   const conversationTitle = document.querySelector('[data-testid="conversation-info-header-chat-title"]');
   if (conversationTitle) {
     const text = conversationTitle.textContent || '';
@@ -1481,7 +1244,6 @@ function extractPhoneFromConversation() {
     if (phone) return phone;
   }
   
-  // Método 3: data-jid
   const jidElements = document.querySelectorAll('[data-jid]');
   for (const el of jidElements) {
     const jid = el.getAttribute('data-jid');
@@ -1491,7 +1253,6 @@ function extractPhoneFromConversation() {
     }
   }
   
-  // Método 4: URL
   const urlMatch = window.location.href.match(/phone=(\d+)/);
   if (urlMatch) return urlMatch[1];
   
@@ -1521,10 +1282,6 @@ function observeConversationChanges() {
       lastConversationPhone = phone;
       currentPhone = phone;
       
-      // Reset view when conversation changes
-      currentView = 'lead';
-      currentRecoveryTx = null;
-      
       if (sidebarVisible) {
         loadLeadData(phone);
       }
@@ -1548,7 +1305,7 @@ function observeConversationChanges() {
 }
 
 // ========== FUNÇÕES PARA COMANDOS DO BACKGROUND ==========
-function waitForElement(selector, timeout = 1500) {
+function waitForElement(selector, timeout = 2000) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
     const check = () => {
@@ -1592,51 +1349,40 @@ async function openChat(phone) {
   console.log('[WhatsApp Extension] Abrindo chat para:', formatted);
   
   try {
-    // Primeiro tenta encontrar se já existe uma conversa
-    // Procura no painel lateral esquerdo por conversas existentes
-    const existingChat = document.querySelector(`[data-testid="cell-frame-container"][title*="${formatted}"], [data-jid="${formatted}@s.whatsapp.net"]`);
-    if (existingChat) {
-      console.log('[WhatsApp Extension] Conversa existente encontrada, clicando...');
-      existingChat.click();
-      await new Promise(r => setTimeout(r, 500));
-      return true;
-    }
+    // Primeiro espera o painel de busca carregar
+    await new Promise(r => setTimeout(r, 300));
     
-    // Abre nova conversa usando o botão "Nova conversa"
-    const newChatSelectors = [
-      '[data-testid="menu-bar-new-chat"]',
-      'button[data-tab="2"]',
-      'span[data-icon="new-chat"]',
-      'div[title="Nova conversa"]',
-      '[aria-label="Nova conversa"]'
-    ];
-    
-    let newChatBtn = null;
-    for (const selector of newChatSelectors) {
-      newChatBtn = document.querySelector(selector);
-      if (newChatBtn) break;
-    }
+    // Procura pelo botão de nova conversa
+    let newChatBtn = document.querySelector('[data-testid="menu-bar-new-chat"]') ||
+                     document.querySelector('span[data-icon="new-chat"]')?.closest('div[role="button"]') ||
+                     document.querySelector('span[data-icon="new-chat-outline"]')?.closest('div[role="button"]') ||
+                     document.querySelector('div[title="Nova conversa"]') ||
+                     document.querySelector('[aria-label="Nova conversa"]');
     
     if (!newChatBtn) {
       console.error('[WhatsApp Extension] Botão Nova Conversa não encontrado');
       return false;
     }
     
+    console.log('[WhatsApp Extension] Clicando em Nova Conversa...');
     newChatBtn.click();
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise(r => setTimeout(r, 800));
     
-    // Procura campo de busca
-    const searchSelectors = [
-      '[data-testid="chat-list-search"]',
-      'div[contenteditable="true"][data-tab="3"]',
-      '[data-testid="search-input"]',
-      'input[type="text"]'
-    ];
+    // Procura campo de busca com múltiplos seletores
+    let searchInput = document.querySelector('[data-testid="chat-list-search"]') ||
+                      document.querySelector('div[contenteditable="true"][data-tab="3"]') ||
+                      document.querySelector('div[contenteditable="true"][role="textbox"]') ||
+                      document.querySelector('.copyable-area div[contenteditable="true"]');
     
-    let searchInput = null;
-    for (const selector of searchSelectors) {
-      searchInput = document.querySelector(selector);
-      if (searchInput) break;
+    if (!searchInput) {
+      // Tenta encontrar qualquer input editável no painel de nova conversa
+      const editables = document.querySelectorAll('div[contenteditable="true"]');
+      for (const el of editables) {
+        if (el.getAttribute('data-tab') === '3' || el.closest('[data-testid="chat-list-search-container"]')) {
+          searchInput = el;
+          break;
+        }
+      }
     }
     
     if (!searchInput) {
@@ -1645,49 +1391,93 @@ async function openChat(phone) {
     }
     
     console.log('[WhatsApp Extension] Digitando número:', formatted);
-    simulateTyping(searchInput, formatted);
-    await new Promise(r => setTimeout(r, 1200));
+    searchInput.focus();
+    await new Promise(r => setTimeout(r, 100));
     
-    // Procura resultado da busca - múltiplos seletores
-    const resultSelectors = [
-      '[data-testid="cell-frame-container"]',
-      'div[tabindex="-1"][role="option"]',
-      'div[data-testid="chat-list"] > div',
-      '.copyable-area div[role="listitem"]',
-      '[data-testid="list-item-active"]'
-    ];
+    // Limpa e digita
+    searchInput.textContent = '';
+    document.execCommand('insertText', false, formatted);
+    searchInput.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true }));
     
-    let contact = null;
-    for (const selector of resultSelectors) {
-      const elements = document.querySelectorAll(selector);
-      for (const el of elements) {
-        // Verifica se é o contato correto
-        const text = el.textContent || '';
-        if (text.includes(formatted) || text.includes(formatted.slice(-8))) {
-          contact = el;
+    // Aguarda resultados aparecerem
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // Procura resultado na lista - tenta múltiplas abordagens
+    console.log('[WhatsApp Extension] Procurando contato na lista...');
+    
+    // Abordagem 1: Busca por data-jid
+    let contact = document.querySelector(`div[data-jid*="${formatted}"]`);
+    
+    // Abordagem 2: Busca por cell-frame-container que contenha o número
+    if (!contact) {
+      const cells = document.querySelectorAll('[data-testid="cell-frame-container"]');
+      for (const cell of cells) {
+        const text = cell.textContent || '';
+        // Verifica se o texto contém parte do número formatado
+        const lastDigits = formatted.slice(-8);
+        if (text.includes(formatted) || text.includes(lastDigits)) {
+          contact = cell;
+          console.log('[WhatsApp Extension] Contato encontrado por texto');
           break;
         }
       }
-      if (contact) break;
     }
     
-    // Se não encontrou por texto, pega o primeiro resultado
+    // Abordagem 3: Busca por list item ou row
     if (!contact) {
-      for (const selector of resultSelectors) {
-        contact = document.querySelector(selector);
-        if (contact) break;
+      const items = document.querySelectorAll('div[role="listitem"], div[role="row"], div[role="option"]');
+      for (const item of items) {
+        const text = item.textContent || '';
+        const lastDigits = formatted.slice(-8);
+        if (text.includes(formatted) || text.includes(lastDigits)) {
+          contact = item;
+          console.log('[WhatsApp Extension] Contato encontrado por role');
+          break;
+        }
       }
     }
     
-    if (contact) {
-      console.log('[WhatsApp Extension] Contato encontrado, clicando...');
-      contact.click();
+    // Abordagem 4: Pega o primeiro resultado da lista de busca
+    if (!contact) {
+      // Espera um pouco mais
       await new Promise(r => setTimeout(r, 500));
+      
+      contact = document.querySelector('[data-testid="cell-frame-container"]') ||
+                document.querySelector('div[role="listitem"]') ||
+                document.querySelector('div[tabindex="-1"][role="option"]');
+    }
+    
+    if (contact) {
+      console.log('[WhatsApp Extension] Clicando no contato...');
+      
+      // Tenta clicar diretamente
+      contact.click();
+      await new Promise(r => setTimeout(r, 300));
+      
+      // Verifica se a conversa abriu
+      const chatOpened = document.querySelector('[data-testid="conversation-panel-wrapper"]') ||
+                         document.querySelector('footer[data-testid="conversation-compose-box-input"]');
+      
+      if (chatOpened) {
+        console.log('[WhatsApp Extension] Conversa aberta com sucesso!');
+        return true;
+      }
+      
+      // Se não abriu, tenta clicar em elementos filhos clicáveis
+      const clickable = contact.querySelector('div[role="button"]') || 
+                        contact.querySelector('[data-testid="cell-frame-container"]') ||
+                        contact.querySelector('span');
+      if (clickable) {
+        clickable.click();
+        await new Promise(r => setTimeout(r, 300));
+      }
+      
       return true;
     }
     
-    console.error('[WhatsApp Extension] Nenhum contato encontrado');
+    console.error('[WhatsApp Extension] Nenhum contato encontrado na lista');
     return false;
+    
   } catch (error) {
     console.error('[WhatsApp Extension] Erro ao abrir chat:', error);
     return false;
