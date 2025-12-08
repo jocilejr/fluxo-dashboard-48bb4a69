@@ -1001,25 +1001,41 @@ async function openChat(phone) {
     
     simClick(newChatBtn);
     
-    // Wait for search input with polling instead of fixed delay
-    let searchInput = null;
-    const searchSelectors = ['div[contenteditable="true"][data-tab="3"]', 'p.selectable-text[data-tab="3"]', '[data-testid="chat-list-search"]'];
+    // Wait for search panel to appear
+    await new Promise(r => setTimeout(r, 400));
     
-    for (let i = 0; i < 10; i++) {
+    // Find search input with multiple attempts
+    let searchInput = null;
+    const searchSelectors = [
+      'div[contenteditable="true"][data-tab="3"]', 
+      'p.selectable-text[data-tab="3"]',
+      '[data-testid="chat-list-search"]',
+      'div[role="textbox"][contenteditable="true"]'
+    ];
+    
+    for (let i = 0; i < 20; i++) {
       for (const sel of searchSelectors) {
         searchInput = document.querySelector(sel);
         if (searchInput) break;
       }
+      if (!searchInput) {
+        // Try within side panel
+        const sidePanel = document.querySelector('[data-testid="side"]') || document.querySelector('#pane-side');
+        if (sidePanel) {
+          searchInput = sidePanel.querySelector('div[contenteditable="true"]') || 
+                       sidePanel.querySelector('p.selectable-text');
+        }
+      }
       if (searchInput) break;
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 100));
     }
     
-    if (!searchInput) {
-      const panel = document.querySelector('#pane-side');
-      if (panel) searchInput = panel.querySelector('div[contenteditable="true"]');
+    if (!searchInput) { 
+      console.error('[OV] Campo busca não encontrado após tentativas'); 
+      return false; 
     }
     
-    if (!searchInput) { console.error('[OV] Campo busca não encontrado'); return false; }
+    console.log('[OV] Campo busca encontrado, digitando:', formatted);
     
     // Type immediately
     searchInput.focus();
