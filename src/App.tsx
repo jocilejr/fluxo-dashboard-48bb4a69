@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,10 +22,26 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { addActivityLog } from "./components/settings/ActivityLogs";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+// Log app initialization
+const logAppStart = () => {
+  addActivityLog({
+    type: "info",
+    category: "Sistema",
+    message: "Dashboard iniciado",
+    details: `Versão: ${new Date().toISOString()}`
+  });
+};
+
+const App = () => {
+  useEffect(() => {
+    logAppStart();
+  }, []);
+
+  return (
   <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -152,6 +169,7 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
   </ErrorBoundary>
-);
+  );
+};
 
 export default App;
