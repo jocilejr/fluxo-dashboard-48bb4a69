@@ -1,26 +1,24 @@
-import { useState, useEffect } from "react";
 import { MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction } from "@/hooks/useTransactions";
+import { useQuery } from "@tanstack/react-query";
 
 interface BoletoRecoveryIconProps {
   transaction: Transaction;
 }
 
 export function BoletoRecoveryIcon({ transaction }: BoletoRecoveryIconProps) {
-  const [clickCount, setClickCount] = useState(0);
-
-  useEffect(() => {
-    const fetchClickCount = async () => {
+  const { data: clickCount = 0 } = useQuery({
+    queryKey: ["boleto-recovery-count", transaction.id],
+    queryFn: async () => {
       const { count } = await supabase
         .from("boleto_recovery_contacts")
         .select("*", { count: "exact", head: true })
         .eq("transaction_id", transaction.id);
-      setClickCount(count || 0);
-    };
-    fetchClickCount();
-  }, [transaction.id]);
+      return count || 0;
+    },
+  });
 
   return (
     <div className="relative inline-flex">

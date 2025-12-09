@@ -144,9 +144,12 @@ export function useBoletoRecovery(transactions: Transaction[]) {
           notes: notes || null,
         });
       if (error) throw error;
+      return transactionId;
     },
-    onSuccess: () => {
+    onSuccess: (transactionId) => {
       queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+      // Invalidate the specific boleto recovery icon count
+      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-count", transactionId] });
     },
   });
 
