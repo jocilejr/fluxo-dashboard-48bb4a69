@@ -345,14 +345,25 @@ export function useCustomerPaymentMethods() {
   const { data = {}, isLoading } = useQuery({
     queryKey: ["customer-payment-methods"],
     queryFn: async () => {
-      const { data: transactions, error } = await supabase
+      // Buscar métodos de pagamento das transações
+      const { data: transactions, error: txError } = await supabase
         .from("transactions")
         .select("normalized_phone, type")
         .not("normalized_phone", "is", null);
 
-      if (error) throw error;
+      if (txError) throw txError;
+
+      // Buscar métodos de pagamento dos links de entrega (PIX)
+      const { data: deliveryLinks, error: dlError } = await supabase
+        .from("delivery_link_generations")
+        .select("normalized_phone, payment_method")
+        .not("normalized_phone", "is", null);
+
+      if (dlError) throw dlError;
 
       const methodsByPhone: Record<string, Set<string>> = {};
+      
+      // Adicionar métodos das transações
       (transactions || []).forEach((t) => {
         if (!t.normalized_phone) return;
         const normalizedKey = normalizePhoneForMatching(t.normalized_phone) || t.normalized_phone;
@@ -360,6 +371,22 @@ export function useCustomerPaymentMethods() {
           methodsByPhone[normalizedKey] = new Set();
         }
         methodsByPhone[normalizedKey].add(t.type);
+      });
+
+      // Adicionar métodos dos links de entrega
+      (deliveryLinks || []).forEach((dl) => {
+        if (!dl.normalized_phone) return;
+        const normalizedKey = normalizePhoneForMatching(dl.normalized_phone) || dl.normalized_phone;
+        if (!methodsByPhone[normalizedKey]) {
+          methodsByPhone[normalizedKey] = new Set();
+        }
+        // Converter payment_method para o tipo correspondente
+        if (dl.payment_method === 'pix') {
+          methodsByPhone[normalizedKey].add('pix');
+        } else if (dl.payment_method === 'cartao_boleto') {
+          methodsByPhone[normalizedKey].add('cartao');
+          methodsByPhone[normalizedKey].add('boleto');
+        }
       });
 
       const result: Record<string, string[]> = {};
