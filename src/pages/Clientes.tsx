@@ -118,7 +118,7 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
   const handleUnlinkPixLink = async () => {
     if (!unlinkTarget) return;
     try {
-      await unlinkPixLink(unlinkTarget);
+      await unlinkPixLink(unlinkTarget, customer.normalized_phone);
       // Force refetch both customer events and customers list
       await refetch();
       refetchCustomers();

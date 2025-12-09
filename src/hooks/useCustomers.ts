@@ -290,7 +290,7 @@ export function useCustomers() {
     ]);
   };
 
-  const unlinkPixLink = async (pixLinkId: string) => {
+  const unlinkPixLink = async (pixLinkId: string, customerNormalizedPhone?: string) => {
     const { error } = await supabase
       .from("delivery_link_generations")
       .delete()
@@ -299,6 +299,11 @@ export function useCustomers() {
     if (error) {
       toast.error("Erro ao desvincular PIX");
       throw error;
+    }
+    
+    // Recalculate customer stats after unlinking PIX
+    if (customerNormalizedPhone) {
+      await supabase.rpc("refresh_customer_stats", { customer_normalized_phone: customerNormalizedPhone });
     }
     
     toast.success("PIX desvinculado do cliente");
