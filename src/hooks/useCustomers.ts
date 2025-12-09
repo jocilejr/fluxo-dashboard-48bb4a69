@@ -268,7 +268,23 @@ export function useCustomers() {
     queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] });
   };
 
-  return { customers, isLoading, refetch, updateCustomer, deleteTransaction, deleteAbandonedEvent, deleteCustomerWithData };
+  const unlinkPixLink = async (pixLinkId: string) => {
+    const { error } = await supabase
+      .from("delivery_link_generations")
+      .delete()
+      .eq("id", pixLinkId);
+    
+    if (error) {
+      toast.error("Erro ao desvincular PIX");
+      throw error;
+    }
+    
+    toast.success("PIX desvinculado do cliente");
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
+  };
+
+  return { customers, isLoading, refetch, updateCustomer, deleteTransaction, deleteAbandonedEvent, deleteCustomerWithData, unlinkPixLink };
 }
 
 export function useCustomerPaymentMethods() {
