@@ -1,12 +1,14 @@
 /**
- * Normalizes Brazilian phone numbers to a canonical format for matching purposes.
+ * Normalizes Brazilian phone numbers to a canonical 13-digit format: 55 + DDD + 9 + 8 digits
+ * This matches the database normalize_phone function for consistent matching.
+ * 
  * Handles all common variations:
  * - With or without country code (+55, 55)
  * - With or without the 9th digit for mobile
  * - With or without formatting (spaces, dashes, parentheses)
  * 
- * Returns the MINIMAL form: DDD + 8 digits (without the 9)
- * This allows matching: 89981340810, 5589981340810, +55 89 9 8134-0810, 8981340810
+ * Returns: 55 + DDD + 9 + 8 digits (13 digits total)
+ * Example: 89981340810 -> 5589981340810
  */
 export function normalizePhoneForMatching(phone: string | null | undefined): string | null {
   if (!phone) return null;
@@ -21,34 +23,46 @@ export function normalizePhoneForMatching(phone: string | null | undefined): str
     digits = digits.slice(2);
   }
   
+  // Remove leading zeros
+  if (digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  
+  let ddd: string;
+  let numberPart: string;
+  
   // Now we should have DDD + number (10 or 11 digits)
-  // If 11 digits and the 3rd digit is 9, it's the mobile 9th digit - remove it
   if (digits.length === 11 && digits[2] === '9') {
-    digits = digits.slice(0, 2) + digits.slice(3);
+    // Already has 9th digit: DDD + 9 + 8 digits
+    ddd = digits.slice(0, 2);
+    numberPart = digits.slice(2);
+  } else if (digits.length === 10) {
+    // Missing 9th digit: DDD + 8 digits, add the 9
+    ddd = digits.slice(0, 2);
+    numberPart = '9' + digits.slice(2);
+  } else if (digits.length === 11) {
+    // 11 digits but 3rd is not 9
+    ddd = digits.slice(0, 2);
+    numberPart = digits.slice(2);
+  } else {
+    // Other formats, just add 55 prefix
+    return '55' + digits;
   }
   
-  // If still 11 digits (old format or different pattern), try removing leading 9 after DDD
-  if (digits.length === 11) {
-    digits = digits.slice(0, 2) + digits.slice(3);
-  }
-  
-  // If 10 digits, we have DDD + 8 digit number (normalized)
-  // If 9 digits, might be missing DDD - keep as is
-  // If 8 digits, it's just the number without DDD - keep as is
-  
-  return digits;
+  return '55' + ddd + numberPart;
 }
 
 /**
  * Generates all possible normalized variations of a phone number for database lookup.
- * This allows matching a customer record regardless of which format was stored.
+ * Since we now normalize to 13 digits consistently, we also include variations
+ * for backwards compatibility with older data.
  */
 export function generatePhoneVariations(phone: string | null | undefined): string[] {
   if (!phone) return [];
   
-  // Get the minimal normalized form
+  // Get the canonical normalized form (13 digits)
   const normalized = normalizePhoneForMatching(phone);
-  if (!normalized || normalized.length < 8) return [];
+  if (!normalized || normalized.length < 10) return [];
   
   const variations: Set<string> = new Set();
   
@@ -56,29 +70,17 @@ export function generatePhoneVariations(phone: string | null | undefined): strin
   const originalDigits = phone.replace(/\D/g, '');
   variations.add(originalDigits);
   
-  // Add normalized form
+  // Add normalized form (13 digits: 55 + DDD + 9 + 8)
   variations.add(normalized);
   
-  // If we have DDD + 8 digits, also generate with the 9th digit
-  if (normalized.length === 10) {
-    const ddd = normalized.slice(0, 2);
-    const number = normalized.slice(2);
-    
-    // With 9th digit
-    const with9 = ddd + '9' + number;
-    variations.add(with9);
-    
-    // With country code
-    variations.add('55' + normalized);
-    variations.add('55' + with9);
-  }
-  
-  // If 11 digits (with 9th digit), also generate without
-  if (normalized.length === 11 && normalized[2] === '9') {
-    const without9 = normalized.slice(0, 2) + normalized.slice(3);
+  // If 13 digits, also generate 12-digit version (without the 9) for backwards compatibility
+  if (normalized.length === 13 && normalized[4] === '9') {
+    const without9 = normalized.slice(0, 4) + normalized.slice(5);
     variations.add(without9);
-    variations.add('55' + without9);
-    variations.add('55' + normalized);
+    
+    // Also without country code
+    variations.add(normalized.slice(2)); // 11 digits: DDD + 9 + 8
+    variations.add(without9.slice(2));   // 10 digits: DDD + 8
   }
   
   return Array.from(variations);
