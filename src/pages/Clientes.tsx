@@ -119,7 +119,9 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
     if (!unlinkTarget) return;
     try {
       await unlinkPixLink(unlinkTarget);
-      refetch();
+      // Force refetch both customer events and customers list
+      await refetch();
+      refetchCustomers();
     } catch (e) {
       // Error toast already shown
     }
