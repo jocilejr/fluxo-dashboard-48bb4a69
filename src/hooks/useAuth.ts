@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -14,6 +15,16 @@ export const useAuth = () => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+        
+        // Log auth events
+        if (event === 'SIGNED_OUT') {
+          addActivityLog({
+            type: "info",
+            category: "Autenticação",
+            message: "Usuário fez logout",
+            details: ""
+          });
+        }
       }
     );
 
@@ -28,6 +39,13 @@ export const useAuth = () => {
   }, []);
 
   const signOut = async () => {
+    const email = user?.email || "N/A";
+    addActivityLog({
+      type: "info",
+      category: "Autenticação",
+      message: "Logout iniciado",
+      details: `Email: ${email}`
+    });
     await supabase.auth.signOut();
   };
 

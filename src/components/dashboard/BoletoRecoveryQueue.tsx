@@ -8,6 +8,7 @@ import { BoletoWithRecovery } from "@/hooks/useBoletoRecovery";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 import {
   MessageSquare,
   Phone,
@@ -59,17 +60,35 @@ export function BoletoRecoveryQueue({
     if (currentBoleto?.formattedMessage) {
       navigator.clipboard.writeText(currentBoleto.formattedMessage);
       toast({ title: "Copiado!", description: "Mensagem copiada para a área de transferência" });
+      addActivityLog({
+        type: "action",
+        category: "Recuperação Boleto",
+        message: `Mensagem copiada para ${currentBoleto.customer_name || "cliente"}`,
+        details: `Telefone: ${currentBoleto.customer_phone}, Valor: R$ ${currentBoleto.amount}`
+      });
     }
   }, [currentBoleto, toast]);
 
   const handleSendWhatsApp = useCallback(async () => {
     if (!currentBoleto?.customer_phone) {
       toast({ title: "Erro", description: "Telefone não disponível", variant: "destructive" });
+      addActivityLog({
+        type: "error",
+        category: "Recuperação Boleto",
+        message: "Tentativa de WhatsApp sem telefone",
+        details: `Cliente: ${currentBoleto?.customer_name || "não identificado"}`
+      });
       return;
     }
 
     if (extensionStatus !== "connected") {
       toast({ title: "Erro", description: "Extensão WhatsApp não detectada", variant: "destructive" });
+      addActivityLog({
+        type: "warning",
+        category: "Recuperação Boleto",
+        message: "Extensão WhatsApp não conectada",
+        details: `Cliente: ${currentBoleto.customer_name}, Telefone: ${currentBoleto.customer_phone}`
+      });
       return;
     }
 
@@ -84,12 +103,25 @@ export function BoletoRecoveryQueue({
 
     if (success) {
       toast({ title: "Mensagem copiada!", description: "Cole com Ctrl+V no WhatsApp" });
+      addActivityLog({
+        type: "success",
+        category: "Recuperação Boleto",
+        message: `WhatsApp aberto para ${currentBoleto.customer_name || "cliente"}`,
+        details: `Telefone: ${currentBoleto.customer_phone}, Valor: R$ ${currentBoleto.amount}, Regra: ${currentBoleto.applicableRule?.name || "N/A"}`
+      });
     }
   }, [currentBoleto, extensionStatus, openChat, toast]);
 
   const handleMarkContacted = useCallback(() => {
     if (!currentBoleto) return;
     
+    addActivityLog({
+      type: "success",
+      category: "Recuperação Boleto",
+      message: `Boleto marcado como contactado: ${currentBoleto.customer_name || "cliente"}`,
+      details: `Telefone: ${currentBoleto.customer_phone}, Valor: R$ ${currentBoleto.amount}, Regra: ${currentBoleto.applicableRule?.name || "N/A"}`
+    });
+
     onMarkContacted(
       currentBoleto.id,
       currentBoleto.applicableRule?.id,
@@ -106,12 +138,20 @@ export function BoletoRecoveryQueue({
   }, [currentBoleto, boletos.length, onMarkContacted, onOpenChange, toast]);
 
   const handleSkip = useCallback(() => {
+    if (currentBoleto) {
+      addActivityLog({
+        type: "info",
+        category: "Recuperação Boleto",
+        message: `Boleto pulado: ${currentBoleto.customer_name || "cliente"}`,
+        details: `Telefone: ${currentBoleto.customer_phone}, Valor: R$ ${currentBoleto.amount}`
+      });
+    }
     if (safeIndex < boletos.length - 1) {
       setCurrentIndex(safeIndex + 1);
     } else {
       onOpenChange(false);
     }
-  }, [safeIndex, boletos.length, onOpenChange]);
+  }, [safeIndex, boletos.length, onOpenChange, currentBoleto]);
 
   const handleClose = () => {
     setCurrentIndex(0);
