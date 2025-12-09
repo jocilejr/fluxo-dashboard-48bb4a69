@@ -160,9 +160,6 @@ const Dashboard = () => {
   }, [filteredTransactions, manualRevenues, financialSettings, metaAdsData]);
 
   const formatCurrency = (value: number) => {
-    if (value >= 1000) {
-      return `R$ ${(value / 1000).toFixed(1)}K`;
-    }
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
