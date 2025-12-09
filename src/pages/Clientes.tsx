@@ -74,11 +74,13 @@ const getPaymentMethodLabel = (type?: string) => {
 
 function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
   const { events, stats, isLoading, refetch } = useCustomerEvents(customer.normalized_phone, customer.merged_phones);
-  const { updateCustomer, deleteTransaction, deleteAbandonedEvent, refetch: refetchCustomers } = useCustomers();
+  const { updateCustomer, deleteTransaction, deleteAbandonedEvent, deleteCustomerWithData, refetch: refetchCustomers } = useCustomers();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(customer.name || "");
   const [displayName, setDisplayName] = useState(customer.name || "");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: "transaction" | "abandoned" } | null>(null);
+  const [showDeleteCustomerDialog, setShowDeleteCustomerDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -109,6 +111,18 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
       // Error toast already shown
     }
     setDeleteTarget(null);
+  };
+
+  const handleDeleteCustomer = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteCustomerWithData(customer.id, customer.normalized_phone, customer.merged_phones);
+      onClose();
+    } catch (e) {
+      // Error toast already shown
+    }
+    setIsDeleting(false);
+    setShowDeleteCustomerDialog(false);
   };
 
   const getEventIcon = (event: CustomerEvent) => {
@@ -205,6 +219,14 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                 <p className="text-xs text-muted-foreground mt-1">CPF: {customer.document}</p>
               )}
             </div>
+            <Button 
+              size="icon" 
+              variant="ghost" 
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setShowDeleteCustomerDialog(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
@@ -514,6 +536,28 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Delete customer confirmation dialog */}
+    <AlertDialog open={showDeleteCustomerDialog} onOpenChange={setShowDeleteCustomerDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir cliente e todos os dados?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Isso irá excluir permanentemente o cliente, todas as transações, eventos abandonados e PIX links associados. Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={handleDeleteCustomer} 
+            disabled={isDeleting}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isDeleting ? "Excluindo..." : "Excluir tudo"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
