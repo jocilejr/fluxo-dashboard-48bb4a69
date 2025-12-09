@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizePhoneForMatching, generatePhoneVariations } from "@/lib/phoneNormalization";
 import { toast } from "sonner";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 
 export interface Customer {
   id: string;
@@ -127,6 +128,7 @@ export function useCustomers() {
     
     if (fetchError) {
       toast.error("Erro ao buscar cliente");
+      addActivityLog({ type: "error", category: "Clientes", message: "Erro ao buscar cliente", details: fetchError.message });
       throw fetchError;
     }
 
@@ -138,6 +140,7 @@ export function useCustomers() {
     
     if (error) {
       toast.error("Erro ao atualizar cliente");
+      addActivityLog({ type: "error", category: "Clientes", message: "Erro ao atualizar cliente", details: error.message });
       throw error;
     }
     
@@ -159,6 +162,12 @@ export function useCustomers() {
     }
     
     toast.success("Cliente atualizado");
+    addActivityLog({ 
+      type: "success", 
+      category: "Clientes", 
+      message: `Cliente atualizado: ${updates.name || customer?.normalized_phone}`,
+      details: JSON.stringify(updates)
+    });
     
     // Invalidate all related queries for real-time update across all tabs
     await Promise.all([
@@ -179,10 +188,12 @@ export function useCustomers() {
     
     if (error) {
       toast.error("Erro ao excluir transação");
+      addActivityLog({ type: "error", category: "Transações", message: "Erro ao excluir transação", details: error.message });
       throw error;
     }
     
     toast.success("Transação excluída");
+    addActivityLog({ type: "action", category: "Transações", message: `Transação excluída: ${transactionId}` });
     
     // Invalidate all related queries for real-time update
     await Promise.all([
@@ -202,10 +213,12 @@ export function useCustomers() {
     
     if (error) {
       toast.error("Erro ao excluir evento");
+      addActivityLog({ type: "error", category: "Abandonos", message: "Erro ao excluir evento abandonado", details: error.message });
       throw error;
     }
     
     toast.success("Evento excluído");
+    addActivityLog({ type: "action", category: "Abandonos", message: `Evento abandonado excluído: ${eventId}` });
     
     // Invalidate all related queries for real-time update
     await Promise.all([
@@ -225,6 +238,8 @@ export function useCustomers() {
     });
     const phonesArray = Array.from(phonesToDelete);
 
+    addActivityLog({ type: "action", category: "Clientes", message: `Iniciando exclusão do cliente: ${normalizedPhone}`, details: `Variações: ${phonesArray.length}` });
+
     // Delete transactions
     const { error: txError } = await supabase
       .from("transactions")
@@ -233,6 +248,7 @@ export function useCustomers() {
     
     if (txError) {
       toast.error("Erro ao excluir transações");
+      addActivityLog({ type: "error", category: "Clientes", message: "Erro ao excluir transações do cliente", details: txError.message });
       throw txError;
     }
 
@@ -244,6 +260,7 @@ export function useCustomers() {
     
     if (abError) {
       toast.error("Erro ao excluir eventos abandonados");
+      addActivityLog({ type: "error", category: "Clientes", message: "Erro ao excluir eventos abandonados do cliente", details: abError.message });
       throw abError;
     }
 
@@ -255,7 +272,7 @@ export function useCustomers() {
     
     if (pixError) {
       console.error("Erro ao excluir PIX links:", pixError);
-      // Continue even if this fails (may not have permission)
+      addActivityLog({ type: "warning", category: "Clientes", message: "Erro ao excluir PIX links do cliente", details: pixError.message });
     }
 
     // Delete customer records (may have multiple merged)
@@ -274,10 +291,12 @@ export function useCustomers() {
     
     if (custError) {
       toast.error("Erro ao excluir cliente");
+      addActivityLog({ type: "error", category: "Clientes", message: "Erro ao excluir cliente", details: custError.message });
       throw custError;
     }
     
     toast.success("Cliente e dados excluídos");
+    addActivityLog({ type: "success", category: "Clientes", message: `Cliente excluído completamente: ${normalizedPhone}` });
     
     // Invalidate all related queries for real-time update
     await Promise.all([
@@ -298,6 +317,7 @@ export function useCustomers() {
     
     if (error) {
       toast.error("Erro ao desvincular PIX");
+      addActivityLog({ type: "error", category: "PIX", message: "Erro ao desvincular PIX", details: error.message });
       throw error;
     }
     
@@ -307,6 +327,7 @@ export function useCustomers() {
     }
     
     toast.success("PIX desvinculado do cliente");
+    addActivityLog({ type: "action", category: "PIX", message: `PIX desvinculado do cliente: ${customerNormalizedPhone || pixLinkId}` });
     
     // Invalidate all related queries for real-time update
     await Promise.all([
