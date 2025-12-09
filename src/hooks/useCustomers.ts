@@ -242,19 +242,25 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
     queryFn: async () => {
       if (!normalizedPhone) return { events: [], stats: null };
 
-      const phonesToSearch = mergedPhones && mergedPhones.length > 0 
+      // Generate all phone variations for comprehensive matching
+      const basePhones = mergedPhones && mergedPhones.length > 0 
         ? mergedPhones 
-        : generatePhoneVariations(normalizedPhone);
+        : [normalizedPhone];
       
-      if (!phonesToSearch.includes(normalizedPhone)) {
-        phonesToSearch.push(normalizedPhone);
-      }
-
+      // Generate all variations for each base phone
+      const phonesToSearchSet = new Set<string>();
+      basePhones.forEach(phone => {
+        generatePhoneVariations(phone).forEach(v => phonesToSearchSet.add(v));
+        phonesToSearchSet.add(phone);
+      });
+      
+      const phonesArray = Array.from(phonesToSearchSet);
+      
       // Fetch transactions
       const { data: transactions, error: txError } = await supabase
         .from("transactions")
         .select("id, type, status, amount, description, created_at, paid_at, external_id, normalized_phone")
-        .in("normalized_phone", phonesToSearch)
+        .in("normalized_phone", phonesArray)
         .order("created_at", { ascending: false });
 
       if (txError) throw txError;
@@ -263,7 +269,7 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
       const { data: abandonedEvents, error: abError } = await supabase
         .from("abandoned_events")
         .select("id, event_type, amount, product_name, error_message, created_at, normalized_phone")
-        .in("normalized_phone", phonesToSearch)
+        .in("normalized_phone", phonesArray)
         .order("created_at", { ascending: false });
 
       if (abError) throw abError;
@@ -272,7 +278,7 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
       const { data: pixLinks, error: pixError } = await supabase
         .from("delivery_link_generations")
         .select("id, created_at, product_id, payment_method, normalized_phone")
-        .in("normalized_phone", phonesToSearch)
+        .in("normalized_phone", phonesArray)
         .eq("payment_method", "pix")
         .order("created_at", { ascending: false });
 
@@ -289,7 +295,7 @@ export function useCustomerEvents(normalizedPhone: string | null, mergedPhones?:
       // Filter delivery accesses by normalized phone
       const filteredAccesses = (deliveryAccesses || []).filter(da => {
         const normalizedAccessPhone = da.phone.replace(/\D/g, '');
-        return phonesToSearch.some(p => {
+        return phonesArray.some(p => {
           const normalizedSearch = p.replace(/\D/g, '');
           return normalizedAccessPhone.includes(normalizedSearch) || normalizedSearch.includes(normalizedAccessPhone);
         });
