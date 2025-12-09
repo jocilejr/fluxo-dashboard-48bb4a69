@@ -219,14 +219,6 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                 <p className="text-xs text-muted-foreground mt-1">CPF: {customer.document}</p>
               )}
             </div>
-            <Button 
-              size="icon" 
-              variant="ghost" 
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setShowDeleteCustomerDialog(true)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
           </DialogTitle>
         </DialogHeader>
 
@@ -387,6 +379,19 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                         <p>{formatDate(customer.last_seen_at)}</p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Delete Customer Action */}
+                  <div className="pt-4 mt-4 border-t border-border/30">
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setShowDeleteCustomerDialog(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Excluir cliente e todos os dados
+                    </Button>
                   </div>
                 </div>
               ) : null}
