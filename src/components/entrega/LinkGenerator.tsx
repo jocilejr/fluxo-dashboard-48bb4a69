@@ -33,6 +33,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const [linkMessageTemplate, setLinkMessageTemplate] = useState<string>("{link}");
   const [step, setStep] = useState<"phone" | "payment" | "link">("phone");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -76,6 +77,8 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   };
 
   const handleSelectPayment = async (method: PaymentMethod) => {
+    if (isProcessing) return; // Prevent double-click
+    setIsProcessing(true);
     setPaymentMethod(method);
     
     const normalizedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
@@ -91,12 +94,13 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
       });
 
       toast.success(method === "pix" ? "PIX pago registrado" : "Link gerado");
+      setStep("link");
     } catch (error) {
       console.error("Erro ao registrar:", error);
       toast.error("Erro ao registrar link");
+    } finally {
+      setIsProcessing(false);
     }
-    
-    setStep("link");
   };
 
   const handleCopy = async () => {
@@ -195,6 +199,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
                   variant="outline"
                   className="h-16 justify-start gap-4 hover:bg-success/10 hover:border-success"
                   onClick={() => handleSelectPayment("pix")}
+                  disabled={isProcessing}
                 >
                   <QrCode className="h-6 w-6 text-success" />
                   <div className="text-left">
@@ -207,6 +212,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
                   variant="outline"
                   className="h-16 justify-start gap-4 hover:bg-primary/10 hover:border-primary"
                   onClick={() => handleSelectPayment("cartao_boleto")}
+                  disabled={isProcessing}
                 >
                   <div className="flex gap-1">
                     <CreditCard className="h-5 w-5 text-primary" />
