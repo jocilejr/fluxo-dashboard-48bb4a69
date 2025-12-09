@@ -29,7 +29,8 @@ import {
   Pencil,
   Trash2,
   Check,
-  X
+  X,
+  Unlink
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -74,11 +75,12 @@ const getPaymentMethodLabel = (type?: string) => {
 
 function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
   const { events, stats, isLoading, refetch } = useCustomerEvents(customer.normalized_phone, customer.merged_phones);
-  const { updateCustomer, deleteTransaction, deleteAbandonedEvent, deleteCustomerWithData, refetch: refetchCustomers } = useCustomers();
+  const { updateCustomer, deleteTransaction, deleteAbandonedEvent, deleteCustomerWithData, unlinkPixLink, refetch: refetchCustomers } = useCustomers();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState(customer.name || "");
   const [displayName, setDisplayName] = useState(customer.name || "");
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: "transaction" | "abandoned" } | null>(null);
+  const [unlinkTarget, setUnlinkTarget] = useState<string | null>(null);
   const [showDeleteCustomerDialog, setShowDeleteCustomerDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -111,6 +113,17 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
       // Error toast already shown
     }
     setDeleteTarget(null);
+  };
+
+  const handleUnlinkPixLink = async () => {
+    if (!unlinkTarget) return;
+    try {
+      await unlinkPixLink(unlinkTarget);
+      refetch();
+    } catch (e) {
+      // Error toast already shown
+    }
+    setUnlinkTarget(null);
   };
 
   const handleDeleteCustomer = async () => {
@@ -426,6 +439,17 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-muted-foreground">{formatDate(event.created_at)}</span>
+                              {event.type === "pix_link" && (
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-warning"
+                                  onClick={() => setUnlinkTarget(event.id)}
+                                  title="Desvincular deste cliente"
+                                >
+                                  <Unlink className="h-3 w-3" />
+                                </Button>
+                              )}
                               {event.type === "transaction" && (
                                 <Button 
                                   size="icon" 
@@ -541,6 +565,24 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Unlink PIX confirmation dialog */}
+    <AlertDialog open={!!unlinkTarget} onOpenChange={(open) => !open && setUnlinkTarget(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Desvincular PIX deste cliente?</AlertDialogTitle>
+          <AlertDialogDescription>
+            O registro será removido do histórico deste cliente. Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={handleUnlinkPixLink} className="bg-warning text-warning-foreground hover:bg-warning/90">
+            Desvincular
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
