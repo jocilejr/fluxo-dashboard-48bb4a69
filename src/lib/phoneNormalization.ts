@@ -1,14 +1,8 @@
 /**
- * Normalizes Brazilian phone numbers to a canonical 13-digit format: 55 + DDD + 9 + 8 digits
- * This matches the database normalize_phone function for consistent matching.
+ * Normalizes Brazilian phone numbers by removing non-digits and adding country code.
+ * Does NOT force the 9th digit - preserves the original format.
  * 
- * Handles all common variations:
- * - With or without country code (+55, 55)
- * - With or without the 9th digit for mobile
- * - With or without formatting (spaces, dashes, parentheses)
- * 
- * Returns: 55 + DDD + 9 + 8 digits (13 digits total)
- * Example: 89981340810 -> 5589981340810
+ * This matches the database normalize_phone function.
  */
 export function normalizePhoneForMatching(phone: string | null | undefined): string | null {
   if (!phone) return null;
@@ -18,105 +12,142 @@ export function normalizePhoneForMatching(phone: string | null | undefined): str
   
   if (digits.length < 8) return null;
   
-  // Remove country code 55 if present
-  if (digits.startsWith('55') && digits.length >= 12) {
-    digits = digits.slice(2);
+  // Add country code 55 if not present (10-11 digits means DDD + number)
+  if (digits.length >= 10 && digits.length <= 11) {
+    digits = '55' + digits;
   }
   
-  // Remove leading zeros
-  if (digits.startsWith('0')) {
-    digits = digits.slice(1);
+  // Remove leading zeros after country code
+  if (digits.length > 4 && digits[2] === '0') {
+    digits = digits.slice(0, 2) + digits.slice(3);
   }
   
-  let ddd: string;
-  let numberPart: string;
-  
-  // Now we should have DDD + number (10 or 11 digits)
-  if (digits.length === 11 && digits[2] === '9') {
-    // Already has 9th digit: DDD + 9 + 8 digits
-    ddd = digits.slice(0, 2);
-    numberPart = digits.slice(2);
-  } else if (digits.length === 10) {
-    // Missing 9th digit: DDD + 8 digits, add the 9
-    ddd = digits.slice(0, 2);
-    numberPart = '9' + digits.slice(2);
-  } else if (digits.length === 11) {
-    // 11 digits but 3rd is not 9
-    ddd = digits.slice(0, 2);
-    numberPart = digits.slice(2);
-  } else {
-    // Other formats, just add 55 prefix
-    return '55' + digits;
-  }
-  
-  return '55' + ddd + numberPart;
+  return digits;
 }
 
 /**
- * Generates all possible normalized variations of a phone number for database lookup.
- * Since we now normalize to 13 digits consistently, we also include variations
- * for backwards compatibility with older data.
+ * Generates ALL possible variations of a Brazilian phone number.
+ * This is the KEY function for matching - it generates every possible
+ * format a number could be stored in the database.
+ * 
+ * Example: 89981340810 generates:
+ * - 89981340810 (original)
+ * - 5589981340810 (with country code, 13 digits)
+ * - 8981340810 (without 9th digit, 10 digits)  
+ * - 558981340810 (with country code, without 9th digit, 12 digits)
  */
 export function generatePhoneVariations(phone: string | null | undefined): string[] {
   if (!phone) return [];
   
-  // Get the canonical normalized form (13 digits)
-  const normalized = normalizePhoneForMatching(phone);
-  if (!normalized || normalized.length < 10) return [];
+  // Remove all non-digit characters
+  let digits = phone.replace(/\D/g, '');
+  
+  if (digits.length < 8) return [];
   
   const variations: Set<string> = new Set();
   
-  // Original digits
-  const originalDigits = phone.replace(/\D/g, '');
-  variations.add(originalDigits);
+  // Add original
+  variations.add(digits);
   
-  // Add normalized form (13 digits: 55 + DDD + 9 + 8)
-  variations.add(normalized);
-  
-  // If 13 digits, also generate 12-digit version (without the 9) for backwards compatibility
-  if (normalized.length === 13 && normalized[4] === '9') {
-    const without9 = normalized.slice(0, 4) + normalized.slice(5);
-    variations.add(without9);
-    
-    // Also without country code
-    variations.add(normalized.slice(2)); // 11 digits: DDD + 9 + 8
-    variations.add(without9.slice(2));   // 10 digits: DDD + 8
+  // Remove country code if present to get base number
+  let baseWithDDD = digits;
+  if (digits.startsWith('55') && digits.length >= 12) {
+    baseWithDDD = digits.slice(2);
   }
+  
+  // Now baseWithDDD should be DDD + number (10 or 11 digits)
+  const ddd = baseWithDDD.slice(0, 2);
+  const restOfNumber = baseWithDDD.slice(2);
+  
+  // Determine if we have 9th digit or not
+  let with9: string;
+  let without9: string;
+  
+  if (restOfNumber.length === 9 && restOfNumber[0] === '9') {
+    // Has 9th digit
+    with9 = restOfNumber;
+    without9 = restOfNumber.slice(1);
+  } else if (restOfNumber.length === 8) {
+    // Without 9th digit
+    without9 = restOfNumber;
+    with9 = '9' + restOfNumber;
+  } else {
+    // Unknown format, just return what we have
+    variations.add(baseWithDDD);
+    variations.add('55' + baseWithDDD);
+    return Array.from(variations);
+  }
+  
+  // Generate all 4 main variations:
+  // 1. DDD + 8 digits (without 9, without 55) - 10 digits
+  variations.add(ddd + without9);
+  
+  // 2. DDD + 9 + 8 digits (with 9, without 55) - 11 digits
+  variations.add(ddd + with9);
+  
+  // 3. 55 + DDD + 8 digits (without 9, with 55) - 12 digits
+  variations.add('55' + ddd + without9);
+  
+  // 4. 55 + DDD + 9 + 8 digits (with 9, with 55) - 13 digits
+  variations.add('55' + ddd + with9);
   
   return Array.from(variations);
 }
 
 /**
  * Checks if two phone numbers represent the same customer.
+ * Compares all variations of both numbers.
  */
 export function phonesMatch(phone1: string | null | undefined, phone2: string | null | undefined): boolean {
-  const norm1 = normalizePhoneForMatching(phone1);
-  const norm2 = normalizePhoneForMatching(phone2);
+  if (!phone1 || !phone2) return false;
   
-  if (!norm1 || !norm2) return false;
+  const variations1 = new Set(generatePhoneVariations(phone1));
+  const variations2 = generatePhoneVariations(phone2);
   
-  return norm1 === norm2;
+  // Check if any variation from phone2 exists in phone1's variations
+  return variations2.some(v => variations1.has(v));
 }
 
 /**
  * Groups records by normalized phone number.
- * Records with different phone formats that normalize to the same number
+ * Records with different phone formats that represent the same number
  * will be grouped together.
  */
 export function groupByNormalizedPhone<T extends { normalized_phone?: string | null }>(
   records: T[]
 ): Map<string, T[]> {
   const groups = new Map<string, T[]>();
+  const phoneToGroup = new Map<string, string>(); // Maps any variation to the group key
   
   for (const record of records) {
-    const normalized = normalizePhoneForMatching(record.normalized_phone);
-    if (!normalized) continue;
+    if (!record.normalized_phone) continue;
     
-    const existing = groups.get(normalized);
-    if (existing) {
-      existing.push(record);
+    const variations = generatePhoneVariations(record.normalized_phone);
+    
+    // Check if any variation already has a group
+    let existingGroupKey: string | undefined;
+    for (const v of variations) {
+      if (phoneToGroup.has(v)) {
+        existingGroupKey = phoneToGroup.get(v);
+        break;
+      }
+    }
+    
+    if (existingGroupKey) {
+      // Add to existing group
+      groups.get(existingGroupKey)!.push(record);
+      // Map all variations to this group
+      for (const v of variations) {
+        phoneToGroup.set(v, existingGroupKey);
+      }
     } else {
-      groups.set(normalized, [record]);
+      // Create new group with the first variation as key
+      const groupKey = record.normalized_phone;
+      groups.set(groupKey, [record]);
+      // Map all variations to this group
+      for (const v of variations) {
+        phoneToGroup.set(v, groupKey);
+      }
     }
   }
   
