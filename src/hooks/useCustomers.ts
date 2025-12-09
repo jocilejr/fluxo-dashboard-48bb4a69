@@ -354,17 +354,10 @@ export function useCustomerPaymentMethods() {
 
       if (txError) throw txError;
 
-      // Buscar acessos de entrega (indica que o cliente acessou o link PIX = pagou)
-      const { data: deliveryAccesses, error: daError } = await supabase
-        .from("delivery_accesses")
-        .select("phone, product_id");
-
-      if (daError) throw daError;
-
-      // Buscar links de entrega para mapear product_id -> payment_method
+      // Buscar links de entrega - gerar link PIX = PIX pago para o cliente
       const { data: deliveryLinks, error: dlError } = await supabase
         .from("delivery_link_generations")
-        .select("normalized_phone, payment_method, product_id")
+        .select("normalized_phone, payment_method")
         .not("normalized_phone", "is", null);
 
       if (dlError) throw dlError;
@@ -381,17 +374,9 @@ export function useCustomerPaymentMethods() {
         methodsByPhone[normalizedKey].add(t.type);
       });
 
-      // Criar set de product_ids que foram acessados (se acessou = pagou)
-      const accessedProductIds = new Set(
-        (deliveryAccesses || []).map(da => da.product_id)
-      );
-
-      // Adicionar métodos dos links de entrega apenas se o produto foi acessado (= pagou)
+      // Adicionar métodos dos links de entrega - gerar link = pagamento atribuído
       (deliveryLinks || []).forEach((dl) => {
-        if (!dl.normalized_phone || !dl.product_id) return;
-        
-        // Verificar se este produto foi acessado por alguém (indica pagamento)
-        if (!accessedProductIds.has(dl.product_id)) return;
+        if (!dl.normalized_phone) return;
         
         const normalizedKey = normalizePhoneForMatching(dl.normalized_phone) || dl.normalized_phone;
         if (!methodsByPhone[normalizedKey]) {
