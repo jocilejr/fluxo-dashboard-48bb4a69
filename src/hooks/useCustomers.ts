@@ -381,26 +381,19 @@ export function useCustomerPaymentMethods() {
         methodsByPhone[normalizedKey].add(t.type);
       });
 
-      // Criar mapa de product_id -> phones que acessaram (indicando pagamento)
-      const accessedProducts = new Map<string, Set<string>>();
-      (deliveryAccesses || []).forEach((da) => {
-        if (!da.phone || !da.product_id) return;
-        if (!accessedProducts.has(da.product_id)) {
-          accessedProducts.set(da.product_id, new Set());
-        }
-        const normalizedKey = normalizePhoneForMatching(da.phone) || da.phone;
-        accessedProducts.get(da.product_id)?.add(normalizedKey);
-      });
+      // Criar set de product_ids que foram acessados (se acessou = pagou)
+      const accessedProductIds = new Set(
+        (deliveryAccesses || []).map(da => da.product_id)
+      );
 
-      // Adicionar métodos dos links de entrega apenas se o cliente ACESSOU o link (= pagou)
+      // Adicionar métodos dos links de entrega apenas se o produto foi acessado (= pagou)
       (deliveryLinks || []).forEach((dl) => {
         if (!dl.normalized_phone || !dl.product_id) return;
+        
+        // Verificar se este produto foi acessado por alguém (indica pagamento)
+        if (!accessedProductIds.has(dl.product_id)) return;
+        
         const normalizedKey = normalizePhoneForMatching(dl.normalized_phone) || dl.normalized_phone;
-        
-        // Verificar se este telefone acessou este produto (indica pagamento)
-        const accessedPhones = accessedProducts.get(dl.product_id);
-        if (!accessedPhones?.has(normalizedKey)) return; // Não acessou = não pagou
-        
         if (!methodsByPhone[normalizedKey]) {
           methodsByPhone[normalizedKey] = new Set();
         }
