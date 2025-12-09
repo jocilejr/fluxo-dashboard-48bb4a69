@@ -321,6 +321,12 @@ export function BoletoQuickRecovery({ open, onOpenChange, transaction, onTransac
     await navigator.clipboard.writeText(processedText);
     setCopiedId(blockId);
     toast.success("Copiado!");
+    addActivityLog({
+      type: "action",
+      category: "Recuperação",
+      message: `Mensagem de recuperação copiada para ${transaction?.customer_name || "cliente"}`,
+      details: `Valor: ${formatCurrency(Number(transaction?.amount || 0))}`
+    });
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -691,6 +697,12 @@ export function BoletoQuickRecovery({ open, onOpenChange, transaction, onTransac
                   className="w-full gap-2 h-11 mt-4 bg-[#25D366] hover:bg-[#20BD5A] text-white font-medium shadow-lg shadow-[#25D366]/25"
                   onClick={async () => {
                     await registerClick();
+                    addActivityLog({
+                      type: "action",
+                      category: "Recuperação",
+                      message: `WhatsApp aberto para recuperação de boleto: ${transaction.customer_name || "cliente"}`,
+                      details: `Telefone: ${transaction.customer_phone}, Valor: ${formatCurrency(Number(transaction.amount))}`
+                    });
                     if (extensionAvailable) {
                       openChat(transaction.customer_phone!).catch(() => {
                         window.open(`https://web.whatsapp.com/send?phone=${transaction.customer_phone?.replace(/\D/g, "")}`, "_blank");
