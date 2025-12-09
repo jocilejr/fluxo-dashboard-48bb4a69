@@ -45,6 +45,7 @@ export function MobileEntrega() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [generatedLink, setGeneratedLink] = useState("");
   const [linkMessageTemplate, setLinkMessageTemplate] = useState<string>("{link}");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["delivery-products"],
@@ -103,8 +104,9 @@ export function MobileEntrega() {
   };
 
   const handleSelectPayment = async (method: PaymentMethod) => {
-    if (!selectedProduct) return;
+    if (!selectedProduct || isProcessing) return;
     
+    setIsProcessing(true);
     setPaymentMethod(method);
 
     const cleanPhone = phoneInput.replace(/\D/g, "");
@@ -113,55 +115,62 @@ export function MobileEntrega() {
     const link = `${baseUrl}/e/${selectedProduct.slug}?telefone=${cleanPhone}`;
     setGeneratedLink(link);
 
-    // Log the link generation
-    await supabase.from("delivery_link_generations").insert({
-      product_id: selectedProduct.id,
-      phone: phoneInput,
-      normalized_phone: normalizedPhone,
-      payment_method: method === "pix" ? "pix" : "cartao_boleto",
-    });
+    try {
+      // Log the link generation
+      await supabase.from("delivery_link_generations").insert({
+        product_id: selectedProduct.id,
+        phone: phoneInput,
+        normalized_phone: normalizedPhone,
+        payment_method: method === "pix" ? "pix" : "cartao_boleto",
+      });
 
-    // If PIX, update customer stats
-    if (method === "pix") {
-      const normalized = normalizePhoneForMatching(phoneInput);
-      
-      if (normalized) {
-        // Check if customer exists
-        const { data: existingCustomer } = await supabase
-          .from("customers")
-          .select("id, pix_payment_count, total_paid")
-          .eq("normalized_phone", normalized)
-          .single();
+      // If PIX, update customer stats
+      if (method === "pix") {
+        const normalized = normalizePhoneForMatching(phoneInput);
+        
+        if (normalized) {
+          // Check if customer exists
+          const { data: existingCustomer } = await supabase
+            .from("customers")
+            .select("id, pix_payment_count, total_paid")
+            .eq("normalized_phone", normalized)
+            .maybeSingle();
 
-        if (existingCustomer) {
-          // Update existing customer
-          await supabase
-            .from("customers")
-            .update({
-              pix_payment_count: (existingCustomer.pix_payment_count || 0) + 1,
-              total_paid: (existingCustomer.total_paid || 0) + (selectedProduct.value || 0),
-              last_seen_at: new Date().toISOString(),
-            })
-            .eq("id", existingCustomer.id);
-        } else {
-          // Create new customer
-          await supabase
-            .from("customers")
-            .insert({
-              normalized_phone: normalized,
-              display_phone: phoneInput,
-              pix_payment_count: 1,
-              total_paid: selectedProduct.value || 0,
-              first_seen_at: new Date().toISOString(),
-              last_seen_at: new Date().toISOString(),
-            });
+          if (existingCustomer) {
+            // Update existing customer
+            await supabase
+              .from("customers")
+              .update({
+                pix_payment_count: (existingCustomer.pix_payment_count || 0) + 1,
+                total_paid: (existingCustomer.total_paid || 0) + (selectedProduct.value || 0),
+                last_seen_at: new Date().toISOString(),
+              })
+              .eq("id", existingCustomer.id);
+          } else {
+            // Create new customer
+            await supabase
+              .from("customers")
+              .insert({
+                normalized_phone: normalized,
+                display_phone: phoneInput,
+                pix_payment_count: 1,
+                total_paid: selectedProduct.value || 0,
+                first_seen_at: new Date().toISOString(),
+                last_seen_at: new Date().toISOString(),
+              });
+          }
         }
+
+        queryClient.invalidateQueries({ queryKey: ["customers"] });
       }
 
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      setStep("link");
+    } catch (error) {
+      console.error("Erro ao registrar:", error);
+      toast.error("Erro ao registrar link");
+    } finally {
+      setIsProcessing(false);
     }
-
-    setStep("link");
   };
 
   const handleCopyLink = () => {
@@ -349,7 +358,8 @@ export function MobileEntrega() {
               <Card
                 className={cn(
                   "p-4 cursor-pointer transition-all border-2 active:scale-[0.98]",
-                  "hover:bg-success/5 border-border/30 hover:border-success/50"
+                  "hover:bg-success/5 border-border/30 hover:border-success/50",
+                  isProcessing && "opacity-50 pointer-events-none"
                 )}
                 onClick={() => handleSelectPayment("pix")}
               >
@@ -370,7 +380,8 @@ export function MobileEntrega() {
               <Card
                 className={cn(
                   "p-4 cursor-pointer transition-all border-2 active:scale-[0.98]",
-                  "hover:bg-primary/5 border-border/30 hover:border-primary/50"
+                  "hover:bg-primary/5 border-border/30 hover:border-primary/50",
+                  isProcessing && "opacity-50 pointer-events-none"
                 )}
                 onClick={() => handleSelectPayment("cartao_boleto")}
               >
