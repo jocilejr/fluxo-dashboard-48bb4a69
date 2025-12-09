@@ -199,7 +199,76 @@ export function useCustomers() {
     queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] });
   };
 
-  return { customers, isLoading, refetch, updateCustomer, deleteTransaction, deleteAbandonedEvent };
+  const deleteCustomerWithData = async (customerId: string, normalizedPhone: string, mergedPhones?: string[]) => {
+    // Generate all phone variations to delete associated data
+    const basePhones = mergedPhones && mergedPhones.length > 0 ? mergedPhones : [normalizedPhone];
+    const phonesToDelete = new Set<string>();
+    basePhones.forEach(phone => {
+      generatePhoneVariations(phone).forEach(v => phonesToDelete.add(v));
+      phonesToDelete.add(phone);
+    });
+    const phonesArray = Array.from(phonesToDelete);
+
+    // Delete transactions
+    const { error: txError } = await supabase
+      .from("transactions")
+      .delete()
+      .in("normalized_phone", phonesArray);
+    
+    if (txError) {
+      toast.error("Erro ao excluir transações");
+      throw txError;
+    }
+
+    // Delete abandoned events
+    const { error: abError } = await supabase
+      .from("abandoned_events")
+      .delete()
+      .in("normalized_phone", phonesArray);
+    
+    if (abError) {
+      toast.error("Erro ao excluir eventos abandonados");
+      throw abError;
+    }
+
+    // Delete PIX link generations
+    const { error: pixError } = await supabase
+      .from("delivery_link_generations")
+      .delete()
+      .in("normalized_phone", phonesArray);
+    
+    if (pixError) {
+      console.error("Erro ao excluir PIX links:", pixError);
+      // Continue even if this fails (may not have permission)
+    }
+
+    // Delete customer records (may have multiple merged)
+    for (const phone of basePhones) {
+      await supabase
+        .from("customers")
+        .delete()
+        .eq("normalized_phone", phone);
+    }
+    
+    // Also delete by ID to be sure
+    const { error: custError } = await supabase
+      .from("customers")
+      .delete()
+      .eq("id", customerId);
+    
+    if (custError) {
+      toast.error("Erro ao excluir cliente");
+      throw custError;
+    }
+    
+    toast.success("Cliente e dados excluídos");
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
+    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] });
+  };
+
+  return { customers, isLoading, refetch, updateCustomer, deleteTransaction, deleteAbandonedEvent, deleteCustomerWithData };
 }
 
 export function useCustomerPaymentMethods() {
