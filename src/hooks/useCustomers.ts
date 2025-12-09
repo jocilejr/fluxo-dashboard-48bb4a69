@@ -159,10 +159,16 @@ export function useCustomers() {
     }
     
     toast.success("Cliente atualizado");
-    queryClient.invalidateQueries({ queryKey: ["customers"] });
-    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] });
+    
+    // Invalidate all related queries for real-time update across all tabs
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["customers"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-events"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] }),
+      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-payment-methods"] }),
+    ]);
   };
 
   const deleteTransaction = async (transactionId: string) => {
@@ -177,9 +183,15 @@ export function useCustomers() {
     }
     
     toast.success("Transação excluída");
-    queryClient.invalidateQueries({ queryKey: ["customers"] });
-    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    
+    // Invalidate all related queries for real-time update
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["customers"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-events"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-payment-methods"] }),
+    ]);
   };
 
   const deleteAbandonedEvent = async (eventId: string) => {
@@ -194,9 +206,13 @@ export function useCustomers() {
     }
     
     toast.success("Evento excluído");
-    queryClient.invalidateQueries({ queryKey: ["customers"] });
-    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
-    queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] });
+    
+    // Invalidate all related queries for real-time update
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["customers"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-events"] }),
+      queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] }),
+    ]);
   };
 
   const deleteCustomerWithData = async (customerId: string, normalizedPhone: string, mergedPhones?: string[]) => {
@@ -262,10 +278,16 @@ export function useCustomers() {
     }
     
     toast.success("Cliente e dados excluídos");
-    queryClient.invalidateQueries({ queryKey: ["customers"] });
-    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
-    queryClient.invalidateQueries({ queryKey: ["transactions"] });
-    queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] });
+    
+    // Invalidate all related queries for real-time update
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["customers"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-events"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["abandonedEvents"] }),
+      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-payment-methods"] }),
+    ]);
   };
 
   const unlinkPixLink = async (pixLinkId: string) => {
@@ -280,8 +302,14 @@ export function useCustomers() {
     }
     
     toast.success("PIX desvinculado do cliente");
-    queryClient.invalidateQueries({ queryKey: ["customers"] });
-    queryClient.invalidateQueries({ queryKey: ["customer-events"] });
+    
+    // Invalidate all related queries for real-time update
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["customers"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-events"] }),
+      queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+      queryClient.invalidateQueries({ queryKey: ["customer-payment-methods"] }),
+    ]);
   };
 
   return { customers, isLoading, refetch, updateCustomer, deleteTransaction, deleteAbandonedEvent, deleteCustomerWithData, unlinkPixLink };
