@@ -688,7 +688,7 @@ export default function Clientes() {
                 <div className="text-right shrink-0">
                   <p className="font-bold text-success">{formatCurrency(Number(customer.total_paid))}</p>
                   <div className="flex items-center gap-2 justify-end text-[10px] text-muted-foreground">
-                    <span className="text-primary">{customer.total_transactions + customer.total_abandoned_events} leads</span>
+                    <span className="text-primary">{customer.total_transactions} transações</span>
                     {customer.total_abandoned_events > 0 && (
                       <span className="text-warning">{customer.total_abandoned_events} aband.</span>
                     )}
