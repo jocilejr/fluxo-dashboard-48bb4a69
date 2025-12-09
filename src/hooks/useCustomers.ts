@@ -345,25 +345,33 @@ export function useCustomerPaymentMethods() {
   const { data = {}, isLoading } = useQuery({
     queryKey: ["customer-payment-methods"],
     queryFn: async () => {
-      // Buscar métodos de pagamento das transações
+      // Buscar métodos de pagamento das transações PAGAS apenas
       const { data: transactions, error: txError } = await supabase
         .from("transactions")
         .select("normalized_phone, type")
+        .eq("status", "pago")
         .not("normalized_phone", "is", null);
 
       if (txError) throw txError;
 
-      // Buscar métodos de pagamento dos links de entrega (PIX)
+      // Buscar acessos de entrega (indica que o cliente acessou o link PIX = pagou)
+      const { data: deliveryAccesses, error: daError } = await supabase
+        .from("delivery_accesses")
+        .select("phone, product_id");
+
+      if (daError) throw daError;
+
+      // Buscar links de entrega para mapear product_id -> payment_method
       const { data: deliveryLinks, error: dlError } = await supabase
         .from("delivery_link_generations")
-        .select("normalized_phone, payment_method")
+        .select("normalized_phone, payment_method, product_id")
         .not("normalized_phone", "is", null);
 
       if (dlError) throw dlError;
 
       const methodsByPhone: Record<string, Set<string>> = {};
       
-      // Adicionar métodos das transações
+      // Adicionar métodos das transações PAGAS
       (transactions || []).forEach((t) => {
         if (!t.normalized_phone) return;
         const normalizedKey = normalizePhoneForMatching(t.normalized_phone) || t.normalized_phone;
@@ -373,10 +381,26 @@ export function useCustomerPaymentMethods() {
         methodsByPhone[normalizedKey].add(t.type);
       });
 
-      // Adicionar métodos dos links de entrega
+      // Criar mapa de product_id -> phones que acessaram (indicando pagamento)
+      const accessedProducts = new Map<string, Set<string>>();
+      (deliveryAccesses || []).forEach((da) => {
+        if (!da.phone || !da.product_id) return;
+        if (!accessedProducts.has(da.product_id)) {
+          accessedProducts.set(da.product_id, new Set());
+        }
+        const normalizedKey = normalizePhoneForMatching(da.phone) || da.phone;
+        accessedProducts.get(da.product_id)?.add(normalizedKey);
+      });
+
+      // Adicionar métodos dos links de entrega apenas se o cliente ACESSOU o link (= pagou)
       (deliveryLinks || []).forEach((dl) => {
-        if (!dl.normalized_phone) return;
+        if (!dl.normalized_phone || !dl.product_id) return;
         const normalizedKey = normalizePhoneForMatching(dl.normalized_phone) || dl.normalized_phone;
+        
+        // Verificar se este telefone acessou este produto (indica pagamento)
+        const accessedPhones = accessedProducts.get(dl.product_id);
+        if (!accessedPhones?.has(normalizedKey)) return; // Não acessou = não pagou
+        
         if (!methodsByPhone[normalizedKey]) {
           methodsByPhone[normalizedKey] = new Set();
         }
