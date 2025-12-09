@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Transaction } from "@/hooks/useTransactions";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   Copy, 
   Check, 
@@ -29,6 +30,7 @@ import { pdfToImage } from "@/lib/pdfToImage";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
 import { getGreeting } from "@/lib/greeting";
 import { Badge } from "@/components/ui/badge";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 
 interface BoletoQuickRecoveryProps {
   open: boolean;
@@ -111,6 +113,8 @@ export function BoletoQuickRecovery({ open, onOpenChange, transaction, onTransac
     setClickCount((prev) => prev + 1);
   };
 
+  const queryClient = useQueryClient();
+
   const handleSavePhone = async () => {
     if (!transaction) return;
     setIsSavingPhone(true);
@@ -123,10 +127,20 @@ export function BoletoQuickRecovery({ open, onOpenChange, transaction, onTransac
       if (error) throw error;
 
       toast.success("Telefone atualizado");
+      addActivityLog({ type: "action", category: "Transações", message: `Telefone atualizado: ${editingPhoneValue}`, details: `Transaction ID: ${transaction.id}` });
       setIsEditingPhone(false);
+      
+      // Invalidate all queries for real-time update
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["customers"] }),
+        queryClient.invalidateQueries({ queryKey: ["customer-events"] }),
+      ]);
+      
       onTransactionUpdate?.();
     } catch (error: any) {
       toast.error("Erro ao atualizar telefone");
+      addActivityLog({ type: "error", category: "Transações", message: "Erro ao atualizar telefone", details: error.message });
       console.error(error);
     } finally {
       setIsSavingPhone(false);
