@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Eye, EyeOff, Lock } from "lucide-react";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -56,9 +57,21 @@ const Auth = () => {
           description: message,
           variant: "destructive",
         });
+        addActivityLog({
+          type: "error",
+          category: "Autenticação",
+          message: `Falha no login: ${message}`,
+          details: `Email: ${email}`
+        });
         return;
       }
 
+      addActivityLog({
+        type: "success",
+        category: "Autenticação",
+        message: `Login realizado com sucesso`,
+        details: `Email: ${email}`
+      });
       navigate("/");
     } catch (error) {
       toast({

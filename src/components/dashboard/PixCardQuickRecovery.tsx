@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
 import { getGreeting } from "@/lib/greeting";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 import {
   Popover,
   PopoverContent,
@@ -86,11 +87,23 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
     toast.success("Mensagem copiada!");
     setTimeout(() => setCopied(false), 2000);
     await registerClick();
+    addActivityLog({
+      type: "action",
+      category: "Recuperação PIX/Cartão",
+      message: `Mensagem copiada para ${transaction.customer_name || "cliente"}`,
+      details: `Tipo: ${transaction.type}, Telefone: ${transaction.customer_phone}, Valor: R$ ${transaction.amount}`
+    });
   };
 
   const handleOpenChat = async () => {
     if (!transaction.customer_phone) {
       toast.error("Cliente sem telefone cadastrado");
+      addActivityLog({
+        type: "error",
+        category: "Recuperação PIX/Cartão",
+        message: "Tentativa de WhatsApp sem telefone",
+        details: `Cliente: ${transaction.customer_name || "não identificado"}, Tipo: ${transaction.type}`
+      });
       return;
     }
 
@@ -105,6 +118,12 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
     await openChat(phone);
     
     toast.success("Mensagem copiada! Cole com Ctrl+V");
+    addActivityLog({
+      type: "success",
+      category: "Recuperação PIX/Cartão",
+      message: `WhatsApp aberto para ${transaction.customer_name || "cliente"}`,
+      details: `Tipo: ${transaction.type}, Telefone: ${transaction.customer_phone}, Valor: R$ ${transaction.amount}`
+    });
     setIsOpen(false);
   };
 

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Copy, Check, ExternalLink, CreditCard, QrCode, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 
 interface DeliveryProduct {
   id: string;
@@ -94,10 +95,22 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
       });
 
       toast.success(method === "pix" ? "PIX pago registrado" : "Link gerado");
+      addActivityLog({
+        type: "success",
+        category: "Entrega",
+        message: `Link de entrega gerado: ${product?.name}`,
+        details: `Método: ${method === "pix" ? "PIX" : "Cartão/Boleto"}, Telefone: ${phone}`
+      });
       setStep("link");
     } catch (error) {
       console.error("Erro ao registrar:", error);
       toast.error("Erro ao registrar link");
+      addActivityLog({
+        type: "error",
+        category: "Entrega",
+        message: `Erro ao gerar link: ${product?.name}`,
+        details: `Telefone: ${phone}, Erro: ${error}`
+      });
     } finally {
       setIsProcessing(false);
     }

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTabNotification } from "./useTabNotification";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 
 export interface Transaction {
   id: string;
@@ -157,15 +158,26 @@ export function useTransactions() {
             // Notify tab title when in background
             notifyNewTransactionRef.current();
             
+            // Log the transaction
+            const typeLabel = newData.type === 'boleto' ? 'Boleto' : newData.type === 'pix' ? 'PIX' : 'Cartão';
+            const statusLabel = notificationStatus === 'pago' ? 'Pago' : notificationStatus === 'pendente' ? 'Pendente' : 'Gerado';
+            const amount = newData.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            
+            addActivityLog({
+              type: notificationStatus === 'pago' ? 'success' : 'info',
+              category: 'Transação',
+              message: `${typeLabel} ${statusLabel}: ${newData.customer_name || 'Cliente'}`,
+              details: `Valor: ${amount}, Telefone: ${newData.customer_phone || 'N/A'}, ID: ${newData.id}`
+            });
+            
             // Browser notification via Service Worker
             if (Notification.permission === 'granted' && navigator.serviceWorker) {
-              const typeLabel = getNotificationTitle(newData.type, notificationStatus);
-              const amount = newData.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+              const title = getNotificationTitle(newData.type, notificationStatus);
               console.log('[Notification] Raw amount:', newData.amount, 'Formatted:', amount);
               
               navigator.serviceWorker.ready
                 .then((registration) => {
-                  return registration.showNotification(typeLabel, {
+                  return registration.showNotification(title, {
                     body: `${newData.customer_name || 'Cliente'} - ${amount}`,
                     icon: '/logo-ov.png',
                     badge: '/favicon.png',

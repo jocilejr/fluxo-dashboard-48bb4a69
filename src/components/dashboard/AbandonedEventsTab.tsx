@@ -12,6 +12,7 @@ import { useAbandonedEvents, AbandonedEvent } from "@/hooks/useAbandonedEvents";
 import { useQuery } from "@tanstack/react-query";
 import { getGreeting } from "@/lib/greeting";
 import { AbandonedRecoverySettings } from "./AbandonedRecoverySettings";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -147,8 +148,15 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
 
   const handleDelete = async (id: string) => {
     try {
+      const event = events.find(e => e.id === id);
       await deleteEvent(id);
       toast.success("Evento removido");
+      addActivityLog({
+        type: "action",
+        category: "Abandono",
+        message: `Evento de abandono removido: ${event?.customer_name || 'N/A'}`,
+        details: `Tipo: ${event?.event_type || 'N/A'}, Valor: R$ ${event?.amount || 0}`
+      });
     } catch (error: any) {
       toast.error("Erro ao remover evento");
       console.error(error);
@@ -173,11 +181,23 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
   const openWhatsApp = async (event: AbandonedEvent) => {
     if (!event.customer_phone) {
       toast.error("Cliente sem telefone cadastrado");
+      addActivityLog({
+        type: "error",
+        category: "Abandono",
+        message: "Tentativa de WhatsApp sem telefone",
+        details: `Cliente: ${event.customer_name || 'N/A'}, Tipo: ${event.event_type}`
+      });
       return;
     }
 
     if (extensionStatus !== "connected") {
       toast.error("Extensão WhatsApp não detectada");
+      addActivityLog({
+        type: "warning",
+        category: "Abandono",
+        message: "Extensão WhatsApp não conectada",
+        details: `Cliente: ${event.customer_name}, Telefone: ${event.customer_phone}`
+      });
       return;
     }
 
@@ -191,6 +211,12 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
 
     if (success) {
       toast.success("Mensagem copiada! Cole com Ctrl+V");
+      addActivityLog({
+        type: "success",
+        category: "Abandono",
+        message: `WhatsApp aberto para recuperação: ${event.customer_name || 'Cliente'}`,
+        details: `Tipo: ${event.event_type}, Telefone: ${event.customer_phone}, Valor: R$ ${event.amount || 0}`
+      });
     } else {
       toast.error("Erro ao abrir conversa");
     }
@@ -200,6 +226,12 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
     const message = prepareRecoveryMessage(event);
     navigator.clipboard.writeText(message);
     toast.success("Mensagem copiada!");
+    addActivityLog({
+      type: "action",
+      category: "Abandono",
+      message: `Mensagem copiada para ${event.customer_name || 'Cliente'}`,
+      details: `Tipo: ${event.event_type}, Valor: R$ ${event.amount || 0}`
+    });
   };
 
   // Stats
