@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Transaction } from "@/hooks/useTransactions";
 import { useBoletoRecovery, BoletoWithRecovery } from "@/hooks/useBoletoRecovery";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
+import { supabase } from "@/integrations/supabase/client";
 import { BoletoRecoveryHeroCard } from "./BoletoRecoveryHeroCard";
 import { BoletoRecoveryRulesConfig } from "./BoletoRecoveryRulesConfig";
 import { BoletoRecoveryQueue } from "./BoletoRecoveryQueue";
@@ -29,7 +30,20 @@ import {
   FileText,
   List,
   Search,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useQueryClient } from "@tanstack/react-query";
+import { addActivityLog } from "@/components/settings/ActivityLogs";
 
 interface BoletoRecoveryDashboardProps {
   transactions: Transaction[];
@@ -406,7 +420,10 @@ interface BoletoDetailDialogProps {
 
 function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { extensionStatus, sendText } = useWhatsAppExtension();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const formatCurrency = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -431,6 +448,38 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
       toast({ title: "Sucesso", description: "Mensagem preparada no WhatsApp" });
     } else {
       toast({ title: "Erro", description: "Erro ao preparar mensagem", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", boleto.id);
+
+      if (error) throw error;
+
+      addActivityLog({
+        type: "warning",
+        category: "Recuperação Boleto",
+        message: `Boleto deletado: ${boleto.customer_name || "cliente"}`,
+        details: `Telefone: ${boleto.customer_phone}, Valor: ${formatCurrency(boleto.amount)}`
+      });
+
+      toast({ title: "Deletado", description: "Boleto removido do sistema" });
+      
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+      
+      setDeleteDialogOpen(false);
+      onClose();
+    } catch (error) {
+      console.error("Error deleting boleto:", error);
+      toast({ title: "Erro", description: "Não foi possível deletar", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -537,9 +586,43 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
               <CheckCircle2 className="h-4 w-4" />
               Marcar Contactado
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="border-destructive/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar boleto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar este boleto permanentemente? Esta ação não pode ser desfeita.
+              <div className="mt-3 p-3 rounded-lg bg-muted text-sm">
+                <p><strong>Cliente:</strong> {boleto.customer_name || "Não identificado"}</p>
+                <p><strong>Valor:</strong> {formatCurrency(boleto.amount)}</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deletando..." : "Deletar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
