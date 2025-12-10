@@ -513,109 +513,109 @@ export default function TypebotRanking() {
               </TabsList>
 
               {/* Logs Tab */}
-              <TabsContent value="logs" className="space-y-3">
+              <TabsContent value="logs" className="space-y-4">
                 {/* Filters Row */}
-                <div className="flex gap-2 flex-wrap">
-                  <div className="relative flex-1 min-w-[200px]">
+                <div className="flex gap-3 flex-wrap items-center">
+                  <div className="relative flex-1 min-w-[180px] max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                     <Input
-                      placeholder="Buscar nas respostas..."
+                      placeholder="Buscar..."
                       value={logSearch}
                       onChange={(e) => setLogSearch(e.target.value)}
-                      className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500 h-9"
+                      className="pl-9 bg-white/5 border-white/10 text-white placeholder:text-slate-500 h-8 text-sm"
                     />
                   </div>
                   <Select value={stageFilter} onValueChange={setStageFilter}>
-                    <SelectTrigger className="w-[200px] bg-white/5 border-white/10 text-white h-9">
-                      <SelectValue placeholder="Filtrar por etapa" />
+                    <SelectTrigger className="w-[180px] bg-white/5 border-white/10 text-white h-8 text-sm">
+                      <SelectValue placeholder="Filtrar etapa" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/10">
+                    <SelectContent className="bg-slate-900 border-white/10 max-h-[300px]">
                       <SelectItem value="all" className="text-white hover:bg-white/10">Todas as etapas</SelectItem>
                       {uniqueStages.map((stage) => (
-                        <SelectItem key={stage} value={stage} className="text-white hover:bg-white/10">
+                        <SelectItem key={stage} value={stage} className="text-white hover:bg-white/10 text-sm">
                           {stage}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-
-                {/* Stats Bar */}
-                <div className="flex items-center gap-4 text-xs text-slate-400 pb-2 border-b border-white/10">
-                  <span>{filteredLogs.length} leads</span>
+                  <div className="text-xs text-slate-500">
+                    {filteredLogs.length} lead{filteredLogs.length !== 1 ? 's' : ''}
+                  </div>
                   {stageFilter !== "all" && (
-                    <span className="flex items-center gap-1 bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded">
-                      Etapa: {stageFilter}
-                      <button onClick={() => setStageFilter("all")} className="hover:text-white ml-1">×</button>
-                    </span>
+                    <button 
+                      onClick={() => setStageFilter("all")} 
+                      className="text-xs bg-violet-500/20 text-violet-400 px-2 py-1 rounded hover:bg-violet-500/30 flex items-center gap-1"
+                    >
+                      {stageFilter} <span className="text-violet-300">×</span>
+                    </button>
                   )}
                 </div>
 
-                {/* Logs Table */}
-                <ScrollArea className="h-[400px]">
+                {/* Logs Grid */}
+                <ScrollArea className="h-[420px] pr-4">
                   {filteredLogs.length === 0 ? (
-                    <p className="py-8 text-center text-slate-500">Nenhum lead encontrado</p>
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                      <MessageSquare className="h-10 w-10 mb-3 opacity-50" />
+                      <p>Nenhum lead encontrado</p>
+                    </div>
                   ) : (
-                    <div className="space-y-1">
-                      {/* Group logs by date */}
-                      {Object.entries(
-                        filteredLogs.reduce((groups, log) => {
-                          const dateKey = format(new Date(log.createdAt), "dd/MM/yyyy", { locale: ptBR });
-                          if (!groups[dateKey]) groups[dateKey] = [];
-                          groups[dateKey].push(log);
-                          return groups;
-                        }, {} as Record<string, typeof filteredLogs>)
-                      ).map(([date, logs]) => (
-                        <div key={date} className="mb-3">
-                          <div className="sticky top-0 bg-slate-900/95 backdrop-blur py-1.5 z-10 flex items-center gap-2 mb-1">
-                            <CalendarIcon className="h-3.5 w-3.5 text-violet-400" />
-                            <span className="text-xs font-medium text-white">{date}</span>
-                            <span className="text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">{logs.length}</span>
-                          </div>
-                          <div className="space-y-0.5">
-                            {logs.map((log) => {
-                              const displayAnswers = getFilteredAnswers(log.answers);
-                              return (
-                                <div 
-                                  key={log.id} 
-                                  className="flex items-start gap-2 py-1.5 px-2 rounded hover:bg-white/5 text-xs border-l-2 border-transparent hover:border-violet-500/50"
-                                >
-                                  {/* Time */}
-                                  <span className="text-slate-500 w-11 shrink-0 font-mono">
-                                    {format(new Date(log.createdAt), "HH:mm")}
-                                  </span>
-                                  
-                                  {/* Status */}
-                                  <span className={cn(
-                                    "w-5 h-5 flex items-center justify-center rounded shrink-0",
-                                    log.isCompleted ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-                                  )}>
-                                    {log.isCompleted ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                                  </span>
-                                  
-                                  {/* Answers */}
-                                  <div className="flex-1 min-w-0">
-                                    {displayAnswers.length > 0 ? (
-                                      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
-                                        {displayAnswers.map((answer, i) => (
-                                          <span key={i} className="inline-flex gap-1 max-w-full">
-                                            <span className="text-slate-500 shrink-0">{answer.field}:</span>
-                                            <span className="text-slate-200 truncate" title={answer.value}>
-                                              {answer.value || "-"}
-                                            </span>
-                                          </span>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <span className="text-slate-600 italic">Sem respostas</span>
-                                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      {filteredLogs.map((log) => {
+                        const displayAnswers = getFilteredAnswers(log.answers);
+                        return (
+                          <div 
+                            key={log.id} 
+                            className={cn(
+                              "rounded-lg border p-3 transition-all hover:border-violet-500/30",
+                              log.isCompleted 
+                                ? "bg-emerald-500/5 border-emerald-500/20" 
+                                : "bg-white/[0.02] border-white/10"
+                            )}
+                          >
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
+                              <div className="flex items-center gap-2">
+                                <span className={cn(
+                                  "w-2 h-2 rounded-full",
+                                  log.isCompleted ? "bg-emerald-400" : "bg-rose-400"
+                                )} />
+                                <span className="text-xs font-medium text-white">
+                                  {format(new Date(log.createdAt), "HH:mm")}
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  {format(new Date(log.createdAt), "dd/MM", { locale: ptBR })}
+                                </span>
+                              </div>
+                              <span className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                                log.isCompleted 
+                                  ? "bg-emerald-500/20 text-emerald-400" 
+                                  : "bg-rose-500/20 text-rose-400"
+                              )}>
+                                {log.isCompleted ? "Concluído" : "Abandonou"}
+                              </span>
+                            </div>
+                            
+                            {/* Answers */}
+                            {displayAnswers.length > 0 ? (
+                              <div className="space-y-1.5">
+                                {displayAnswers.map((answer, i) => (
+                                  <div key={i} className="text-xs">
+                                    <span className="text-slate-500 block text-[10px] uppercase tracking-wide">
+                                      {answer.field}
+                                    </span>
+                                    <span className="text-slate-200 line-clamp-2" title={answer.value}>
+                                      {answer.value || "-"}
+                                    </span>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-600 italic">Sem respostas registradas</p>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </ScrollArea>
