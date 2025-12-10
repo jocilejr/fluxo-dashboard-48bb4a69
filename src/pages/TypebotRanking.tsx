@@ -25,8 +25,12 @@ import {
   XCircle,
   ChevronRight,
   Activity,
-  Zap
+  Zap,
+  MessageSquare,
+  Search
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, subDays } from "date-fns";
@@ -54,6 +58,13 @@ interface TypebotAnalytics {
   hourlyDistribution: { hour: number; count: number }[];
 }
 
+interface LeadLog {
+  id: string;
+  createdAt: string;
+  isCompleted: boolean;
+  answers: { field: string; value: string }[];
+}
+
 export default function TypebotRanking() {
   const navigate = useNavigate();
   const [dateFilter, setDateFilter] = useState<DateFilter>("today");
@@ -63,6 +74,7 @@ export default function TypebotRanking() {
     from: subDays(new Date(), 7),
     to: new Date(),
   });
+  const [logSearch, setLogSearch] = useState("");
 
   const getDateRange = () => {
     const now = new Date();
@@ -107,7 +119,7 @@ export default function TypebotRanking() {
     staleTime: 60000,
   });
 
-  const { data: typebotDetails, isLoading: detailsLoading } = useQuery<{ typebot: { id: string; name: string }; analytics: TypebotAnalytics }>({
+  const { data: typebotDetails, isLoading: detailsLoading } = useQuery<{ typebot: { id: string; name: string }; analytics: TypebotAnalytics; logs: LeadLog[] }>({
     queryKey: ["typebot-details", selectedTypebot?.id, dateFilter, customRange?.from?.toISOString(), customRange?.to?.toISOString()],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("typebot-stats", {
@@ -123,6 +135,13 @@ export default function TypebotRanking() {
     },
     enabled: !!selectedTypebot && showDetails,
   });
+
+  // Filter logs by search
+  const filteredLogs = typebotDetails?.logs?.filter(log => {
+    if (!logSearch) return true;
+    const searchLower = logSearch.toLowerCase();
+    return log.answers.some(a => a.value.toLowerCase().includes(searchLower));
+  }) || [];
 
   const totalLeads = ranking?.reduce((sum, item) => sum + item.count, 0) || 0;
   const totalCompleted = ranking?.reduce((sum, item) => sum + item.completed, 0) || 0;
@@ -467,151 +486,232 @@ export default function TypebotRanking() {
               <Skeleton className="h-48 bg-white/5" />
             </div>
           ) : typebotDetails ? (
-            <div className="space-y-5">
-              {/* Quick Stats - Horizontal Row */}
-              <div className="grid grid-cols-4 gap-3">
-                <div className="rounded-lg bg-white/5 p-3 text-center">
-                  <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs mb-1">
-                    <Users className="h-3.5 w-3.5" />
-                    Total
-                  </div>
-                  <p className="text-xl font-bold">{typebotDetails.analytics.totalLeads}</p>
-                </div>
-                <div className="rounded-lg bg-white/5 p-3 text-center">
-                  <div className="flex items-center justify-center gap-1.5 text-emerald-400 text-xs mb-1">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    Concluídos
-                  </div>
-                  <p className="text-xl font-bold text-emerald-400">{typebotDetails.analytics.completedLeads}</p>
-                </div>
-                <div className="rounded-lg bg-white/5 p-3 text-center">
-                  <div className="flex items-center justify-center gap-1.5 text-rose-400 text-xs mb-1">
-                    <XCircle className="h-3.5 w-3.5" />
-                    Abandonos
-                  </div>
-                  <p className="text-xl font-bold text-rose-400">{typebotDetails.analytics.incompletedLeads}</p>
-                </div>
-                <div className="rounded-lg bg-white/5 p-3 text-center">
-                  <div className="flex items-center justify-center gap-1.5 text-amber-400 text-xs mb-1">
-                    <Target className="h-3.5 w-3.5" />
-                    Conversão
-                  </div>
-                  <p className="text-xl font-bold text-amber-400">{typebotDetails.analytics.completionRate}%</p>
-                </div>
-              </div>
+            <Tabs defaultValue="logs" className="space-y-4">
+              <TabsList className="bg-white/5 border border-white/10 p-1">
+                <TabsTrigger value="logs" className="data-[state=active]:bg-violet-500 data-[state=active]:text-white text-slate-400">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Logs ({typebotDetails.logs?.length || 0})
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="data-[state=active]:bg-violet-500 data-[state=active]:text-white text-slate-400">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Analytics
+                </TabsTrigger>
+              </TabsList>
 
-              {/* Hourly Distribution Chart */}
-              {typebotDetails.analytics.hourlyDistribution && typebotDetails.analytics.hourlyDistribution.length > 0 && (
-                <div className="rounded-lg bg-white/[0.03] border border-white/5 p-4">
-                  <h4 className="flex items-center gap-2 mb-4 font-medium text-sm">
-                    <Clock className="h-4 w-4 text-violet-400" />
-                    Leads por Hora
-                  </h4>
-                  <div className="flex items-end gap-[2px] h-28">
-                    {Array.from({ length: 24 }, (_, hour) => {
-                      const hourData = typebotDetails.analytics.hourlyDistribution.find(h => h.hour === hour);
-                      const count = hourData?.count || 0;
-                      const maxCount = Math.max(...typebotDetails.analytics.hourlyDistribution.map(h => h.count), 1);
-                      const heightPercent = count > 0 ? Math.max((count / maxCount) * 100, 8) : 4;
-                      const isPeakHour = typebotDetails.analytics.peakHour?.hour === hour;
-                      return (
-                        <div key={hour} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                          <div 
-                            className={cn(
-                              "w-full rounded-t transition-all min-h-[4px]",
-                              isPeakHour ? "bg-violet-500" : count > 0 ? "bg-violet-500/60" : "bg-white/10",
-                              "hover:bg-violet-400"
-                            )}
-                            style={{ height: `${heightPercent}%` }}
-                          />
-                          {count > 0 && (
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-white/10 px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                              {hour}h: {count} lead{count > 1 ? 's' : ''}
+              {/* Logs Tab */}
+              <TabsContent value="logs" className="space-y-4">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                  <Input
+                    placeholder="Buscar nas respostas..."
+                    value={logSearch}
+                    onChange={(e) => setLogSearch(e.target.value)}
+                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
+                  />
+                </div>
+
+                {/* Logs List */}
+                <ScrollArea className="h-[400px] pr-4">
+                  {filteredLogs.length === 0 ? (
+                    <p className="py-8 text-center text-slate-500">Nenhum lead encontrado</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredLogs.map((log) => (
+                        <div 
+                          key={log.id} 
+                          className={cn(
+                            "rounded-lg border p-4 space-y-3",
+                            log.isCompleted 
+                              ? "bg-emerald-500/5 border-emerald-500/20" 
+                              : "bg-white/[0.03] border-white/5"
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {log.isCompleted ? (
+                                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-rose-400" />
+                              )}
+                              <span className={cn(
+                                "text-xs font-medium",
+                                log.isCompleted ? "text-emerald-400" : "text-rose-400"
+                              )}>
+                                {log.isCompleted ? "Concluído" : "Abandonado"}
+                              </span>
                             </div>
+                            <span className="text-xs text-slate-500">
+                              {format(new Date(log.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                            </span>
+                          </div>
+                          
+                          {log.answers.length > 0 ? (
+                            <div className="grid gap-2">
+                              {log.answers.map((answer, i) => (
+                                <div key={i} className="flex gap-2 text-sm">
+                                  <span className="text-slate-500 shrink-0 min-w-[100px]">{answer.field}:</span>
+                                  <span className="text-white break-all">{answer.value || "-"}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-500 italic">Nenhuma resposta registrada</p>
                           )}
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+
+              {/* Analytics Tab */}
+              <TabsContent value="analytics" className="space-y-5">
+                {/* Quick Stats - Horizontal Row */}
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="rounded-lg bg-white/5 p-3 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs mb-1">
+                      <Users className="h-3.5 w-3.5" />
+                      Total
+                    </div>
+                    <p className="text-xl font-bold">{typebotDetails.analytics.totalLeads}</p>
                   </div>
-                  <div className="flex gap-[2px] mt-1">
-                    {Array.from({ length: 24 }, (_, hour) => (
-                      <div key={hour} className="flex-1 text-center">
-                        <span className="text-[8px] text-slate-500">{hour}</span>
-                      </div>
-                    ))}
+                  <div className="rounded-lg bg-white/5 p-3 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-emerald-400 text-xs mb-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Concluídos
+                    </div>
+                    <p className="text-xl font-bold text-emerald-400">{typebotDetails.analytics.completedLeads}</p>
+                  </div>
+                  <div className="rounded-lg bg-white/5 p-3 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-rose-400 text-xs mb-1">
+                      <XCircle className="h-3.5 w-3.5" />
+                      Abandonos
+                    </div>
+                    <p className="text-xl font-bold text-rose-400">{typebotDetails.analytics.incompletedLeads}</p>
+                  </div>
+                  <div className="rounded-lg bg-white/5 p-3 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-amber-400 text-xs mb-1">
+                      <Target className="h-3.5 w-3.5" />
+                      Conversão
+                    </div>
+                    <p className="text-xl font-bold text-amber-400">{typebotDetails.analytics.completionRate}%</p>
                   </div>
                 </div>
-              )}
 
-              {/* Two Column Layout */}
-              <div className="grid grid-cols-2 gap-5">
-                {/* Left Column - Peak Hour & Drop-off */}
-                <div className="space-y-4">
-                  {/* Peak Hour */}
-                  {typebotDetails.analytics.peakHour && (
-                    <div className="flex items-center gap-3 rounded-lg bg-violet-500/10 border border-violet-500/20 p-3">
-                      <Clock className="h-5 w-5 text-violet-400 shrink-0" />
-                      <div>
-                        <p className="text-xs text-slate-400">Horário de pico</p>
-                        <p className="font-semibold text-sm">
-                          {typebotDetails.analytics.peakHour.hour}:00 - {typebotDetails.analytics.peakHour.hour + 1}:00
-                          <span className="ml-1.5 text-xs text-slate-400">({typebotDetails.analytics.peakHour.count} leads)</span>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Drop-off Points */}
-                  {typebotDetails.analytics.dropOffPoints.length > 0 && (
-                    <div className="rounded-lg bg-white/[0.03] border border-white/5 p-4">
-                      <h4 className="flex items-center gap-2 mb-3 font-medium text-sm">
-                        <AlertTriangle className="h-4 w-4 text-amber-400" />
-                        Pontos de Abandono
-                      </h4>
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
-                        {typebotDetails.analytics.dropOffPoints.map((point, i) => (
-                          <div key={point.blockId} className="flex items-center gap-2 rounded-md bg-white/5 p-2">
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold shrink-0">
-                              {i + 1}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="truncate text-xs">{point.name}</p>
-                            </div>
-                            <div className="text-right shrink-0">
-                              <p className="font-semibold text-sm text-amber-400">{point.count}</p>
-                              <p className="text-[10px] text-slate-500">{point.percentage}%</p>
-                            </div>
+                {/* Hourly Distribution Chart */}
+                {typebotDetails.analytics.hourlyDistribution && typebotDetails.analytics.hourlyDistribution.length > 0 && (
+                  <div className="rounded-lg bg-white/[0.03] border border-white/5 p-4">
+                    <h4 className="flex items-center gap-2 mb-4 font-medium text-sm">
+                      <Clock className="h-4 w-4 text-violet-400" />
+                      Leads por Hora
+                    </h4>
+                    <div className="flex items-end gap-[2px] h-28">
+                      {Array.from({ length: 24 }, (_, hour) => {
+                        const hourData = typebotDetails.analytics.hourlyDistribution.find(h => h.hour === hour);
+                        const count = hourData?.count || 0;
+                        const maxCount = Math.max(...typebotDetails.analytics.hourlyDistribution.map(h => h.count), 1);
+                        const heightPercent = count > 0 ? Math.max((count / maxCount) * 100, 8) : 4;
+                        const isPeakHour = typebotDetails.analytics.peakHour?.hour === hour;
+                        return (
+                          <div key={hour} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                            <div 
+                              className={cn(
+                                "w-full rounded-t transition-all min-h-[4px]",
+                                isPeakHour ? "bg-violet-500" : count > 0 ? "bg-violet-500/60" : "bg-white/10",
+                                "hover:bg-violet-400"
+                              )}
+                              style={{ height: `${heightPercent}%` }}
+                            />
+                            {count > 0 && (
+                              <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-white/10 px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                                {hour}h: {count} lead{count > 1 ? 's' : ''}
+                              </div>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
-                </div>
+                    <div className="flex gap-[2px] mt-1">
+                      {Array.from({ length: 24 }, (_, hour) => (
+                        <div key={hour} className="flex-1 text-center">
+                          <span className="text-[8px] text-slate-500">{hour}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                {/* Right Column - Funnel Steps */}
-                <div>
-                  {typebotDetails.analytics.funnelSteps.length > 0 && (
-                    <div className="rounded-lg bg-white/[0.03] border border-white/5 p-4 h-full">
-                      <h4 className="flex items-center gap-2 mb-3 font-medium text-sm">
-                        <BarChart3 className="h-4 w-4 text-violet-400" />
-                        Etapas do Funil
-                      </h4>
-                      <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                        {typebotDetails.analytics.funnelSteps.map((step) => (
-                          <div key={step.blockId} className="space-y-1">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="truncate text-slate-300 max-w-[60%]">{step.name}</span>
-                              <span className="text-slate-500">{step.count} ({step.percentage}%)</span>
-                            </div>
-                            <Progress value={Number(step.percentage)} className="h-1.5 bg-white/10" />
-                          </div>
-                        ))}
+                {/* Two Column Layout */}
+                <div className="grid grid-cols-2 gap-5">
+                  {/* Left Column - Peak Hour & Drop-off */}
+                  <div className="space-y-4">
+                    {/* Peak Hour */}
+                    {typebotDetails.analytics.peakHour && (
+                      <div className="flex items-center gap-3 rounded-lg bg-violet-500/10 border border-violet-500/20 p-3">
+                        <Clock className="h-5 w-5 text-violet-400 shrink-0" />
+                        <div>
+                          <p className="text-xs text-slate-400">Horário de pico</p>
+                          <p className="font-semibold text-sm">
+                            {typebotDetails.analytics.peakHour.hour}:00 - {typebotDetails.analytics.peakHour.hour + 1}:00
+                            <span className="ml-1.5 text-xs text-slate-400">({typebotDetails.analytics.peakHour.count} leads)</span>
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Drop-off Points */}
+                    {typebotDetails.analytics.dropOffPoints.length > 0 && (
+                      <div className="rounded-lg bg-white/[0.03] border border-white/5 p-4">
+                        <h4 className="flex items-center gap-2 mb-3 font-medium text-sm">
+                          <AlertTriangle className="h-4 w-4 text-amber-400" />
+                          Pontos de Abandono
+                        </h4>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {typebotDetails.analytics.dropOffPoints.map((point, i) => (
+                            <div key={point.blockId} className="flex items-center gap-2 rounded-md bg-white/5 p-2">
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold shrink-0">
+                                {i + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="truncate text-xs">{point.name}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="font-semibold text-sm text-amber-400">{point.count}</p>
+                                <p className="text-[10px] text-slate-500">{point.percentage}%</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column - Funnel Steps */}
+                  <div>
+                    {typebotDetails.analytics.funnelSteps.length > 0 && (
+                      <div className="rounded-lg bg-white/[0.03] border border-white/5 p-4 h-full">
+                        <h4 className="flex items-center gap-2 mb-3 font-medium text-sm">
+                          <BarChart3 className="h-4 w-4 text-violet-400" />
+                          Etapas do Funil
+                        </h4>
+                        <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                          {typebotDetails.analytics.funnelSteps.map((step) => (
+                            <div key={step.blockId} className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="truncate text-slate-300 max-w-[60%]">{step.name}</span>
+                                <span className="text-slate-500">{step.count} ({step.percentage}%)</span>
+                              </div>
+                              <Progress value={Number(step.percentage)} className="h-1.5 bg-white/10" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
+              </TabsContent>
+            </Tabs>
           ) : (
             <p className="py-8 text-center text-slate-500">Erro ao carregar detalhes</p>
           )}
