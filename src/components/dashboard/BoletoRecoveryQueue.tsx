@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { BoletoWithRecovery } from "@/hooks/useBoletoRecovery";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { addActivityLog } from "@/components/settings/ActivityLogs";
@@ -19,7 +21,18 @@ import {
   Barcode,
   AlertTriangle,
   FileText,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface BoletoRecoveryQueueProps {
   open: boolean;
@@ -35,7 +48,10 @@ export function BoletoRecoveryQueue({
   onMarkContacted,
 }: BoletoRecoveryQueueProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { extensionStatus, openChat } = useWhatsAppExtension();
 
   useEffect(() => {
@@ -152,6 +168,44 @@ export function BoletoRecoveryQueue({
       onOpenChange(false);
     }
   }, [safeIndex, boletos.length, onOpenChange, currentBoleto]);
+
+  const handleDelete = useCallback(async () => {
+    if (!currentBoleto) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", currentBoleto.id);
+
+      if (error) throw error;
+
+      addActivityLog({
+        type: "warning",
+        category: "Recuperação Boleto",
+        message: `Boleto deletado: ${currentBoleto.customer_name || "cliente"}`,
+        details: `Telefone: ${currentBoleto.customer_phone}, Valor: R$ ${currentBoleto.amount}`
+      });
+
+      toast({ title: "Deletado", description: "Boleto removido do sistema" });
+      
+      // Invalidate queries to refresh the list
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+      
+      setDeleteDialogOpen(false);
+      
+      if (boletos.length <= 1) {
+        onOpenChange(false);
+      }
+    } catch (error) {
+      console.error("Error deleting boleto:", error);
+      toast({ title: "Erro", description: "Não foi possível deletar", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [currentBoleto, boletos.length, onOpenChange, queryClient, toast]);
 
   const handleClose = () => {
     setCurrentIndex(0);
@@ -333,9 +387,42 @@ export function BoletoRecoveryQueue({
             >
               <SkipForward className="h-3.5 w-3.5" />
             </Button>
+            <Button 
+              onClick={() => setDeleteDialogOpen(true)} 
+              variant="ghost" 
+              className="gap-1 h-8 sm:h-9 text-[11px] sm:text-xs px-2 sm:px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="border-destructive/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletar boleto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar este boleto permanentemente? Esta ação não pode ser desfeita.
+              <div className="mt-3 p-3 rounded-lg bg-muted text-sm">
+                <p><strong>Cliente:</strong> {currentBoleto?.customer_name || "Não identificado"}</p>
+                <p><strong>Valor:</strong> {currentBoleto ? formatCurrency(currentBoleto.amount) : "-"}</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deletando..." : "Deletar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
