@@ -8,7 +8,7 @@
     <meta name="author" content="Origem Viva" />
 
     <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#0a0c0f" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Dash Origem Viva" />
@@ -25,6 +25,25 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Dash Origem Viva" />
     <meta name="twitter:image" content="/logo-ov.png" />
+
+    <!-- Critical inline styles to prevent white flash -->
+    <style>
+      html, body, #root {
+        background-color: #0a0c0f !important;
+        color: #fafafa !important;
+        min-height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      html {
+        color-scheme: dark !important;
+      }
+      body {
+        font-family: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif !important;
+        -webkit-font-smoothing: antialiased !important;
+        -moz-osx-font-smoothing: grayscale !important;
+      }
+    </style>
   </head>
 
   <body>
