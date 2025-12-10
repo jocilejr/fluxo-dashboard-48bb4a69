@@ -91,25 +91,28 @@
   }
 
   html {
-    background-color: hsl(220 20% 4%);
-    color: hsl(0 0% 98%);
+    background-color: hsl(220 20% 4%) !important;
+    color: hsl(0 0% 98%) !important;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
-    min-height: 100vh;
-    background-color: hsl(220 20% 4%);
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif !important;
+    min-height: 100vh !important;
+    background-color: hsl(220 20% 4%) !important;
+    color: hsl(0 0% 98%) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   #root {
-    min-height: 100vh;
-    background-color: hsl(var(--background));
+    min-height: 100vh !important;
+    background-color: hsl(220 20% 4%) !important;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
-    @apply font-semibold tracking-tight;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif !important;
+    font-weight: 600;
+    letter-spacing: -0.025em;
   }
 }
 
