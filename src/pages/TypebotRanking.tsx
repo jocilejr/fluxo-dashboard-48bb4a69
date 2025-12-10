@@ -486,20 +486,20 @@ export default function TypebotRanking() {
               <Skeleton className="h-48 bg-white/5" />
             </div>
           ) : typebotDetails ? (
-            <Tabs defaultValue="logs" className="space-y-4">
+            <Tabs defaultValue="analytics" className="space-y-4">
               <TabsList className="bg-white/5 border border-white/10 p-1">
-                <TabsTrigger value="logs" className="data-[state=active]:bg-violet-500 data-[state=active]:text-white text-slate-400">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Logs ({typebotDetails.logs?.length || 0})
-                </TabsTrigger>
                 <TabsTrigger value="analytics" className="data-[state=active]:bg-violet-500 data-[state=active]:text-white text-slate-400">
                   <BarChart3 className="h-4 w-4 mr-2" />
                   Analytics
                 </TabsTrigger>
+                <TabsTrigger value="logs" className="data-[state=active]:bg-violet-500 data-[state=active]:text-white text-slate-400">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Logs ({typebotDetails.logs?.length || 0})
+                </TabsTrigger>
               </TabsList>
 
               {/* Logs Tab */}
-              <TabsContent value="logs" className="space-y-4">
+              <TabsContent value="logs" className="space-y-3">
                 {/* Search */}
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
@@ -511,53 +511,77 @@ export default function TypebotRanking() {
                   />
                 </div>
 
-                {/* Logs List */}
-                <ScrollArea className="h-[400px] pr-4">
+                {/* Logs Table */}
+                <ScrollArea className="h-[450px]">
                   {filteredLogs.length === 0 ? (
                     <p className="py-8 text-center text-slate-500">Nenhum lead encontrado</p>
                   ) : (
-                    <div className="space-y-3">
-                      {filteredLogs.map((log) => (
-                        <div 
-                          key={log.id} 
-                          className={cn(
-                            "rounded-lg border p-4 space-y-3",
-                            log.isCompleted 
-                              ? "bg-emerald-500/5 border-emerald-500/20" 
-                              : "bg-white/[0.03] border-white/5"
-                          )}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {log.isCompleted ? (
-                                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                              ) : (
-                                <XCircle className="h-4 w-4 text-rose-400" />
-                              )}
-                              <span className={cn(
-                                "text-xs font-medium",
-                                log.isCompleted ? "text-emerald-400" : "text-rose-400"
-                              )}>
-                                {log.isCompleted ? "Concluído" : "Abandonado"}
-                              </span>
-                            </div>
-                            <span className="text-xs text-slate-500">
-                              {format(new Date(log.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                            </span>
+                    <div className="space-y-4">
+                      {/* Group logs by date */}
+                      {Object.entries(
+                        filteredLogs.reduce((groups, log) => {
+                          const dateKey = format(new Date(log.createdAt), "dd/MM/yyyy", { locale: ptBR });
+                          if (!groups[dateKey]) groups[dateKey] = [];
+                          groups[dateKey].push(log);
+                          return groups;
+                        }, {} as Record<string, typeof filteredLogs>)
+                      ).map(([date, logs]) => (
+                        <div key={date}>
+                          <div className="sticky top-0 bg-slate-900 py-2 z-10 flex items-center gap-2 border-b border-white/10 mb-2">
+                            <CalendarIcon className="h-4 w-4 text-violet-400" />
+                            <span className="text-sm font-medium text-white">{date}</span>
+                            <span className="text-xs text-slate-500">({logs.length} leads)</span>
                           </div>
-                          
-                          {log.answers.length > 0 ? (
-                            <div className="grid gap-2">
-                              {log.answers.map((answer, i) => (
-                                <div key={i} className="flex gap-2 text-sm">
-                                  <span className="text-slate-500 shrink-0 min-w-[100px]">{answer.field}:</span>
-                                  <span className="text-white break-all">{answer.value || "-"}</span>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-slate-500 italic">Nenhuma resposta registrada</p>
-                          )}
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-white/10">
+                                  <th className="text-left py-2 px-2 text-slate-500 font-medium w-16">Hora</th>
+                                  <th className="text-left py-2 px-2 text-slate-500 font-medium w-20">Status</th>
+                                  <th className="text-left py-2 px-2 text-slate-500 font-medium">Respostas</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {logs.map((log) => (
+                                  <tr key={log.id} className="border-b border-white/5 hover:bg-white/5">
+                                    <td className="py-2 px-2 text-slate-400 align-top">
+                                      {format(new Date(log.createdAt), "HH:mm")}
+                                    </td>
+                                    <td className="py-2 px-2 align-top">
+                                      <span className={cn(
+                                        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
+                                        log.isCompleted 
+                                          ? "bg-emerald-500/20 text-emerald-400" 
+                                          : "bg-rose-500/20 text-rose-400"
+                                      )}>
+                                        {log.isCompleted ? (
+                                          <><CheckCircle2 className="h-3 w-3" /> OK</>
+                                        ) : (
+                                          <><XCircle className="h-3 w-3" /> X</>
+                                        )}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-2 text-white align-top">
+                                      {log.answers.length > 0 ? (
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                          {log.answers.map((answer, i) => (
+                                            <span key={i} className="inline-flex gap-1">
+                                              <span className="text-slate-500">{answer.field}:</span>
+                                              <span className="text-white max-w-[200px] truncate" title={answer.value}>
+                                                {answer.value || "-"}
+                                              </span>
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-500 italic">Sem respostas</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       ))}
                     </div>
