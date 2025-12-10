@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     mode === "development" && componentTagger(),
-    VitePWA({
+    mode === "production" && VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["logo-ov.png", "favicon.ico"],
       srcDir: "src",
@@ -46,10 +46,6 @@ export default defineConfig(({ mode }) => ({
       },
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-      },
-      devOptions: {
-        enabled: true,
-        type: "module",
       },
     }),
   ].filter(Boolean),
