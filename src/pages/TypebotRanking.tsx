@@ -75,6 +75,7 @@ export default function TypebotRanking() {
     to: new Date(),
   });
   const [logSearch, setLogSearch] = useState("");
+  const [stageFilter, setStageFilter] = useState<string>("all");
 
   const getDateRange = () => {
     const now = new Date();
@@ -136,12 +137,25 @@ export default function TypebotRanking() {
     enabled: !!selectedTypebot && showDetails,
   });
 
-  // Filter logs by search
+  // Get unique stages for filter
+  const uniqueStages = typebotDetails?.logs
+    ? [...new Set(typebotDetails.logs.flatMap(log => log.answers.map(a => a.field)))]
+    : [];
+
+  // Filter logs by search and stage
   const filteredLogs = typebotDetails?.logs?.filter(log => {
-    if (!logSearch) return true;
-    const searchLower = logSearch.toLowerCase();
-    return log.answers.some(a => a.value.toLowerCase().includes(searchLower));
+    const matchesSearch = !logSearch || log.answers.some(a => 
+      a.value.toLowerCase().includes(logSearch.toLowerCase())
+    );
+    const matchesStage = stageFilter === "all" || log.answers.some(a => a.field === stageFilter);
+    return matchesSearch && matchesStage;
   }) || [];
+
+  // Filter answers by stage if stage filter is active
+  const getFilteredAnswers = (answers: { field: string; value: string }[]) => {
+    if (stageFilter === "all") return answers;
+    return answers.filter(a => a.field === stageFilter);
+  };
 
   const totalLeads = ranking?.reduce((sum, item) => sum + item.count, 0) || 0;
   const totalCompleted = ranking?.reduce((sum, item) => sum + item.completed, 0) || 0;
@@ -500,23 +514,49 @@ export default function TypebotRanking() {
 
               {/* Logs Tab */}
               <TabsContent value="logs" className="space-y-3">
-                {/* Search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                  <Input
-                    placeholder="Buscar nas respostas..."
-                    value={logSearch}
-                    onChange={(e) => setLogSearch(e.target.value)}
-                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500"
-                  />
+                {/* Filters Row */}
+                <div className="flex gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[200px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                    <Input
+                      placeholder="Buscar nas respostas..."
+                      value={logSearch}
+                      onChange={(e) => setLogSearch(e.target.value)}
+                      className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-slate-500 h-9"
+                    />
+                  </div>
+                  <Select value={stageFilter} onValueChange={setStageFilter}>
+                    <SelectTrigger className="w-[200px] bg-white/5 border-white/10 text-white h-9">
+                      <SelectValue placeholder="Filtrar por etapa" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-white/10">
+                      <SelectItem value="all" className="text-white hover:bg-white/10">Todas as etapas</SelectItem>
+                      {uniqueStages.map((stage) => (
+                        <SelectItem key={stage} value={stage} className="text-white hover:bg-white/10">
+                          {stage}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Stats Bar */}
+                <div className="flex items-center gap-4 text-xs text-slate-400 pb-2 border-b border-white/10">
+                  <span>{filteredLogs.length} leads</span>
+                  {stageFilter !== "all" && (
+                    <span className="flex items-center gap-1 bg-violet-500/20 text-violet-400 px-2 py-0.5 rounded">
+                      Etapa: {stageFilter}
+                      <button onClick={() => setStageFilter("all")} className="hover:text-white ml-1">×</button>
+                    </span>
+                  )}
                 </div>
 
                 {/* Logs Table */}
-                <ScrollArea className="h-[450px]">
+                <ScrollArea className="h-[400px]">
                   {filteredLogs.length === 0 ? (
                     <p className="py-8 text-center text-slate-500">Nenhum lead encontrado</p>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-1">
                       {/* Group logs by date */}
                       {Object.entries(
                         filteredLogs.reduce((groups, log) => {
@@ -526,61 +566,53 @@ export default function TypebotRanking() {
                           return groups;
                         }, {} as Record<string, typeof filteredLogs>)
                       ).map(([date, logs]) => (
-                        <div key={date}>
-                          <div className="sticky top-0 bg-slate-900 py-2 z-10 flex items-center gap-2 border-b border-white/10 mb-2">
-                            <CalendarIcon className="h-4 w-4 text-violet-400" />
-                            <span className="text-sm font-medium text-white">{date}</span>
-                            <span className="text-xs text-slate-500">({logs.length} leads)</span>
+                        <div key={date} className="mb-3">
+                          <div className="sticky top-0 bg-slate-900/95 backdrop-blur py-1.5 z-10 flex items-center gap-2 mb-1">
+                            <CalendarIcon className="h-3.5 w-3.5 text-violet-400" />
+                            <span className="text-xs font-medium text-white">{date}</span>
+                            <span className="text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">{logs.length}</span>
                           </div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                              <thead>
-                                <tr className="border-b border-white/10">
-                                  <th className="text-left py-2 px-2 text-slate-500 font-medium w-16">Hora</th>
-                                  <th className="text-left py-2 px-2 text-slate-500 font-medium w-20">Status</th>
-                                  <th className="text-left py-2 px-2 text-slate-500 font-medium">Respostas</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {logs.map((log) => (
-                                  <tr key={log.id} className="border-b border-white/5 hover:bg-white/5">
-                                    <td className="py-2 px-2 text-slate-400 align-top">
-                                      {format(new Date(log.createdAt), "HH:mm")}
-                                    </td>
-                                    <td className="py-2 px-2 align-top">
-                                      <span className={cn(
-                                        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
-                                        log.isCompleted 
-                                          ? "bg-emerald-500/20 text-emerald-400" 
-                                          : "bg-rose-500/20 text-rose-400"
-                                      )}>
-                                        {log.isCompleted ? (
-                                          <><CheckCircle2 className="h-3 w-3" /> OK</>
-                                        ) : (
-                                          <><XCircle className="h-3 w-3" /> X</>
-                                        )}
-                                      </span>
-                                    </td>
-                                    <td className="py-2 px-2 text-white align-top">
-                                      {log.answers.length > 0 ? (
-                                        <div className="flex flex-wrap gap-x-4 gap-y-1">
-                                          {log.answers.map((answer, i) => (
-                                            <span key={i} className="inline-flex gap-1">
-                                              <span className="text-slate-500">{answer.field}:</span>
-                                              <span className="text-white max-w-[200px] truncate" title={answer.value}>
-                                                {answer.value || "-"}
-                                              </span>
+                          <div className="space-y-0.5">
+                            {logs.map((log) => {
+                              const displayAnswers = getFilteredAnswers(log.answers);
+                              return (
+                                <div 
+                                  key={log.id} 
+                                  className="flex items-start gap-2 py-1.5 px-2 rounded hover:bg-white/5 text-xs border-l-2 border-transparent hover:border-violet-500/50"
+                                >
+                                  {/* Time */}
+                                  <span className="text-slate-500 w-11 shrink-0 font-mono">
+                                    {format(new Date(log.createdAt), "HH:mm")}
+                                  </span>
+                                  
+                                  {/* Status */}
+                                  <span className={cn(
+                                    "w-5 h-5 flex items-center justify-center rounded shrink-0",
+                                    log.isCompleted ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                                  )}>
+                                    {log.isCompleted ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                                  </span>
+                                  
+                                  {/* Answers */}
+                                  <div className="flex-1 min-w-0">
+                                    {displayAnswers.length > 0 ? (
+                                      <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                                        {displayAnswers.map((answer, i) => (
+                                          <span key={i} className="inline-flex gap-1 max-w-full">
+                                            <span className="text-slate-500 shrink-0">{answer.field}:</span>
+                                            <span className="text-slate-200 truncate" title={answer.value}>
+                                              {answer.value || "-"}
                                             </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-slate-500 italic">Sem respostas</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-600 italic">Sem respostas</span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       ))}
