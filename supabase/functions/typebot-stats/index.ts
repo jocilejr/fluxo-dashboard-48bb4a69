@@ -99,6 +99,24 @@ async function getTypebotDetails(typebotToken: string, typebotId: string): Promi
   return data.typebot || data
 }
 
+function buildBlockNameMap(typebotDetails: any): Record<string, string> {
+  const blockNameMap: Record<string, string> = {}
+  const groups = typebotDetails?.groups || []
+  
+  for (const group of groups) {
+    const groupName = group.title || group.name || 'Grupo'
+    const blocks = group.blocks || []
+    
+    for (const block of blocks) {
+      if (block.id) {
+        blockNameMap[block.id] = groupName
+      }
+    }
+  }
+  
+  return blockNameMap
+}
+
 function analyzeResults(results: any[], typebotDetails: any): any {
   const totalLeads = results.length
   const completedLeads = results.filter(r => r.isCompleted).length
@@ -125,21 +143,7 @@ function analyzeResults(results: any[], typebotDetails: any): any {
     }
   }
   
-  // Map blockId to group name - groups have the human-readable names
-  const blockNameMap: Record<string, string> = {}
-  const groups = typebotDetails?.groups || []
-  
-  for (const group of groups) {
-    const groupName = group.title || group.name || 'Grupo'
-    const blocks = group.blocks || []
-    
-    for (const block of blocks) {
-      if (block.id) {
-        // Use the group name for this block
-        blockNameMap[block.id] = groupName
-      }
-    }
-  }
+  const blockNameMap = buildBlockNameMap(typebotDetails)
   
   // Build funnel data
   const funnelSteps = Object.entries(answerCounts)
@@ -188,6 +192,27 @@ function analyzeResults(results: any[], typebotDetails: any): any {
       count
     })).sort((a, b) => a.hour - b.hour)
   }
+}
+
+function buildLeadLogs(results: any[], typebotDetails: any): any[] {
+  const blockNameMap = buildBlockNameMap(typebotDetails)
+  
+  return results.map(result => {
+    const answers = result.answers || []
+    
+    // Build formatted answers with field names
+    const formattedAnswers = answers.map((answer: any) => ({
+      field: blockNameMap[answer.blockId] || answer.blockId,
+      value: answer.content || ''
+    }))
+    
+    return {
+      id: result.id,
+      createdAt: result.createdAt,
+      isCompleted: result.isCompleted,
+      answers: formattedAnswers
+    }
+  }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
 Deno.serve(async (req) => {
@@ -297,6 +322,7 @@ Deno.serve(async (req) => {
       ])
 
       const analytics = analyzeResults(results, typebotDetails)
+      const logs = buildLeadLogs(results, typebotDetails)
 
       return new Response(
         JSON.stringify({ 
@@ -304,7 +330,8 @@ Deno.serve(async (req) => {
             id: typebotId,
             name: typebotDetails?.name || 'Typebot'
           },
-          analytics 
+          analytics,
+          logs
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
