@@ -8,6 +8,15 @@ export const useAdminCheck = () => {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
+    // Timeout de segurança para evitar loading infinito
+    const timeout = setTimeout(() => {
+      if (isChecking) {
+        console.warn("Timeout de verificação de role - permitindo acesso");
+        setIsAdmin(true);
+        setIsChecking(false);
+      }
+    }, 5000);
+
     const checkAdminRole = async () => {
       if (!user) {
         setIsAdmin(false);
@@ -24,19 +33,15 @@ export const useAdminCheck = () => {
 
         if (error) {
           console.warn("Erro ao verificar role (tabela pode não existir):", error.message);
-          // Se a tabela não existe ou há erro, permitir acesso como usuário autenticado
           setIsAdmin(true);
         } else if (!data) {
-          // Usuário autenticado mas sem role definida - permitir acesso
           console.warn("Usuário sem role definida, permitindo acesso");
           setIsAdmin(true);
         } else {
-          // Role encontrada - verificar se é admin ou user
           setIsAdmin(data.role === "admin" || data.role === "user");
         }
       } catch (err) {
         console.warn("Erro ao verificar role:", err);
-        // Em caso de erro, permitir acesso para usuário autenticado
         setIsAdmin(true);
       } finally {
         setIsChecking(false);
@@ -46,6 +51,8 @@ export const useAdminCheck = () => {
     if (!authLoading) {
       checkAdminRole();
     }
+
+    return () => clearTimeout(timeout);
   }, [user, authLoading]);
 
   return { isAdmin, isChecking: authLoading || isChecking, user };
