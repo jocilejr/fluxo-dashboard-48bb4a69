@@ -246,4 +246,17 @@
   .animate-pulse-soft {
     animation: pulse-soft 2s ease-in-out infinite;
   }
+
+  /* Hide Lovable branding */
+  a[href*="lovable.dev"],
+  iframe[src*="lovable.dev"],
+  div[style*="Edit with Lovable"],
+  .lovable-badge {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    z-index: -9999 !important;
+  }
 }
