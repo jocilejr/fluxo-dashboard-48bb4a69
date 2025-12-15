@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.pdf-to-image]
 verify_jwt = false
+
+[functions.lead-summary]
+verify_jwt = true
