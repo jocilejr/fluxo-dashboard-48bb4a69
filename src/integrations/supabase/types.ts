@@ -824,6 +824,27 @@ export type Database = {
         }
         Relationships: []
       }
+      openai_settings: {
+        Row: {
+          api_key: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pix_card_recovery_clicks: {
         Row: {
           clicked_at: string

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, DollarSign, MessageSquare, Link as LinkIcon, Shield, Bell, Database, TrendingUp, FileText } from "lucide-react";
+import { Settings, Users, DollarSign, MessageSquare, Link as LinkIcon, Shield, Bell, Database, TrendingUp, FileText, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import DataImportExport from "@/components/settings/DataImportExport";
 import ActivityLogs from "@/components/settings/ActivityLogs";
@@ -74,6 +74,10 @@ const Configuracoes = () => {
   const [newAccessToken, setNewAccessToken] = useState("");
   const [newAdAccountId, setNewAdAccountId] = useState("");
   const [isSavingMeta, setIsSavingMeta] = useState(false);
+  
+  // OpenAI states
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [isSavingOpenai, setIsSavingOpenai] = useState(false);
 
   // Fetch users with their permissions
   const { data: usersWithPermissions, isLoading: isLoadingUsers } = useQuery({
@@ -198,6 +202,25 @@ const Configuracoes = () => {
       return data || [];
     },
   });
+
+  // Fetch OpenAI settings
+  const { data: openaiSettings, refetch: refetchOpenai } = useQuery({
+    queryKey: ["openai-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("openai_settings")
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (openaiSettings) {
+      setOpenaiApiKey(openaiSettings.api_key || "");
+    }
+  }, [openaiSettings]);
 
   useEffect(() => {
     if (financialSettings) setTaxRate(String(financialSettings.tax_rate || ""));
@@ -560,6 +583,41 @@ const Configuracoes = () => {
     }
   };
 
+  const saveOpenaiSettings = async () => {
+    if (!openaiApiKey.trim()) {
+      toast.error("Preencha a API Key");
+      return;
+    }
+
+    setIsSavingOpenai(true);
+    try {
+      const { data: existing } = await supabase
+        .from("openai_settings")
+        .select("id")
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from("openai_settings")
+          .update({ api_key: openaiApiKey.trim() })
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("openai_settings")
+          .insert({ api_key: openaiApiKey.trim() });
+        if (error) throw error;
+      }
+      
+      refetchOpenai();
+      toast.success("API Key salva com sucesso");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao salvar");
+    } finally {
+      setIsSavingOpenai(false);
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6 animate-fade-in">
       <Tabs defaultValue="users" className="w-full">
@@ -596,6 +654,10 @@ const Configuracoes = () => {
             <TabsTrigger value="meta-ads" className="gap-2 data-[state=active]:bg-foreground data-[state=active]:text-background text-xs">
               <TrendingUp className="h-3.5 w-3.5" />
               Meta Ads
+            </TabsTrigger>
+            <TabsTrigger value="openai" className="gap-2 data-[state=active]:bg-foreground data-[state=active]:text-background text-xs">
+              <Bot className="h-3.5 w-3.5" />
+              OpenAI
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-2 data-[state=active]:bg-foreground data-[state=active]:text-background text-xs">
               <FileText className="h-3.5 w-3.5" />
@@ -1055,6 +1117,60 @@ const Configuracoes = () => {
                 <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
                   <p className="text-xs text-green-300">
                     ✓ {metaAccounts.filter(a => a.is_active).length} conta(s) ativa(s). Os gastos serão somados e exibidos no Dashboard.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="openai">
+          <div className="bg-card/60 border border-border/30 rounded-xl p-5 lg:p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Bot className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">OpenAI API</h3>
+                <p className="text-xs text-muted-foreground">Configure sua chave de API para recursos de inteligência artificial</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <p className="text-xs text-blue-200">
+                  <strong>Como obter a API Key:</strong> Acesse o <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">OpenAI Dashboard</a> → 
+                  API Keys → Crie uma nova chave secreta.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm">API Key</Label>
+                <div className="flex gap-3">
+                  <Input
+                    type="password"
+                    placeholder="sk-..."
+                    value={openaiApiKey}
+                    onChange={(e) => setOpenaiApiKey(e.target.value)}
+                    className="flex-1 bg-secondary/30 border-border/30 h-9 text-sm font-mono"
+                  />
+                  <Button 
+                    onClick={saveOpenaiSettings}
+                    disabled={isSavingOpenai}
+                    size="sm" 
+                    className="h-9"
+                  >
+                    {isSavingOpenai ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Save className="h-3.5 w-3.5 mr-2" />}
+                    Salvar
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sua chave será armazenada de forma segura e usada para funcionalidades de IA como resumos de leads.
+                </p>
+              </div>
+
+              {openaiSettings?.api_key && (
+                <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <p className="text-xs text-green-300">
+                    ✓ API Key configurada. Última atualização: {new Date(openaiSettings.updated_at).toLocaleString('pt-BR')}
                   </p>
                 </div>
               )}
