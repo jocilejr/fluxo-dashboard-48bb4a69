@@ -99,19 +99,41 @@ async function getTypebotDetails(typebotToken: string, typebotId: string): Promi
   return data.typebot || data
 }
 
-function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; type: string }> {
-  const blockNameMap: Record<string, { name: string; type: string }> = {}
+function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; type: string; question: string | null }> {
+  const blockNameMap: Record<string, { name: string; type: string; question: string | null }> = {}
   const groups = typebotDetails?.groups || []
   
   for (const group of groups) {
     const groupName = group.title || group.name || 'Grupo'
     const blocks = group.blocks || []
     
+    let lastTextContent: string | null = null
+    
     for (const block of blocks) {
+      // Capture text blocks content (bot messages)
+      if (block.type === 'text' && block.content?.richText) {
+        // Extract plain text from rich text
+        const richText = block.content.richText
+        lastTextContent = richText.map((rt: any) => 
+          rt.children?.map((c: any) => c.text || '').join('') || ''
+        ).join('\n').trim()
+      }
+      
       if (block.id) {
+        // For input blocks, use the last text content as the question
+        let question: string | null = null
+        if (block.type?.includes('input') || block.type === 'text input') {
+          question = lastTextContent
+          // Also check for placeholder/label in options
+          if (!question && block.options?.labels?.placeholder) {
+            question = block.options.labels.placeholder
+          }
+        }
+        
         blockNameMap[block.id] = {
           name: groupName,
-          type: block.type || 'unknown'
+          type: block.type || 'unknown',
+          question
         }
       }
     }
@@ -203,12 +225,16 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
   return results.map(result => {
     const answers = result.answers || []
     
-    // Build formatted answers with field names and types
-    const formattedAnswers = answers.map((answer: any) => ({
-      field: blockNameMap[answer.blockId]?.name || answer.blockId,
-      type: blockNameMap[answer.blockId]?.type || 'unknown',
-      value: answer.content || ''
-    }))
+    // Build formatted answers with field names, types, and bot questions
+    const formattedAnswers = answers.map((answer: any) => {
+      const blockInfo = blockNameMap[answer.blockId]
+      return {
+        field: blockInfo?.name || answer.blockId,
+        type: blockInfo?.type || 'unknown',
+        question: blockInfo?.question || null,
+        value: answer.content || ''
+      }
+    })
     
     return {
       id: result.id,
