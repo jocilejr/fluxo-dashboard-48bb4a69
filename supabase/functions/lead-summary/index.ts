@@ -6,6 +6,39 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Types that represent text inputs (not buttons)
+const TEXT_INPUT_TYPES = [
+  'text input',
+  'email input', 
+  'phone input',
+  'url input',
+  'number input',
+  'date input',
+  'file input',
+  'payment input',
+  'rating input',
+  'text'
+];
+
+// Types that represent button choices (to exclude)
+const BUTTON_TYPES = [
+  'buttons',
+  'choice input',
+  'button',
+  'picture choice',
+  'multiple choice'
+];
+
+function isTextInput(type: string): boolean {
+  const lowerType = type.toLowerCase();
+  // Include if it's a text input type
+  if (TEXT_INPUT_TYPES.some(t => lowerType.includes(t))) return true;
+  // Exclude if it's a button type
+  if (BUTTON_TYPES.some(t => lowerType.includes(t))) return false;
+  // Default to include unknown types that aren't buttons
+  return true;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -50,31 +83,56 @@ serve(async (req) => {
 
     console.log(`Generating summary for typebot: ${typebotName} with ${leads.length} leads`);
 
-    // Prepare lead data for analysis
+    // Filter only text inputs and prepare lead data for analysis
     const leadsSummary = leads.slice(0, 50).map((lead: any, index: number) => {
       const answers = lead.answers || [];
-      const answersText = answers.map((a: any) => `- ${a.key}: ${a.value}`).join('\n');
-      return `Lead ${index + 1}:\n${answersText || 'Sem respostas registradas'}`;
-    }).join('\n\n');
+      // Filter only text inputs (exclude buttons)
+      const textAnswers = answers.filter((a: any) => {
+        const type = a.type || 'unknown';
+        return isTextInput(type);
+      });
+      
+      if (textAnswers.length === 0) return null;
+      
+      const answersText = textAnswers.map((a: any) => `- ${a.key}: "${a.value}"`).join('\n');
+      return `Lead ${index + 1}:\n${answersText}`;
+    }).filter(Boolean).join('\n\n');
 
-    const prompt = `Funil "${typebotName}" - ${leads.length} leads.
+    if (!leadsSummary || leadsSummary.trim() === '') {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Nenhum input de texto encontrado nos leads. Apenas respostas de botões foram detectadas.',
+          themes: []
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-DADOS:
+    const prompt = `Analise os inputs de texto do funil "${typebotName}" com ${leads.length} leads.
+
+DADOS (apenas inputs de texto, sem botões):
 ${leadsSummary}
 
-EXTRAIA APENAS PONTOS DE VISTA ÚNICOS E DIFERENTES.
-NÃO repita informações similares. Se 5 leads disseram "não tenho dinheiro", cite apenas 1 vez.
+Retorne um JSON VÁLIDO com este formato EXATO:
+{
+  "themes": [
+    {
+      "name": "Nome do Tema",
+      "count": 5,
+      "summary": "Resumo analítico do que os leads disseram sobre este tema (2-3 frases explicativas)",
+      "quotes": ["frase literal 1", "frase literal 2", "frase literal 3"]
+    }
+  ]
+}
 
-Formato:
-**Dúvidas** (X leads cada):
-- [tema]: X leads
-
-**Respostas únicas por tema:**
-[Tema]:
-- "[frase única 1]"
-- "[frase única 2]"
-
-Máximo 3 frases por tema. Só frases que trazem perspectivas DIFERENTES.`;
+REGRAS OBRIGATÓRIAS:
+1. Agrupe as respostas por TEMA similar (ex: dificuldades financeiras, interesse no produto, dúvidas técnicas)
+2. "count" = quantidade de leads que mencionaram este tema
+3. "summary" = explicação analítica do que os leads disseram (NÃO copiar frases)
+4. "quotes" = até 5 frases LITERAIS diferentes e únicas (copiar exatamente como escritas)
+5. NÃO inclua frases duplicadas ou muito similares
+6. Ordene os temas por "count" (mais mencionados primeiro)
+7. Retorne APENAS o JSON, sem texto adicional antes ou depois`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -85,10 +143,11 @@ Máximo 3 frases por tema. Só frases que trazem perspectivas DIFERENTES.`;
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Analista de funis. Responda em português brasileiro, seja conciso e objetivo.' },
+          { role: 'system', content: 'Você é um analista de dados especializado em funis de vendas. Retorne APENAS JSON válido sem markdown ou texto adicional. Responda em português brasileiro.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 800,
+        max_tokens: 1500,
+        temperature: 0.3,
       }),
     });
 
@@ -117,20 +176,50 @@ Máximo 3 frases por tema. Só frases que trazem perspectivas DIFERENTES.`;
     }
 
     const data = await response.json();
-    const summary = data.choices[0]?.message?.content;
+    const content = data.choices[0]?.message?.content;
 
-    if (!summary) {
+    if (!content) {
       return new Response(
         JSON.stringify({ error: 'Resposta vazia da OpenAI' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Summary generated successfully for ${typebotName}`);
+    console.log('OpenAI raw response:', content);
+
+    // Try to parse JSON from the response
+    let parsedData;
+    try {
+      // Remove markdown code blocks if present
+      let cleanContent = content.trim();
+      if (cleanContent.startsWith('```json')) {
+        cleanContent = cleanContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+      } else if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
+      }
+      
+      parsedData = JSON.parse(cleanContent);
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response as JSON:', parseError);
+      console.error('Content was:', content);
+      
+      // Return as legacy text format if JSON parsing fails
+      return new Response(
+        JSON.stringify({ 
+          summary: content,
+          leadsAnalyzed: Math.min(leads.length, 50),
+          totalLeads: leads.length,
+          themes: null // Indicates legacy format
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Summary generated successfully for ${typebotName} with ${parsedData.themes?.length || 0} themes`);
 
     return new Response(
       JSON.stringify({ 
-        summary,
+        themes: parsedData.themes || [],
         leadsAnalyzed: Math.min(leads.length, 50),
         totalLeads: leads.length
       }),
