@@ -243,7 +243,7 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
   
   return results.map(result => {
     const answers = result.answers || []
-    // Extract variables from the result to replace {{variable}} placeholders
+    // Extract variables from the result
     const variables: Record<string, any> = {}
     if (result.variables && Array.isArray(result.variables)) {
       for (const v of result.variables) {
@@ -253,17 +253,43 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
       }
     }
     
+    // Identify AI response variables (typically named assist*, resposta*, gpt*, ai*, etc.)
+    const aiResponsePatterns = ['assist', 'resposta', 'gpt', 'ai_', 'chatgpt', 'openai', 'response']
+    const aiResponses: { name: string; value: string }[] = []
+    
+    for (const [name, value] of Object.entries(variables)) {
+      const lowerName = name.toLowerCase()
+      const isAiResponse = aiResponsePatterns.some(p => lowerName.includes(p)) ||
+        (typeof value === 'string' && value.length > 100) // Long strings are likely AI responses
+      
+      if (isAiResponse && typeof value === 'string' && value.trim()) {
+        aiResponses.push({ name, value: value.trim() })
+      }
+    }
+    
     // Build formatted answers with field names, types, and bot questions
     const formattedAnswers = answers.map((answer: any) => {
       const blockInfo = blockNameMap[answer.blockId]
       let question = blockInfo?.question || null
+      let aiResponseForThisAnswer: string | null = null
       
-      // Replace any {{variables}} in the question with actual values
+      // Check if question contains a variable reference like {{assistPagamento}}
       if (question) {
-        question = replaceVariables(question, variables)
-        // If still contains unreplaced variables, set to null
-        if (question.includes('{{')) {
-          question = null
+        const varMatch = question.match(/\{\{([^}]+)\}\}/)
+        if (varMatch) {
+          const varName = varMatch[1].trim()
+          const varValue = variables[varName]
+          if (varValue && typeof varValue === 'string') {
+            // This is an AI response being shown before the input
+            aiResponseForThisAnswer = varValue.trim()
+            question = null // Clear the question since we have the AI response
+          } else {
+            // Variable not found, try replacing anyway
+            question = replaceVariables(question, variables)
+            if (question.includes('{{')) {
+              question = null
+            }
+          }
         }
       }
       
@@ -271,6 +297,7 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
         field: blockInfo?.name || answer.blockId,
         type: blockInfo?.type || 'unknown',
         question,
+        aiResponse: aiResponseForThisAnswer,
         value: answer.content || ''
       }
     })
@@ -280,7 +307,8 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
       createdAt: result.createdAt,
       isCompleted: result.isCompleted,
       answers: formattedAnswers,
-      variables // Include variables for potential use
+      variables,
+      aiResponses // Include identified AI responses
     }
   }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
