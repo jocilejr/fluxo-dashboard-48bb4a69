@@ -99,8 +99,20 @@ async function getTypebotDetails(typebotToken: string, typebotId: string): Promi
   return data.typebot || data
 }
 
-function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; type: string; question: string | null }> {
-  const blockNameMap: Record<string, { name: string; type: string; question: string | null }> = {}
+// Build a map of blockId -> { name, type, question, precedingVariable }
+// precedingVariable is the variable name that was shown in the text block BEFORE this input
+function buildBlockNameMap(typebotDetails: any): Record<string, { 
+  name: string; 
+  type: string; 
+  question: string | null;
+  precedingVariable: string | null;
+}> {
+  const blockNameMap: Record<string, { 
+    name: string; 
+    type: string; 
+    question: string | null;
+    precedingVariable: string | null;
+  }> = {}
   const groups = typebotDetails?.groups || []
   
   for (const group of groups) {
@@ -108,12 +120,15 @@ function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; 
     const blocks = group.blocks || []
     
     let lastTextContent: string | null = null
+    let lastPrecedingVariable: string | null = null
     
     for (const block of blocks) {
       const blockType = (block.type || '').toLowerCase()
       
       // Capture text blocks content (bot messages) - check multiple formats
       if (blockType === 'text' || blockType === 'bubble text') {
+        let textContent = ''
+        
         // Try different content structures
         if (block.content?.richText && Array.isArray(block.content.richText)) {
           const texts: string[] = []
@@ -124,26 +139,41 @@ function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; 
               }
             }
           }
-          if (texts.length > 0) {
-            lastTextContent = texts.join(' ').trim()
-          }
+          textContent = texts.join(' ').trim()
         } else if (block.content?.html) {
-          lastTextContent = block.content.html.replace(/<[^>]*>/g, '').trim()
+          textContent = block.content.html.replace(/<[^>]*>/g, '').trim()
         } else if (block.content?.plainText) {
-          lastTextContent = block.content.plainText.trim()
+          textContent = block.content.plainText.trim()
+        }
+        
+        // Check if this text block contains a variable reference like {{assistPagamento}}
+        const varMatch = textContent.match(/\{\{([^}]+)\}\}/)
+        if (varMatch) {
+          lastPrecedingVariable = varMatch[1].trim()
+          lastTextContent = null // The actual content is in the variable
+        } else if (textContent) {
+          lastTextContent = textContent
+          lastPrecedingVariable = null
         }
       }
       
       if (block.id) {
         let question: string | null = null
+        let precedingVariable: string | null = null
+        
         if (blockType.includes('input')) {
           question = lastTextContent
+          precedingVariable = lastPrecedingVariable
+          // Reset after consuming
+          lastTextContent = null
+          lastPrecedingVariable = null
         }
         
         blockNameMap[block.id] = {
           name: groupName,
           type: block.type || 'unknown',
-          question
+          question,
+          precedingVariable
         }
       }
     }
@@ -241,8 +271,12 @@ function analyzeResults(results: any[], typebotDetails: any): any {
 function buildLeadLogs(results: any[], typebotDetails: any): any[] {
   const blockNameMap = buildBlockNameMap(typebotDetails)
   
+  // AI response variable patterns
+  const aiResponsePatterns = ['assist', 'resposta', 'gpt', 'ai_', 'chatgpt', 'openai', 'response']
+  
   return results.map(result => {
     const answers = result.answers || []
+    
     // Extract variables from the result
     const variables: Record<string, any> = {}
     if (result.variables && Array.isArray(result.variables)) {
@@ -253,38 +287,42 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
       }
     }
     
-    // Identify AI response variables (typically named assist*, resposta*, gpt*, ai*, etc.)
-    const aiResponsePatterns = ['assist', 'resposta', 'gpt', 'ai_', 'chatgpt', 'openai', 'response']
+    // Identify all AI response variables for this lead
     const aiResponses: { name: string; value: string }[] = []
-    
     for (const [name, value] of Object.entries(variables)) {
       const lowerName = name.toLowerCase()
       const isAiResponse = aiResponsePatterns.some(p => lowerName.includes(p)) ||
-        (typeof value === 'string' && value.length > 100) // Long strings are likely AI responses
+        (typeof value === 'string' && value.length > 150) // Long strings are likely AI responses
       
       if (isAiResponse && typeof value === 'string' && value.trim()) {
         aiResponses.push({ name, value: value.trim() })
       }
     }
     
-    // Build formatted answers with field names, types, and bot questions
+    // Build formatted answers with AI responses mapped from preceding blocks
     const formattedAnswers = answers.map((answer: any) => {
       const blockInfo = blockNameMap[answer.blockId]
       let question = blockInfo?.question || null
       let aiResponseForThisAnswer: string | null = null
       
-      // Check if question contains a variable reference like {{assistPagamento}}
-      if (question) {
+      // First priority: Check if there's a precedingVariable mapped to this input block
+      if (blockInfo?.precedingVariable) {
+        const varValue = variables[blockInfo.precedingVariable]
+        if (varValue && typeof varValue === 'string' && varValue.trim()) {
+          aiResponseForThisAnswer = varValue.trim()
+        }
+      }
+      
+      // Second priority: Check if question itself contains {{variable}}
+      if (!aiResponseForThisAnswer && question) {
         const varMatch = question.match(/\{\{([^}]+)\}\}/)
         if (varMatch) {
           const varName = varMatch[1].trim()
           const varValue = variables[varName]
           if (varValue && typeof varValue === 'string') {
-            // This is an AI response being shown before the input
             aiResponseForThisAnswer = varValue.trim()
-            question = null // Clear the question since we have the AI response
+            question = null
           } else {
-            // Variable not found, try replacing anyway
             question = replaceVariables(question, variables)
             if (question.includes('{{')) {
               question = null
@@ -308,7 +346,7 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
       isCompleted: result.isCompleted,
       answers: formattedAnswers,
       variables,
-      aiResponses // Include identified AI responses
+      aiResponses
     }
   }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
