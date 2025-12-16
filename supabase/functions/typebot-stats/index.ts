@@ -99,8 +99,8 @@ async function getTypebotDetails(typebotToken: string, typebotId: string): Promi
   return data.typebot || data
 }
 
-function buildBlockNameMap(typebotDetails: any): Record<string, string> {
-  const blockNameMap: Record<string, string> = {}
+function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; type: string }> {
+  const blockNameMap: Record<string, { name: string; type: string }> = {}
   const groups = typebotDetails?.groups || []
   
   for (const group of groups) {
@@ -109,7 +109,10 @@ function buildBlockNameMap(typebotDetails: any): Record<string, string> {
     
     for (const block of blocks) {
       if (block.id) {
-        blockNameMap[block.id] = groupName
+        blockNameMap[block.id] = {
+          name: groupName,
+          type: block.type || 'unknown'
+        }
       }
     }
   }
@@ -149,7 +152,7 @@ function analyzeResults(results: any[], typebotDetails: any): any {
   const funnelSteps = Object.entries(answerCounts)
     .map(([blockId, count]) => ({
       blockId,
-      name: blockNameMap[blockId] || `Etapa ${blockId.substring(0, 8)}`,
+      name: blockNameMap[blockId]?.name || `Etapa ${blockId.substring(0, 8)}`,
       count,
       percentage: totalLeads > 0 ? (count / totalLeads * 100).toFixed(1) : 0
     }))
@@ -160,7 +163,7 @@ function analyzeResults(results: any[], typebotDetails: any): any {
   const dropOffPoints = Object.entries(lastAnswers)
     .map(([blockId, count]) => ({
       blockId,
-      name: blockNameMap[blockId] || `Etapa ${blockId.substring(0, 8)}`,
+      name: blockNameMap[blockId]?.name || `Etapa ${blockId.substring(0, 8)}`,
       count,
       percentage: totalLeads > 0 ? (count / totalLeads * 100).toFixed(1) : 0
     }))
@@ -200,9 +203,10 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
   return results.map(result => {
     const answers = result.answers || []
     
-    // Build formatted answers with field names
+    // Build formatted answers with field names and types
     const formattedAnswers = answers.map((answer: any) => ({
-      field: blockNameMap[answer.blockId] || answer.blockId,
+      field: blockNameMap[answer.blockId]?.name || answer.blockId,
+      type: blockNameMap[answer.blockId]?.type || 'unknown',
       value: answer.content || ''
     }))
     

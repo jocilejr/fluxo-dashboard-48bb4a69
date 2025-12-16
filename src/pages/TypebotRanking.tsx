@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Progress } from "@/components/ui/progress";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
   Bot, 
   RefreshCw, 
@@ -29,7 +30,8 @@ import {
   MessageSquare,
   Search,
   Sparkles,
-  Loader2
+  Loader2,
+  Quote
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
@@ -65,7 +67,20 @@ interface LeadLog {
   id: string;
   createdAt: string;
   isCompleted: boolean;
-  answers: { field: string; value: string }[];
+  answers: { field: string; type?: string; value: string }[];
+}
+
+interface AiSummaryTheme {
+  name: string;
+  count: number;
+  summary: string;
+  quotes: string[];
+}
+
+interface AiSummaryData {
+  themes: AiSummaryTheme[];
+  leadsAnalyzed: number;
+  totalLeads: number;
 }
 
 export default function TypebotRanking() {
@@ -79,7 +94,8 @@ export default function TypebotRanking() {
   });
   const [logSearch, setLogSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSummary, setAiSummary] = useState<AiSummaryData | null>(null);
+  const [legacySummary, setLegacySummary] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
   const getDateRange = () => {
@@ -180,6 +196,7 @@ export default function TypebotRanking() {
     setSelectedTypebot(typebot);
     setShowDetails(true);
     setAiSummary(null);
+    setLegacySummary(null);
   };
 
   const generateAiSummary = async () => {
@@ -189,6 +206,9 @@ export default function TypebotRanking() {
     }
     
     setIsGeneratingSummary(true);
+    setAiSummary(null);
+    setLegacySummary(null);
+    
     try {
       const { data, error } = await supabase.functions.invoke("lead-summary", {
         body: {
@@ -198,7 +218,7 @@ export default function TypebotRanking() {
             id: log.id,
             createdAt: log.createdAt,
             isCompleted: log.isCompleted,
-            answers: log.answers.map(a => ({ key: a.field, value: a.value }))
+            answers: log.answers.map(a => ({ key: a.field, type: a.type || 'unknown', value: a.value }))
           }))
         }
       });
@@ -206,8 +226,19 @@ export default function TypebotRanking() {
       if (error) throw error;
       if (data.error) throw new Error(data.error);
       
-      setAiSummary(data.summary);
-      toast({ title: "Resumo gerado!", description: `${data.leadsAnalyzed} leads analisados` });
+      // Check if response has themes (new format) or summary (legacy format)
+      if (data.themes && Array.isArray(data.themes)) {
+        setAiSummary({
+          themes: data.themes,
+          leadsAnalyzed: data.leadsAnalyzed,
+          totalLeads: data.totalLeads
+        });
+        toast({ title: "Resumo gerado!", description: `${data.leadsAnalyzed} leads analisados em ${data.themes.length} temas` });
+      } else if (data.summary) {
+        // Legacy text format fallback
+        setLegacySummary(data.summary);
+        toast({ title: "Resumo gerado!", description: `${data.leadsAnalyzed} leads analisados` });
+      }
     } catch (err: any) {
       console.error("Error generating summary:", err);
       toast({ title: "Erro", description: err.message || "Erro ao gerar resumo", variant: "destructive" });
@@ -681,15 +712,76 @@ export default function TypebotRanking() {
                   </Button>
                 </div>
 
-                {/* AI Summary Display */}
-                {aiSummary && (
+                {/* AI Summary Display - New Structured Format */}
+                {aiSummary && aiSummary.themes && aiSummary.themes.length > 0 && (
+                  <div className="rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-violet-400" />
+                        <h4 className="font-medium text-violet-300">Resumo Inteligente</h4>
+                      </div>
+                      <span className="text-xs text-slate-500">
+                        {aiSummary.leadsAnalyzed} leads analisados (inputs de texto)
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {aiSummary.themes.map((theme, idx) => (
+                        <div key={idx} className="rounded-lg bg-white/5 border border-white/10 overflow-hidden">
+                          {/* Theme Header */}
+                          <div className="flex items-center justify-between p-3 border-b border-white/5">
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="h-4 w-4 text-violet-400" />
+                              <span className="font-medium text-white">{theme.name}</span>
+                            </div>
+                            <span className="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400 text-xs font-medium">
+                              {theme.count} leads
+                            </span>
+                          </div>
+                          
+                          {/* Summary */}
+                          <div className="p-3">
+                            <p className="text-sm text-slate-300 leading-relaxed">{theme.summary}</p>
+                          </div>
+                          
+                          {/* Quotes Accordion */}
+                          {theme.quotes && theme.quotes.length > 0 && (
+                            <Accordion type="single" collapsible className="border-t border-white/5">
+                              <AccordionItem value="quotes" className="border-none">
+                                <AccordionTrigger className="px-3 py-2 text-xs text-slate-400 hover:text-slate-300 hover:no-underline">
+                                  <div className="flex items-center gap-2">
+                                    <Quote className="h-3 w-3" />
+                                    Ver frases literais ({theme.quotes.length})
+                                  </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-3 pb-3">
+                                  <div className="space-y-2">
+                                    {theme.quotes.map((quote, qIdx) => (
+                                      <div key={qIdx} className="flex items-start gap-2 text-xs">
+                                        <span className="text-violet-400 mt-0.5">•</span>
+                                        <span className="text-slate-400 italic">"{quote}"</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            </Accordion>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Legacy Summary Display (fallback) */}
+                {legacySummary && (
                   <div className="rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkles className="h-4 w-4 text-violet-400" />
                       <h4 className="font-medium text-violet-300">Resumo Inteligente</h4>
                     </div>
                     <div className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
-                      {aiSummary}
+                      {legacySummary}
                     </div>
                   </div>
                 )}
