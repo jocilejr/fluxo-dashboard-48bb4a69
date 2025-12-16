@@ -128,7 +128,6 @@ function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; 
             lastTextContent = texts.join(' ').trim()
           }
         } else if (block.content?.html) {
-          // Strip HTML tags
           lastTextContent = block.content.html.replace(/<[^>]*>/g, '').trim()
         } else if (block.content?.plainText) {
           lastTextContent = block.content.plainText.trim()
@@ -136,11 +135,9 @@ function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; 
       }
       
       if (block.id) {
-        // For input blocks, use the last text content as the question
         let question: string | null = null
         if (blockType.includes('input')) {
           question = lastTextContent
-          // Do NOT use placeholder as fallback - that's not the bot's message
         }
         
         blockNameMap[block.id] = {
@@ -153,6 +150,15 @@ function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; 
   }
   
   return blockNameMap
+}
+
+// Helper to replace {{variables}} with actual values
+function replaceVariables(text: string, variables: Record<string, any>): string {
+  if (!text || !variables) return text
+  return text.replace(/\{\{([^}]+)\}\}/g, (match, varName) => {
+    const value = variables[varName.trim()]
+    return value !== undefined ? String(value) : match
+  })
 }
 
 function analyzeResults(results: any[], typebotDetails: any): any {
@@ -237,14 +243,34 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
   
   return results.map(result => {
     const answers = result.answers || []
+    // Extract variables from the result to replace {{variable}} placeholders
+    const variables: Record<string, any> = {}
+    if (result.variables && Array.isArray(result.variables)) {
+      for (const v of result.variables) {
+        if (v.name && v.value !== undefined) {
+          variables[v.name] = v.value
+        }
+      }
+    }
     
     // Build formatted answers with field names, types, and bot questions
     const formattedAnswers = answers.map((answer: any) => {
       const blockInfo = blockNameMap[answer.blockId]
+      let question = blockInfo?.question || null
+      
+      // Replace any {{variables}} in the question with actual values
+      if (question) {
+        question = replaceVariables(question, variables)
+        // If still contains unreplaced variables, set to null
+        if (question.includes('{{')) {
+          question = null
+        }
+      }
+      
       return {
         field: blockInfo?.name || answer.blockId,
         type: blockInfo?.type || 'unknown',
-        question: blockInfo?.question || null,
+        question,
         value: answer.content || ''
       }
     })
@@ -253,7 +279,8 @@ function buildLeadLogs(results: any[], typebotDetails: any): any[] {
       id: result.id,
       createdAt: result.createdAt,
       isCompleted: result.isCompleted,
-      answers: formattedAnswers
+      answers: formattedAnswers,
+      variables // Include variables for potential use
     }
   }).sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
