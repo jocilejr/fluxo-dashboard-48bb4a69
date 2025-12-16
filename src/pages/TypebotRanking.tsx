@@ -782,37 +782,12 @@ export default function TypebotRanking() {
                                 <span className="text-xs text-slate-500">{lead.responses.length} respostas</span>
                               </div>
                               
-                              {/* Lead Responses - Chat Style */}
-                              <div className="p-3 space-y-3">
+                              {/* Lead Responses - Simple List */}
+                              <div className="p-3 space-y-2">
                                 {lead.responses.map((resp, respIdx) => (
-                                  <div key={respIdx} className="space-y-2">
-                                    {/* AI Response (Left - Grey) */}
-                                    {resp.aiResponse && (
-                                      <div className="flex justify-start">
-                                        <div className="max-w-[85%] bg-slate-700/50 rounded-lg px-3 py-2 text-sm text-slate-300">
-                                          <span className="text-[10px] text-slate-500 block mb-1 flex items-center gap-1">
-                                            <Bot className="h-3 w-3" /> IA
-                                          </span>
-                                          <div className="whitespace-pre-wrap">{resp.aiResponse}</div>
-                                        </div>
-                                      </div>
-                                    )}
-                                    {/* Bot Question (Left) - fallback if no AI response */}
-                                    {!resp.aiResponse && resp.question && (
-                                      <div className="flex justify-start">
-                                        <div className="max-w-[85%] bg-slate-700/50 rounded-lg px-3 py-2 text-sm text-slate-300">
-                                          <span className="text-[10px] text-slate-500 block mb-0.5">Bot</span>
-                                          {resp.question}
-                                        </div>
-                                      </div>
-                                    )}
-                                    {/* User Response (Right - Purple) */}
-                                    <div className="flex justify-end">
-                                      <div className="max-w-[85%] bg-violet-500/20 border border-violet-500/30 rounded-lg px-3 py-2 text-sm text-slate-200">
-                                        <span className="text-[10px] text-violet-400 block mb-0.5">Lead</span>
-                                        {resp.value}
-                                      </div>
-                                    </div>
+                                  <div key={respIdx} className="bg-violet-500/10 border border-violet-500/20 rounded-lg px-3 py-2">
+                                    <span className="text-[10px] text-violet-400 block mb-1">{resp.field || 'Resposta'}</span>
+                                    <p className="text-sm text-slate-200">{resp.value}</p>
                                   </div>
                                 ))}
                               </div>
