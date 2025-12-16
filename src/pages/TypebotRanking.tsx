@@ -61,21 +61,20 @@ interface TypebotAnalytics {
   hourlyDistribution: { hour: number; count: number }[];
 }
 
-interface LeadResponse {
-  leadIndex: number;
-  field: string;
-  value: string;
+interface LeadDataItem {
+  id: string;
+  phone: string | null;
+  responses: { field: string; value: string }[];
 }
 
 interface CategoryData {
   name: string;
   count: number;
-  responses: LeadResponse[];
 }
 
 interface AiCategorizedData {
   categories: CategoryData[];
-  responses: LeadResponse[];
+  leads: LeadDataItem[];
   leadsAnalyzed: number;
   totalResponses: number;
 }
@@ -240,13 +239,7 @@ export default function TypebotRanking() {
     }
   };
 
-  // Get filtered responses based on selected category
-  const getDisplayResponses = () => {
-    if (!aiData) return [];
-    if (!selectedCategory) return aiData.responses;
-    const category = aiData.categories.find(c => c.name === selectedCategory);
-    return category?.responses || [];
-  };
+  // No longer need getDisplayResponses - we display leads directly
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -716,74 +709,82 @@ export default function TypebotRanking() {
                 {/* AI Categorized Data Display */}
                 {aiData && (
                   <div className="space-y-4">
-                    {/* Category Badges - Top Section */}
+                    {/* Category Badges - Top Section (Dúvidas Recorrentes) */}
                     <div className="rounded-lg bg-slate-800/50 border border-white/10 p-4">
                       <div className="flex items-center gap-2 mb-3">
                         <MessageSquare className="h-4 w-4 text-violet-400" />
-                        <span className="text-sm font-medium text-slate-300">Tipos de Respostas</span>
+                        <span className="text-sm font-medium text-slate-300">Dúvidas Recorrentes</span>
                         <span className="text-xs text-slate-500">({aiData.totalResponses} respostas de {aiData.leadsAnalyzed} leads)</span>
                       </div>
                       
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => setSelectedCategory(null)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                            !selectedCategory 
-                              ? "bg-violet-500 text-white" 
-                              : "bg-white/10 text-slate-400 hover:bg-white/20 hover:text-white"
-                          )}
-                        >
-                          Todas ({aiData.responses.length})
-                        </button>
-                        {aiData.categories.map((cat, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setSelectedCategory(cat.name === selectedCategory ? null : cat.name)}
-                            className={cn(
-                              "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
-                              selectedCategory === cat.name 
-                                ? "bg-violet-500 text-white" 
-                                : "bg-white/10 text-slate-400 hover:bg-white/20 hover:text-white"
-                            )}
-                          >
-                            {cat.name} ({cat.count})
-                          </button>
-                        ))}
-                      </div>
+                      {aiData.categories.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {aiData.categories.map((cat, idx) => (
+                            <span
+                              key={idx}
+                              className="px-3 py-1.5 rounded-full text-xs font-medium bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                            >
+                              {cat.name} ({cat.count})
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">Nenhuma categoria identificada</p>
+                      )}
                     </div>
 
-                    {/* Responses List */}
+                    {/* Leads List - Grouped by Person */}
                     <div className="rounded-lg bg-white/[0.02] border border-white/10">
                       <div className="p-3 border-b border-white/5 flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-300">
-                          {selectedCategory ? `Respostas: ${selectedCategory}` : 'Todas as Respostas'}
-                        </span>
+                        <span className="text-sm font-medium text-slate-300">Respostas por Lead</span>
                         <span className="text-xs text-slate-500">
-                          {getDisplayResponses().length} respostas
+                          {aiData.leads.length} leads
                         </span>
                       </div>
                       
-                      <ScrollArea className="h-[300px]">
-                        <div className="p-3 space-y-2">
-                          {getDisplayResponses().map((resp, idx) => (
+                      <ScrollArea className="h-[350px]">
+                        <div className="p-3 space-y-3">
+                          {aiData.leads.map((lead, idx) => (
                             <div 
-                              key={idx} 
-                              className="flex items-start gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                              key={lead.id} 
+                              className="rounded-lg bg-white/5 border border-white/5 overflow-hidden"
                             >
-                              <span className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-violet-500/20 text-violet-400 text-xs font-medium">
-                                {resp.leadIndex}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <span className="text-xs text-slate-500 block mb-0.5">{resp.field}</span>
-                                <p className="text-sm text-slate-200">{resp.value}</p>
+                              {/* Lead Header */}
+                              <div className="flex items-center gap-3 p-3 bg-white/5 border-b border-white/5">
+                                <span className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold">
+                                  {idx + 1}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <Users className="h-3.5 w-3.5 text-slate-400" />
+                                    <span className="text-sm font-medium text-slate-200">Lead #{idx + 1}</span>
+                                    {lead.phone && (
+                                      <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                        {lead.phone}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="text-xs text-slate-500">{lead.responses.length} respostas</span>
+                              </div>
+                              
+                              {/* Lead Responses */}
+                              <div className="p-3 space-y-2">
+                                {lead.responses.map((resp, respIdx) => (
+                                  <div key={respIdx} className="flex items-start gap-2">
+                                    <span className="text-xs text-slate-500 shrink-0 w-24 truncate" title={resp.field}>
+                                      {resp.field}:
+                                    </span>
+                                    <p className="text-sm text-slate-200 flex-1">{resp.value}</p>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           ))}
                           
-                          {getDisplayResponses().length === 0 && (
+                          {aiData.leads.length === 0 && (
                             <p className="text-center text-slate-500 py-8 text-sm">
-                              Nenhuma resposta nesta categoria
+                              Nenhum lead com inputs de texto
                             </p>
                           )}
                         </div>
