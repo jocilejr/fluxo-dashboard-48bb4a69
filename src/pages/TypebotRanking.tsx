@@ -632,7 +632,7 @@ export default function TypebotRanking() {
                       <p>Nenhum lead encontrado</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
                       {filteredLogs.map((log) => {
                         const displayAnswers = getFilteredAnswers(log.answers);
                         return (
@@ -779,7 +779,7 @@ export default function TypebotRanking() {
                               </div>
                               
                               {/* Lead Responses - 2 per line grid */}
-                              <div className="p-2 grid grid-cols-2 gap-1.5">
+                              <div className="p-2 space-y-1.5">
                                 {lead.responses.map((resp, respIdx) => (
                                   <div key={respIdx} className="bg-violet-500/10 border border-violet-500/20 rounded px-2 py-1.5">
                                     <span className="text-[9px] text-violet-400 block mb-0.5 truncate">{resp.field || 'Resposta'}</span>
