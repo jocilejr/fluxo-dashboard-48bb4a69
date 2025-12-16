@@ -27,8 +27,11 @@ import {
   Activity,
   Zap,
   MessageSquare,
-  Search
+  Search,
+  Sparkles,
+  Loader2
 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
@@ -76,6 +79,8 @@ export default function TypebotRanking() {
   });
   const [logSearch, setLogSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
   const getDateRange = () => {
     const now = new Date();
@@ -174,6 +179,41 @@ export default function TypebotRanking() {
   const handleTypebotClick = (typebot: TypebotItem) => {
     setSelectedTypebot(typebot);
     setShowDetails(true);
+    setAiSummary(null);
+  };
+
+  const generateAiSummary = async () => {
+    if (!typebotDetails?.logs || typebotDetails.logs.length === 0) {
+      toast({ title: "Sem dados", description: "Não há leads para analisar", variant: "destructive" });
+      return;
+    }
+    
+    setIsGeneratingSummary(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("lead-summary", {
+        body: {
+          typebotId: selectedTypebot?.id,
+          typebotName: selectedTypebot?.name,
+          leads: typebotDetails.logs.map(log => ({
+            id: log.id,
+            createdAt: log.createdAt,
+            isCompleted: log.isCompleted,
+            answers: log.answers.map(a => ({ key: a.field, value: a.value }))
+          }))
+        }
+      });
+      
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      setAiSummary(data.summary);
+      toast({ title: "Resumo gerado!", description: `${data.leadsAnalyzed} leads analisados` });
+    } catch (err: any) {
+      console.error("Error generating summary:", err);
+      toast({ title: "Erro", description: err.message || "Erro ao gerar resumo", variant: "destructive" });
+    } finally {
+      setIsGeneratingSummary(false);
+    }
   };
 
   return (
@@ -623,6 +663,37 @@ export default function TypebotRanking() {
 
               {/* Analytics Tab */}
               <TabsContent value="analytics" className="space-y-5">
+              {/* AI Summary Button */}
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={generateAiSummary}
+                    disabled={isGeneratingSummary || !typebotDetails?.logs?.length}
+                    className="gap-2 border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 hover:text-violet-300"
+                  >
+                    {isGeneratingSummary ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    Gerar Resumo com IA
+                  </Button>
+                </div>
+
+                {/* AI Summary Display */}
+                {aiSummary && (
+                  <div className="rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Sparkles className="h-4 w-4 text-violet-400" />
+                      <h4 className="font-medium text-violet-300">Resumo Inteligente</h4>
+                    </div>
+                    <div className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      {aiSummary}
+                    </div>
+                  </div>
+                )}
+
                 {/* Quick Stats - Horizontal Row */}
                 <div className="grid grid-cols-4 gap-3">
                   <div className="rounded-lg bg-white/5 p-3 text-center">
