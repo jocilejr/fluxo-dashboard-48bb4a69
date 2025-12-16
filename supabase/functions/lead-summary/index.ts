@@ -31,16 +31,12 @@ const BUTTON_TYPES = [
 
 function isTextInput(type: string): boolean {
   const lowerType = type.toLowerCase();
-  // Include if it's a text input type
   if (TEXT_INPUT_TYPES.some(t => lowerType.includes(t))) return true;
-  // Exclude if it's a button type
   if (BUTTON_TYPES.some(t => lowerType.includes(t))) return false;
-  // Default to include unknown types that aren't buttons
   return true;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -81,58 +77,64 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Generating summary for typebot: ${typebotName} with ${leads.length} leads`);
+    console.log(`Categorizing responses for typebot: ${typebotName} with ${leads.length} leads`);
 
-    // Filter only text inputs and prepare lead data for analysis
-    const leadsSummary = leads.slice(0, 50).map((lead: any, index: number) => {
+    // Collect all text responses
+    const allResponses: { leadIndex: number; field: string; value: string }[] = [];
+    
+    leads.slice(0, 100).forEach((lead: any, index: number) => {
       const answers = lead.answers || [];
-      // Filter only text inputs (exclude buttons)
       const textAnswers = answers.filter((a: any) => {
         const type = a.type || 'unknown';
         return isTextInput(type);
       });
       
-      if (textAnswers.length === 0) return null;
-      
-      const answersText = textAnswers.map((a: any) => `- ${a.key}: "${a.value}"`).join('\n');
-      return `Lead ${index + 1}:\n${answersText}`;
-    }).filter(Boolean).join('\n\n');
+      textAnswers.forEach((a: any) => {
+        if (a.value && a.value.trim()) {
+          allResponses.push({
+            leadIndex: index + 1,
+            field: a.key,
+            value: a.value.trim()
+          });
+        }
+      });
+    });
 
-    if (!leadsSummary || leadsSummary.trim() === '') {
+    if (allResponses.length === 0) {
       return new Response(
         JSON.stringify({ 
-          error: 'Nenhum input de texto encontrado nos leads. Apenas respostas de botões foram detectadas.',
-          themes: []
+          error: 'Nenhum input de texto encontrado nos leads.',
+          categories: [],
+          responses: []
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const prompt = `Analise os inputs de texto do funil "${typebotName}" com ${leads.length} leads.
+    // Prepare responses for categorization
+    const responsesText = allResponses.map((r, i) => `${i + 1}. "${r.value}"`).join('\n');
 
-DADOS (apenas inputs de texto, sem botões):
-${leadsSummary}
+    const prompt = `Categorize estas respostas de leads por tipo de assunto/dúvida.
 
-Retorne um JSON VÁLIDO com este formato EXATO:
+RESPOSTAS:
+${responsesText}
+
+Retorne um JSON com este formato EXATO:
 {
-  "themes": [
+  "categories": [
     {
-      "name": "Nome do Tema",
-      "count": 5,
-      "summary": "Resumo analítico do que os leads disseram sobre este tema (2-3 frases explicativas)",
-      "quotes": ["frase literal 1", "frase literal 2", "frase literal 3"]
+      "name": "Nome da categoria",
+      "indices": [1, 2, 5, 8]
     }
   ]
 }
 
-REGRAS OBRIGATÓRIAS:
-1. Agrupe as respostas por TEMA similar (ex: dificuldades financeiras, interesse no produto, dúvidas técnicas)
-2. "count" = quantidade de leads que mencionaram este tema
-3. "summary" = explicação analítica do que os leads disseram (NÃO copiar frases)
-4. "quotes" = até 5 frases LITERAIS diferentes e únicas (copiar exatamente como escritas)
-5. NÃO inclua frases duplicadas ou muito similares
-6. Ordene os temas por "count" (mais mencionados primeiro)
-7. Retorne APENAS o JSON, sem texto adicional antes ou depois`;
+REGRAS:
+1. Cada categoria deve ter um nome curto e descritivo (ex: "Sem dinheiro", "Interesse no produto", "Dúvida técnica")
+2. "indices" = números das respostas que pertencem a esta categoria
+3. Uma resposta pode pertencer a mais de uma categoria se fizer sentido
+4. Ordene por quantidade de respostas (mais frequentes primeiro)
+5. Retorne APENAS o JSON, sem texto adicional`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -143,11 +145,11 @@ REGRAS OBRIGATÓRIAS:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'Você é um analista de dados especializado em funis de vendas. Retorne APENAS JSON válido sem markdown ou texto adicional. Responda em português brasileiro.' },
+          { role: 'system', content: 'Você categoriza respostas. Retorne APENAS JSON válido sem markdown. Português brasileiro.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 1500,
-        temperature: 0.3,
+        max_tokens: 1000,
+        temperature: 0.2,
       }),
     });
 
@@ -157,20 +159,20 @@ REGRAS OBRIGATÓRIAS:
       
       if (response.status === 401) {
         return new Response(
-          JSON.stringify({ error: 'API Key da OpenAI inválida. Verifique nas Configurações.' }),
+          JSON.stringify({ error: 'API Key da OpenAI inválida.' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Limite de requisições da OpenAI atingido. Tente novamente em alguns minutos.' }),
+          JSON.stringify({ error: 'Limite de requisições atingido. Tente em alguns minutos.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       return new Response(
-        JSON.stringify({ error: 'Erro ao gerar resumo com OpenAI' }),
+        JSON.stringify({ error: 'Erro ao categorizar com OpenAI' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -187,41 +189,45 @@ REGRAS OBRIGATÓRIAS:
 
     console.log('OpenAI raw response:', content);
 
-    // Try to parse JSON from the response
     let parsedData;
     try {
-      // Remove markdown code blocks if present
       let cleanContent = content.trim();
       if (cleanContent.startsWith('```json')) {
         cleanContent = cleanContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
       } else if (cleanContent.startsWith('```')) {
         cleanContent = cleanContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
       }
-      
       parsedData = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error('Error parsing OpenAI response as JSON:', parseError);
-      console.error('Content was:', content);
-      
-      // Return as legacy text format if JSON parsing fails
+      console.error('Error parsing JSON:', parseError);
+      // Return raw responses without categorization
       return new Response(
         JSON.stringify({ 
-          summary: content,
-          leadsAnalyzed: Math.min(leads.length, 50),
-          totalLeads: leads.length,
-          themes: null // Indicates legacy format
+          categories: [],
+          responses: allResponses,
+          leadsAnalyzed: Math.min(leads.length, 100)
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Summary generated successfully for ${typebotName} with ${parsedData.themes?.length || 0} themes`);
+    // Build categorized responses
+    const categories = (parsedData.categories || []).map((cat: any) => ({
+      name: cat.name,
+      count: cat.indices?.length || 0,
+      responses: (cat.indices || [])
+        .filter((i: number) => i >= 1 && i <= allResponses.length)
+        .map((i: number) => allResponses[i - 1])
+    })).sort((a: any, b: any) => b.count - a.count);
+
+    console.log(`Categorized ${allResponses.length} responses into ${categories.length} categories`);
 
     return new Response(
       JSON.stringify({ 
-        themes: parsedData.themes || [],
-        leadsAnalyzed: Math.min(leads.length, 50),
-        totalLeads: leads.length
+        categories,
+        responses: allResponses,
+        leadsAnalyzed: Math.min(leads.length, 100),
+        totalResponses: allResponses.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
