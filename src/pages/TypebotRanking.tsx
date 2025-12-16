@@ -791,7 +791,7 @@ export default function TypebotRanking() {
                                     {/* User Response (Right) */}
                                     <div className="flex justify-end">
                                       <div className="max-w-[80%] bg-violet-500/20 border border-violet-500/30 rounded-lg px-3 py-2 text-sm text-slate-200">
-                                        <span className="text-[10px] text-violet-400 block mb-0.5">{resp.field}</span>
+                                        <span className="text-[10px] text-violet-400 block mb-0.5">Lead</span>
                                         {resp.value}
                                       </div>
                                     </div>

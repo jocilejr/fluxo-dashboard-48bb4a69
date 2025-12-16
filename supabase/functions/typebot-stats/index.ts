@@ -110,24 +110,37 @@ function buildBlockNameMap(typebotDetails: any): Record<string, { name: string; 
     let lastTextContent: string | null = null
     
     for (const block of blocks) {
-      // Capture text blocks content (bot messages)
-      if (block.type === 'text' && block.content?.richText) {
-        // Extract plain text from rich text
-        const richText = block.content.richText
-        lastTextContent = richText.map((rt: any) => 
-          rt.children?.map((c: any) => c.text || '').join('') || ''
-        ).join('\n').trim()
+      const blockType = (block.type || '').toLowerCase()
+      
+      // Capture text blocks content (bot messages) - check multiple formats
+      if (blockType === 'text' || blockType === 'bubble text') {
+        // Try different content structures
+        if (block.content?.richText && Array.isArray(block.content.richText)) {
+          const texts: string[] = []
+          for (const rt of block.content.richText) {
+            if (rt.children && Array.isArray(rt.children)) {
+              for (const child of rt.children) {
+                if (child.text) texts.push(child.text)
+              }
+            }
+          }
+          if (texts.length > 0) {
+            lastTextContent = texts.join(' ').trim()
+          }
+        } else if (block.content?.html) {
+          // Strip HTML tags
+          lastTextContent = block.content.html.replace(/<[^>]*>/g, '').trim()
+        } else if (block.content?.plainText) {
+          lastTextContent = block.content.plainText.trim()
+        }
       }
       
       if (block.id) {
         // For input blocks, use the last text content as the question
         let question: string | null = null
-        if (block.type?.includes('input') || block.type === 'text input') {
+        if (blockType.includes('input')) {
           question = lastTextContent
-          // Also check for placeholder/label in options
-          if (!question && block.options?.labels?.placeholder) {
-            question = block.options.labels.placeholder
-          }
+          // Do NOT use placeholder as fallback - that's not the bot's message
         }
         
         blockNameMap[block.id] = {
