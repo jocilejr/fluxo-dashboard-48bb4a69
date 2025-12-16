@@ -57,24 +57,24 @@ serve(async (req) => {
       return `Lead ${index + 1}:\n${answersText || 'Sem respostas registradas'}`;
     }).join('\n\n');
 
-    const prompt = `Analise os leads do funil "${typebotName}".
+    const prompt = `Funil "${typebotName}" - ${leads.length} leads.
 
-DADOS (${leads.length} leads, até 50):
+DADOS:
 ${leadsSummary}
 
-Retorne APENAS:
+EXTRAIA APENAS PONTOS DE VISTA ÚNICOS E DIFERENTES.
+NÃO repita informações similares. Se 5 leads disseram "não tenho dinheiro", cite apenas 1 vez.
 
-1. **Dúvidas Recorrentes**
-X leads: [tema] - Liste cada tema com contagem exata.
+Formato:
+**Dúvidas** (X leads cada):
+- [tema]: X leads
 
-2. **O Que Disseram**
-Agrupe por tema e liste o que cada lead falou (resumido):
-**[Tema]:**
-- Lead X: "[frase]"
-- Lead Y: "[frase]"
+**Respostas únicas por tema:**
+[Tema]:
+- "[frase única 1]"
+- "[frase única 2]"
 
-Se um lead falou sobre múltiplos temas, liste em cada tema correspondente.
-NÃO inclua recomendações, perfis ou sugestões.`;
+Máximo 3 frases por tema. Só frases que trazem perspectivas DIFERENTES.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
