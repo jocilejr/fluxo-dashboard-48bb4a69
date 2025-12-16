@@ -65,7 +65,7 @@ interface LeadDataItem {
   id: string;
   phone: string | null;
   createdAt: string | null;
-  responses: { field: string; question: string | null; value: string }[];
+  responses: { field: string; question: string | null; aiResponse: string | null; value: string }[];
 }
 
 interface CategoryData {
@@ -84,7 +84,8 @@ interface LeadLog {
   id: string;
   createdAt: string;
   isCompleted: boolean;
-  answers: { field: string; type?: string; question?: string | null; value: string }[];
+  answers: { field: string; type?: string; question?: string | null; aiResponse?: string | null; value: string }[];
+  aiResponses?: { name: string; value: string }[];
 }
 
 export default function TypebotRanking() {
@@ -222,7 +223,13 @@ export default function TypebotRanking() {
             id: log.id,
             createdAt: log.createdAt,
             isCompleted: log.isCompleted,
-            answers: log.answers.map(a => ({ key: a.field, type: a.type || 'unknown', question: a.question || null, value: a.value }))
+            answers: log.answers.map(a => ({ 
+              key: a.field, 
+              type: a.type || 'unknown', 
+              question: a.question || null, 
+              aiResponse: a.aiResponse || null,
+              value: a.value 
+            }))
           }))
         }
       });
@@ -778,19 +785,30 @@ export default function TypebotRanking() {
                               {/* Lead Responses - Chat Style */}
                               <div className="p-3 space-y-3">
                                 {lead.responses.map((resp, respIdx) => (
-                                  <div key={respIdx} className="space-y-1">
-                                    {/* Bot Question (Left) */}
-                                    {resp.question && (
+                                  <div key={respIdx} className="space-y-2">
+                                    {/* AI Response (Left - Grey) */}
+                                    {resp.aiResponse && (
                                       <div className="flex justify-start">
-                                        <div className="max-w-[80%] bg-slate-700/50 rounded-lg px-3 py-2 text-sm text-slate-300">
+                                        <div className="max-w-[85%] bg-slate-700/50 rounded-lg px-3 py-2 text-sm text-slate-300">
+                                          <span className="text-[10px] text-slate-500 block mb-1 flex items-center gap-1">
+                                            <Bot className="h-3 w-3" /> IA
+                                          </span>
+                                          <div className="whitespace-pre-wrap">{resp.aiResponse}</div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {/* Bot Question (Left) - fallback if no AI response */}
+                                    {!resp.aiResponse && resp.question && (
+                                      <div className="flex justify-start">
+                                        <div className="max-w-[85%] bg-slate-700/50 rounded-lg px-3 py-2 text-sm text-slate-300">
                                           <span className="text-[10px] text-slate-500 block mb-0.5">Bot</span>
                                           {resp.question}
                                         </div>
                                       </div>
                                     )}
-                                    {/* User Response (Right) */}
+                                    {/* User Response (Right - Purple) */}
                                     <div className="flex justify-end">
-                                      <div className="max-w-[80%] bg-violet-500/20 border border-violet-500/30 rounded-lg px-3 py-2 text-sm text-slate-200">
+                                      <div className="max-w-[85%] bg-violet-500/20 border border-violet-500/30 rounded-lg px-3 py-2 text-sm text-slate-200">
                                         <span className="text-[10px] text-violet-400 block mb-0.5">Lead</span>
                                         {resp.value}
                                       </div>
