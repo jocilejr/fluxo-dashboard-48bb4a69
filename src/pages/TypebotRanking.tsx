@@ -64,6 +64,7 @@ interface TypebotAnalytics {
 interface LeadDataItem {
   id: string;
   phone: string | null;
+  createdAt: string | null;
   responses: { field: string; value: string }[];
 }
 
@@ -755,12 +756,18 @@ export default function TypebotRanking() {
                                   {idx + 1}
                                 </span>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <Users className="h-3.5 w-3.5 text-slate-400" />
                                     <span className="text-sm font-medium text-slate-200">Lead #{idx + 1}</span>
                                     {lead.phone && (
                                       <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                                         {lead.phone}
+                                      </span>
+                                    )}
+                                    {lead.createdAt && (
+                                      <span className="text-xs text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {format(new Date(lead.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                                       </span>
                                     )}
                                   </div>
