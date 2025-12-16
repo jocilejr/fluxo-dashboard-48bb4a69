@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,7 @@ interface ManualBoletoFormData {
 }
 
 const GerarBoleto = () => {
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState<ManualBoletoFormData>({
@@ -26,7 +28,22 @@ const GerarBoleto = () => {
 
   useEffect(() => {
     fetchWebhookUrl();
-  }, []);
+    
+    // Pre-fill form from query params
+    const nome = searchParams.get("nome");
+    const telefone = searchParams.get("telefone");
+    const valor = searchParams.get("valor");
+    const cpf = searchParams.get("cpf");
+    
+    if (nome || telefone || valor || cpf) {
+      setFormData({
+        nome: nome || "",
+        telefone: telefone || "",
+        valor: valor || "",
+        cpf: cpf ? cpf.replace(/\D/g, "").slice(0, 11) : "",
+      });
+    }
+  }, [searchParams]);
 
   const fetchWebhookUrl = async () => {
     const { data, error } = await supabase

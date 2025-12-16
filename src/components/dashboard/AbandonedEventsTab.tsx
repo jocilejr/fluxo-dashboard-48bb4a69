@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Search, ShoppingCart, AlertTriangle, Phone, MessageSquare, Users, Clock, AlertCircle, RefreshCw } from "lucide-react";
+import { Trash2, Search, ShoppingCart, AlertTriangle, Phone, MessageSquare, Users, Clock, AlertCircle, RefreshCw, FileText } from "lucide-react";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -58,6 +59,7 @@ const eventTypeIcons = {
 const VIEWED_ABANDONED_KEY = "viewed_abandoned_events";
 
 export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps) {
+  const navigate = useNavigate();
   const { events, isLoading, deleteEvent } = useAbandonedEvents();
   const { openChat, extensionStatus } = useWhatsAppExtension();
   const [searchQuery, setSearchQuery] = useState("");
@@ -234,6 +236,23 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
     });
   };
 
+  const navigateToGerarBoleto = (event: AbandonedEvent) => {
+    const params = new URLSearchParams();
+    if (event.customer_name) params.set("nome", event.customer_name);
+    if (event.customer_phone) params.set("telefone", event.customer_phone);
+    if (event.amount) params.set("valor", event.amount.toString());
+    if (event.customer_document) params.set("cpf", event.customer_document);
+    
+    navigate(`/gerar-boleto?${params.toString()}`);
+    
+    addActivityLog({
+      type: "action",
+      category: "Abandono",
+      message: `Iniciou geração de boleto para ${event.customer_name || 'Cliente'}`,
+      details: `Telefone: ${event.customer_phone}, Valor: R$ ${event.amount || 0}`
+    });
+  };
+
   // Stats
   const stats = useMemo(() => {
     const totalAmount = filteredEvents.reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -331,42 +350,57 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
               {event.error_message && (
                 <p className="text-xs text-destructive/80 mb-1 truncate">{event.error_message}</p>
               )}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{formatRelativeTime(event.created_at)}</span>
-                <div className="flex items-center gap-1">
-                  {event.customer_phone && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-success hover:text-success"
-                      onClick={() => openWhatsApp(event)}
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {isAdmin && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="max-w-[90vw] rounded-lg">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remover evento?</AlertDialogTitle>
-                          <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(event.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                            Remover
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{formatRelativeTime(event.created_at)}</span>
+                  <div className="flex items-center gap-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-primary hover:text-primary"
+                            onClick={() => navigateToGerarBoleto(event)}
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Gerar boleto</p></TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {event.customer_phone && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-success hover:text-success"
+                        onClick={() => openWhatsApp(event)}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="max-w-[90vw] rounded-lg">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remover evento?</AlertDialogTitle>
+                            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(event.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Remover
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </div>
-              </div>
             </div>
           );
         })}
@@ -459,6 +493,21 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
                     </td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                                onClick={() => navigateToGerarBoleto(event)}
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Gerar boleto com esses dados</p></TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         {event.customer_phone && (
                           <Popover>
                             <PopoverTrigger asChild>
