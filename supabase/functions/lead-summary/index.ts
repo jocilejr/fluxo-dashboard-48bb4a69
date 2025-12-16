@@ -84,7 +84,7 @@ serve(async (req) => {
       id: string;
       phone: string | null;
       createdAt: string | null;
-      responses: { field: string; value: string }[];
+      responses: { field: string; question: string | null; value: string }[];
     }
     
     const leadsData: LeadData[] = [];
@@ -110,10 +110,14 @@ serve(async (req) => {
         phone = phoneAnswer.value;
       }
       
-      const responses: { field: string; value: string }[] = [];
+      const responses: { field: string; question: string | null; value: string }[] = [];
       textAnswers.forEach((a: any) => {
         if (a.value && a.value.trim()) {
-          responses.push({ field: a.key, value: a.value.trim() });
+          responses.push({ 
+            field: a.key, 
+            question: a.question || null,
+            value: a.value.trim() 
+          });
           allTextResponses.push(a.value.trim());
         }
       });
