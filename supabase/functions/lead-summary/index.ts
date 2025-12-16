@@ -57,36 +57,24 @@ serve(async (req) => {
       return `Lead ${index + 1}:\n${answersText || 'Sem respostas registradas'}`;
     }).join('\n\n');
 
-    const prompt = `Você é um analista de funis de vendas. Analise os dados dos leads do funil "${typebotName}" e me ajude a entender o que está acontecendo dentro do funil.
+    const prompt = `Analise os leads do funil "${typebotName}".
 
-DADOS DOS LEADS (${leads.length} total, mostrando até 50):
+DADOS (${leads.length} leads, até 50):
 ${leadsSummary}
 
-Forneça APENAS uma análise detalhada das DÚVIDAS E OBJEÇÕES dos leads:
+Retorne APENAS:
 
-1. **Dúvidas Recorrentes (com contagem exata)**
-   Liste cada dúvida/objeção mencionada COM O NÚMERO EXATO de leads que falaram sobre isso.
-   Formato: "X leads perguntaram/falaram sobre [tema específico]"
+1. **Dúvidas Recorrentes**
+X leads: [tema] - Liste cada tema com contagem exata.
 
-2. **O Que Eles Disseram (detalhado)**
-   Para cada tema identificado, liste exemplos REAIS do que os leads escreveram.
-   Agrupe por categoria e mostre as frases/respostas originais ou resumidas de forma fiel.
-   
-   Exemplo de formato:
-   **Sobre preço/valor:**
-   - Lead 1: "Achei caro demais"
-   - Lead 5: "Não tenho dinheiro agora"
-   - Lead 12: "Quanto custa?"
-   
-   **Sobre forma de pagamento:**
-   - Lead 3: "Aceita PIX?"
-   - Lead 7: "Não tenho cartão"
+2. **O Que Disseram**
+Agrupe por tema e liste o que cada lead falou (resumido):
+**[Tema]:**
+- Lead X: "[frase]"
+- Lead Y: "[frase]"
 
-IMPORTANTE: 
-- Inclua NÚMEROS EXATOS (ex: "8 leads", não "alguns leads")
-- Seja DETALHADO nas respostas dos leads
-- Foque no que eles REALMENTE disseram, não em interpretações
-- NÃO inclua perfil predominante, recomendações ou sugestões`;
+Se um lead falou sobre múltiplos temas, liste em cada tema correspondente.
+NÃO inclua recomendações, perfis ou sugestões.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -95,13 +83,12 @@ IMPORTANTE:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-nano-2025-08-07',
         messages: [
-          { role: 'system', content: 'Você é um analista de marketing digital experiente, especializado em análise de funis de vendas e comportamento de leads. Responda sempre em português brasileiro.' },
+          { role: 'system', content: 'Analista de funis. Responda em português brasileiro, seja conciso e objetivo.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 1000,
-        temperature: 0.7,
+        max_completion_tokens: 800,
       }),
     });
 
