@@ -83,6 +83,7 @@ serve(async (req) => {
     interface LeadData {
       id: string;
       phone: string | null;
+      createdAt: string | null;
       responses: { field: string; value: string }[];
     }
     
@@ -121,6 +122,7 @@ serve(async (req) => {
         leadsData.push({
           id: lead.id || `lead-${index + 1}`,
           phone,
+          createdAt: lead.createdAt || null,
           responses
         });
       }
