@@ -557,7 +557,7 @@ export default function TypebotRanking() {
 
       {/* Details Modal */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto border-white/10 bg-slate-900 text-white">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto border-white/10 bg-slate-900 text-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-xl">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/20">
@@ -750,7 +750,7 @@ export default function TypebotRanking() {
                         </span>
                       </div>
                       
-                      <ScrollArea className="h-[350px]">
+                      <ScrollArea className="h-[450px]">
                         <div className="p-3 space-y-3">
                           {aiData.leads.map((lead, idx) => (
                             <div 
@@ -758,36 +758,32 @@ export default function TypebotRanking() {
                               className="rounded-lg bg-white/5 border border-white/5 overflow-hidden"
                             >
                               {/* Lead Header */}
-                              <div className="flex items-center gap-3 p-3 bg-white/5 border-b border-white/5">
-                                <span className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border-b border-white/5">
+                                <span className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold">
                                   {idx + 1}
                                 </span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <Users className="h-3.5 w-3.5 text-slate-400" />
-                                    <span className="text-sm font-medium text-slate-200">Lead #{idx + 1}</span>
-                                    {lead.phone && (
-                                      <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                        {lead.phone}
-                                      </span>
-                                    )}
-                                    {lead.createdAt && (
-                                      <span className="text-xs text-slate-400 bg-slate-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
-                                        {format(new Date(lead.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                                      </span>
-                                    )}
-                                  </div>
+                                <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-medium text-slate-300">Lead #{idx + 1}</span>
+                                  {lead.phone && (
+                                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                      {lead.phone}
+                                    </span>
+                                  )}
+                                  {lead.createdAt && (
+                                    <span className="text-[10px] text-slate-500">
+                                      {format(new Date(lead.createdAt), "dd/MM HH:mm", { locale: ptBR })}
+                                    </span>
+                                  )}
                                 </div>
-                                <span className="text-xs text-slate-500">{lead.responses.length} respostas</span>
+                                <span className="text-[10px] text-slate-500">{lead.responses.length} resp.</span>
                               </div>
                               
-                              {/* Lead Responses - Simple List */}
-                              <div className="p-3 space-y-2">
+                              {/* Lead Responses - 2 per line grid */}
+                              <div className="p-2 grid grid-cols-2 gap-1.5">
                                 {lead.responses.map((resp, respIdx) => (
-                                  <div key={respIdx} className="bg-violet-500/10 border border-violet-500/20 rounded-lg px-3 py-2">
-                                    <span className="text-[10px] text-violet-400 block mb-1">{resp.field || 'Resposta'}</span>
-                                    <p className="text-sm text-slate-200">{resp.value}</p>
+                                  <div key={respIdx} className="bg-violet-500/10 border border-violet-500/20 rounded px-2 py-1.5">
+                                    <span className="text-[9px] text-violet-400 block mb-0.5 truncate">{resp.field || 'Resposta'}</span>
+                                    <p className="text-xs text-slate-200 line-clamp-2">{resp.value}</p>
                                   </div>
                                 ))}
                               </div>
