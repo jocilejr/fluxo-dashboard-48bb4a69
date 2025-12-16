@@ -62,13 +62,21 @@ serve(async (req) => {
 DADOS DOS LEADS (${leads.length} total, mostrando até 50):
 ${leadsSummary}
 
-Forneça uma análise concisa contendo:
-1. **Perfil predominante dos leads** - características mais comuns
-2. **Padrões identificados** - comportamentos ou respostas recorrentes  
-3. **Pontos de atenção** - possíveis problemas ou oportunidades
-4. **Recomendações** - 2-3 ações práticas para melhorar conversão
+Forneça uma análise QUANTITATIVA contendo:
 
-Seja direto e objetivo. Use bullet points quando apropriado.`;
+1. **Pontos de Referência com Contagens** - Liste os principais temas/objeções mencionados pelos leads COM NÚMEROS EXATOS. Exemplos de formato:
+   - "X leads mencionaram dificuldades financeiras"
+   - "Y leads disseram não ter cartão de crédito"
+   - "Z leads demonstraram interesse mas pediram mais informações"
+   - "W leads abandonaram por motivo X"
+   
+2. **Perfil predominante** - características mais comuns (com percentuais quando possível)
+
+3. **Principais objeções/barreiras** - liste as mais frequentes com contagem
+
+4. **Recomendações** - 2-3 ações práticas baseadas nos dados
+
+IMPORTANTE: Sempre inclua números específicos (ex: "12 leads", "35% dos leads"). Não seja vago. Analise cada resposta e agrupe por temas similares para contar.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
