@@ -57,26 +57,36 @@ serve(async (req) => {
       return `Lead ${index + 1}:\n${answersText || 'Sem respostas registradas'}`;
     }).join('\n\n');
 
-    const prompt = `Você é um analista de marketing digital especializado em funis de vendas. Analise os dados dos leads do funil "${typebotName}" e forneça um resumo executivo em português.
+    const prompt = `Você é um analista de funis de vendas. Analise os dados dos leads do funil "${typebotName}" e me ajude a entender o que está acontecendo dentro do funil.
 
 DADOS DOS LEADS (${leads.length} total, mostrando até 50):
 ${leadsSummary}
 
-Forneça uma análise QUANTITATIVA contendo:
+Forneça APENAS uma análise detalhada das DÚVIDAS E OBJEÇÕES dos leads:
 
-1. **Pontos de Referência com Contagens** - Liste os principais temas/objeções mencionados pelos leads COM NÚMEROS EXATOS. Exemplos de formato:
-   - "X leads mencionaram dificuldades financeiras"
-   - "Y leads disseram não ter cartão de crédito"
-   - "Z leads demonstraram interesse mas pediram mais informações"
-   - "W leads abandonaram por motivo X"
+1. **Dúvidas Recorrentes (com contagem exata)**
+   Liste cada dúvida/objeção mencionada COM O NÚMERO EXATO de leads que falaram sobre isso.
+   Formato: "X leads perguntaram/falaram sobre [tema específico]"
+
+2. **O Que Eles Disseram (detalhado)**
+   Para cada tema identificado, liste exemplos REAIS do que os leads escreveram.
+   Agrupe por categoria e mostre as frases/respostas originais ou resumidas de forma fiel.
    
-2. **Perfil predominante** - características mais comuns (com percentuais quando possível)
+   Exemplo de formato:
+   **Sobre preço/valor:**
+   - Lead 1: "Achei caro demais"
+   - Lead 5: "Não tenho dinheiro agora"
+   - Lead 12: "Quanto custa?"
+   
+   **Sobre forma de pagamento:**
+   - Lead 3: "Aceita PIX?"
+   - Lead 7: "Não tenho cartão"
 
-3. **Principais objeções/barreiras** - liste as mais frequentes com contagem
-
-4. **Recomendações** - 2-3 ações práticas baseadas nos dados
-
-IMPORTANTE: Sempre inclua números específicos (ex: "12 leads", "35% dos leads"). Não seja vago. Analise cada resposta e agrupe por temas similares para contar.`;
+IMPORTANTE: 
+- Inclua NÚMEROS EXATOS (ex: "8 leads", não "alguns leads")
+- Seja DETALHADO nas respostas dos leads
+- Foque no que eles REALMENTE disseram, não em interpretações
+- NÃO inclua perfil predominante, recomendações ou sugestões`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
