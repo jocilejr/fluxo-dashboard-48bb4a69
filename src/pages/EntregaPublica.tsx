@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
@@ -18,6 +18,20 @@ interface PixelInfo {
   event_name: string;
 }
 
+// Declare global window types for pixels
+declare global {
+  interface Window {
+    fbq: any;
+    _fbq: any;
+    ttq: any;
+    TiktokAnalyticsObject: string;
+    gtag: any;
+    dataLayer: any[];
+    pintrk: any;
+    _tfa: any[];
+  }
+}
+
 const EntregaPublica = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
@@ -29,6 +43,235 @@ const EntregaPublica = () => {
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(3);
   const [alreadyAccessed, setAlreadyAccessed] = useState(false);
+  const [pixelsFired, setPixelsFired] = useState(false);
+  const pixelsRef = useRef<PixelInfo[]>([]);
+
+  // Load and fire Meta Pixel
+  const loadMetaPixel = (pixelId: string, eventName: string, value: number) => {
+    console.log(`[Pixel] Loading Meta Pixel: ${pixelId}`);
+    
+    // Initialize fbq function
+    if (!window.fbq) {
+      const n: any = window.fbq = function() {
+        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+      };
+      if (!window._fbq) window._fbq = n;
+      n.push = n;
+      n.loaded = true;
+      n.version = '2.0';
+      n.queue = [];
+    }
+
+    // Load script
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'https://connect.facebook.net/en_US/fbevents.js';
+    script.onload = () => {
+      console.log(`[Pixel] Meta script loaded`);
+      window.fbq('init', pixelId);
+      window.fbq('track', 'PageView');
+      window.fbq('track', eventName || 'Purchase', {
+        value: value,
+        currency: 'BRL',
+      });
+      console.log(`[Pixel] Meta ${eventName} fired with value ${value}`);
+    };
+    script.onerror = () => {
+      console.error(`[Pixel] Failed to load Meta script`);
+    };
+    document.head.appendChild(script);
+
+    // Also fire via noscript img fallback for reliability
+    const img = document.createElement('img');
+    img.height = 1;
+    img.width = 1;
+    img.style.display = 'none';
+    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=${eventName || 'Purchase'}&cd[value]=${value}&cd[currency]=BRL&noscript=1`;
+    document.body.appendChild(img);
+  };
+
+  // Load and fire TikTok Pixel
+  const loadTikTokPixel = (pixelId: string, eventName: string, value: number) => {
+    console.log(`[Pixel] Loading TikTok Pixel: ${pixelId}`);
+    
+    // Initialize ttq
+    if (!window.ttq) {
+      window.TiktokAnalyticsObject = 'ttq';
+      const ttq: any = window.ttq = window.ttq || [];
+      ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie"];
+      ttq.setAndDefer = function(t: any, e: string) {
+        t[e] = function() {
+          t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
+        };
+      };
+      for (let i = 0; i < ttq.methods.length; i++) {
+        ttq.setAndDefer(ttq, ttq.methods[i]);
+      }
+      ttq.instance = function(t: string) {
+        const e = ttq._i[t] || [];
+        for (let n = 0; n < ttq.methods.length; n++) {
+          ttq.setAndDefer(e, ttq.methods[n]);
+        }
+        return e;
+      };
+      ttq.load = function(e: string, n?: any) {
+        const i = "https://analytics.tiktok.com/i18n/pixel/events.js";
+        ttq._i = ttq._i || {};
+        ttq._i[e] = [];
+        ttq._i[e]._u = i;
+        ttq._t = ttq._t || {};
+        ttq._t[e] = +new Date();
+        ttq._o = ttq._o || {};
+        ttq._o[e] = n || {};
+        const o = document.createElement("script");
+        o.type = "text/javascript";
+        o.async = true;
+        o.src = i + "?sdkid=" + e + "&lib=" + 'ttq';
+        const a = document.getElementsByTagName("script")[0];
+        a.parentNode?.insertBefore(o, a);
+      };
+    }
+
+    window.ttq.load(pixelId);
+    window.ttq.page();
+    
+    // Fire event after a small delay to ensure script is loaded
+    setTimeout(() => {
+      window.ttq.track(eventName || 'CompletePayment', {
+        value: value,
+        currency: 'BRL',
+      });
+      console.log(`[Pixel] TikTok ${eventName} fired with value ${value}`);
+    }, 1000);
+  };
+
+  // Load and fire Google Tag
+  const loadGoogleTag = (tagId: string, eventName: string, value: number) => {
+    console.log(`[Pixel] Loading Google Tag: ${tagId}`);
+    
+    // Initialize dataLayer and gtag
+    window.dataLayer = window.dataLayer || [];
+    if (!window.gtag) {
+      window.gtag = function() {
+        window.dataLayer.push(arguments);
+      };
+      window.gtag('js', new Date());
+    }
+
+    // Load script
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${tagId}`;
+    script.onload = () => {
+      console.log(`[Pixel] Google script loaded`);
+      window.gtag('config', tagId);
+      window.gtag('event', 'conversion', {
+        send_to: tagId,
+        value: value,
+        currency: 'BRL',
+      });
+      console.log(`[Pixel] Google conversion fired with value ${value}`);
+    };
+    script.onerror = () => {
+      console.error(`[Pixel] Failed to load Google script`);
+    };
+    document.head.appendChild(script);
+  };
+
+  // Load and fire Pinterest Tag
+  const loadPinterestTag = (tagId: string, eventName: string, value: number) => {
+    console.log(`[Pixel] Loading Pinterest Tag: ${tagId}`);
+    
+    // Initialize pintrk
+    if (!window.pintrk) {
+      window.pintrk = function() {
+        window.pintrk.queue.push(Array.prototype.slice.call(arguments));
+      };
+      const n: any = window.pintrk;
+      n.queue = [];
+      n.version = "3.0";
+    }
+
+    // Load script
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'https://s.pinimg.com/ct/core.js';
+    script.onload = () => {
+      console.log(`[Pixel] Pinterest script loaded`);
+      window.pintrk('load', tagId);
+      window.pintrk('page');
+      window.pintrk('track', eventName || 'checkout', {
+        value: value,
+        currency: 'BRL',
+      });
+      console.log(`[Pixel] Pinterest ${eventName} fired with value ${value}`);
+    };
+    script.onerror = () => {
+      console.error(`[Pixel] Failed to load Pinterest script`);
+    };
+    document.head.appendChild(script);
+  };
+
+  // Load and fire Taboola Pixel
+  const loadTaboolaPixel = (pixelId: string, eventName: string, value: number) => {
+    console.log(`[Pixel] Loading Taboola Pixel: ${pixelId}`);
+    
+    // Initialize _tfa
+    window._tfa = window._tfa || [];
+    window._tfa.push({ notify: 'event', name: 'page_view', id: pixelId });
+
+    // Load script
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `//cdn.taboola.com/libtrc/unip/${pixelId}/tfa.js`;
+    script.onload = () => {
+      console.log(`[Pixel] Taboola script loaded`);
+      window._tfa.push({ 
+        notify: 'event', 
+        name: eventName || 'purchase',
+        id: pixelId,
+        revenue: value,
+      });
+      console.log(`[Pixel] Taboola ${eventName} fired with value ${value}`);
+    };
+    script.onerror = () => {
+      console.error(`[Pixel] Failed to load Taboola script`);
+    };
+    document.head.appendChild(script);
+  };
+
+  // Fire all tracking pixels with dynamic loading
+  const firePixels = (pixels: PixelInfo[], value: number) => {
+    console.log(`[Pixel] Firing ${pixels.length} pixels with value ${value}`);
+    
+    pixels.forEach((pixel) => {
+      try {
+        switch (pixel.platform) {
+          case "meta":
+            loadMetaPixel(pixel.pixel_id, pixel.event_name, value);
+            break;
+          case "tiktok":
+            loadTikTokPixel(pixel.pixel_id, pixel.event_name, value);
+            break;
+          case "google":
+            loadGoogleTag(pixel.pixel_id, pixel.event_name, value);
+            break;
+          case "pinterest":
+            loadPinterestTag(pixel.pixel_id, pixel.event_name, value);
+            break;
+          case "taboola":
+            loadTaboolaPixel(pixel.pixel_id, pixel.event_name, value);
+            break;
+          default:
+            console.warn(`[Pixel] Unknown platform: ${pixel.platform}`);
+        }
+      } catch (err) {
+        console.error(`[Pixel] Error firing ${pixel.platform} pixel:`, err);
+      }
+    });
+    
+    setPixelsFired(true);
+  };
 
   useEffect(() => {
     if (!slug || !telefone) {
@@ -54,9 +297,9 @@ const EntregaPublica = () => {
         setAlreadyAccessed(data.already_accessed);
         setCountdown(data.product.redirect_delay || 3);
 
-        // Fire pixels if first access
+        // Store pixels for firing
         if (!data.already_accessed && data.pixels?.length > 0) {
-          firePixels(data.pixels, data.product.value || 0);
+          pixelsRef.current = data.pixels;
         }
 
         setLoading(false);
@@ -70,64 +313,16 @@ const EntregaPublica = () => {
     processAccess();
   }, [slug, telefone]);
 
-  // Fire tracking pixels with value
-  const firePixels = (pixels: PixelInfo[], value: number) => {
-    pixels.forEach((pixel) => {
-      try {
-        switch (pixel.platform) {
-          case "meta":
-            if (typeof (window as any).fbq === "function") {
-              (window as any).fbq("track", pixel.event_name || "Purchase", {
-                value: value,
-                currency: "BRL",
-              });
-              console.log(`[Pixel] Meta ${pixel.event_name} fired with value ${value}`);
-            }
-            break;
-          case "tiktok":
-            if (typeof (window as any).ttq === "object") {
-              (window as any).ttq.track(pixel.event_name || "CompletePayment", {
-                value: value,
-                currency: "BRL",
-              });
-              console.log(`[Pixel] TikTok ${pixel.event_name} fired with value ${value}`);
-            }
-            break;
-          case "google":
-            if (typeof (window as any).gtag === "function") {
-              (window as any).gtag("event", "conversion", {
-                send_to: pixel.pixel_id,
-                value: value,
-                currency: "BRL",
-              });
-              console.log(`[Pixel] Google conversion fired with value ${value}`);
-            }
-            break;
-          case "pinterest":
-            if (typeof (window as any).pintrk === "function") {
-              (window as any).pintrk("track", pixel.event_name || "checkout", {
-                value: value,
-                currency: "BRL",
-              });
-              console.log(`[Pixel] Pinterest ${pixel.event_name} fired with value ${value}`);
-            }
-            break;
-          case "taboola":
-            if (typeof (window as any)._tfa === "object") {
-              (window as any)._tfa.push({ 
-                notify: "event", 
-                name: pixel.event_name || "purchase",
-                revenue: value,
-              });
-              console.log(`[Pixel] Taboola ${pixel.event_name} fired with value ${value}`);
-            }
-            break;
-        }
-      } catch (err) {
-        console.error(`Error firing ${pixel.platform} pixel:`, err);
-      }
-    });
-  };
+  // Fire pixels after component is mounted and ready
+  useEffect(() => {
+    if (!loading && !error && product && pixelsRef.current.length > 0 && !pixelsFired) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        firePixels(pixelsRef.current, product.value || 0);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, error, product, pixelsFired]);
 
   // Countdown and redirect
   useEffect(() => {
