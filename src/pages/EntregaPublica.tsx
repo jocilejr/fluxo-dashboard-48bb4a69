@@ -46,28 +46,13 @@ const EntregaPublica = () => {
   const [pixelsFired, setPixelsFired] = useState(false);
   const pixelsRef = useRef<PixelInfo[]>([]);
 
-  // Load and fire Meta Pixel
+  // Load and fire Meta Pixel using official implementation
   const loadMetaPixel = (pixelId: string, eventName: string, value: number) => {
-    console.log(`[Pixel] Loading Meta Pixel: ${pixelId}`);
+    console.log(`[Pixel] Loading Meta Pixel: ${pixelId}, event: ${eventName}, value: ${value}`);
     
-    // Initialize fbq function
-    if (!window.fbq) {
-      const n: any = window.fbq = function() {
-        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-      };
-      if (!window._fbq) window._fbq = n;
-      n.push = n;
-      n.loaded = true;
-      n.version = '2.0';
-      n.queue = [];
-    }
-
-    // Load script
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = 'https://connect.facebook.net/en_US/fbevents.js';
-    script.onload = () => {
-      console.log(`[Pixel] Meta script loaded`);
+    // Check if fbq already exists and is functional
+    if (window.fbq && typeof window.fbq === 'function') {
+      console.log(`[Pixel] fbq already exists, firing event directly`);
       window.fbq('init', pixelId);
       window.fbq('track', 'PageView');
       window.fbq('track', eventName || 'Purchase', {
@@ -75,19 +60,45 @@ const EntregaPublica = () => {
         currency: 'BRL',
       });
       console.log(`[Pixel] Meta ${eventName} fired with value ${value}`);
-    };
-    script.onerror = () => {
-      console.error(`[Pixel] Failed to load Meta script`);
-    };
-    document.head.appendChild(script);
+      return;
+    }
 
-    // Also fire via noscript img fallback for reliability
+    // Official Meta Pixel base code
+    (function(f: any, b: Document, e: string, v: string) {
+      let n: any, t: any, s: any;
+      if (f.fbq) return;
+      n = f.fbq = function() {
+        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+      };
+      if (!f._fbq) f._fbq = n;
+      n.push = n;
+      n.loaded = !0;
+      n.version = '2.0';
+      n.queue = [];
+      t = b.createElement(e);
+      t.async = !0;
+      t.src = v;
+      s = b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t, s);
+    })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+
+    // Initialize and track after script setup
+    window.fbq('init', pixelId);
+    window.fbq('track', 'PageView');
+    window.fbq('track', eventName || 'Purchase', {
+      value: value,
+      currency: 'BRL',
+    });
+    console.log(`[Pixel] Meta ${eventName} queued with value ${value}`);
+
+    // Also fire via img tag for maximum reliability
     const img = document.createElement('img');
     img.height = 1;
     img.width = 1;
     img.style.display = 'none';
-    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=${eventName || 'Purchase'}&cd[value]=${value}&cd[currency]=BRL&noscript=1`;
+    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=${encodeURIComponent(eventName || 'Purchase')}&cd[value]=${value}&cd[currency]=BRL&noscript=1`;
     document.body.appendChild(img);
+    console.log(`[Pixel] Meta img fallback fired for ${pixelId}`);
   };
 
   // Load and fire TikTok Pixel
