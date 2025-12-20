@@ -570,6 +570,8 @@ export type Database = {
       }
       groups: {
         Row: {
+          active_link: string | null
+          batch_number: number | null
           created_at: string
           current_members: number
           id: string
@@ -577,8 +579,12 @@ export type Database = {
           total_entries: number
           total_exits: number
           updated_at: string
+          whatsapp_id: string | null
+          whatsapp_url: string | null
         }
         Insert: {
+          active_link?: string | null
+          batch_number?: number | null
           created_at?: string
           current_members?: number
           id?: string
@@ -586,8 +592,12 @@ export type Database = {
           total_entries?: number
           total_exits?: number
           updated_at?: string
+          whatsapp_id?: string | null
+          whatsapp_url?: string | null
         }
         Update: {
+          active_link?: string | null
+          batch_number?: number | null
           created_at?: string
           current_members?: number
           id?: string
@@ -595,6 +605,8 @@ export type Database = {
           total_entries?: number
           total_exits?: number
           updated_at?: string
+          whatsapp_id?: string | null
+          whatsapp_url?: string | null
         }
         Relationships: []
       }

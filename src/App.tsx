@@ -18,6 +18,7 @@ import Entrega from "./pages/Entrega";
 import EntregaPublica from "./pages/EntregaPublica";
 import LinksUteis from "./pages/LinksUteis";
 import Clientes from "./pages/Clientes";
+import Grupos from "./pages/Grupos";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -156,6 +157,16 @@ const App = () => {
               <ProtectedRoute>
                 <ResponsiveLayout mobileComponent="clientes">
                   <Clientes />
+                </ResponsiveLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/grupos"
+            element={
+              <ProtectedRoute>
+                <ResponsiveLayout>
+                  <Grupos />
                 </ResponsiveLayout>
               </ProtectedRoute>
             }
