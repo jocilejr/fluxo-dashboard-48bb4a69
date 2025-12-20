@@ -14,6 +14,7 @@ import {
   Package,
   Link,
   Users,
+  UsersRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +35,7 @@ const navItems: NavItem[] = [
   { title: "Transações", icon: List, path: "/transacoes", permissionKey: "transacoes" },
   { title: "Recuperação", icon: RefreshCcw, path: "/recuperacao", permissionKey: "recuperacao", desktopOnly: true },
   { title: "Clientes", icon: Users, path: "/clientes", permissionKey: "clientes", desktopOnly: true },
+  { title: "Grupos", icon: UsersRound, path: "/grupos", permissionKey: "grupos", desktopOnly: true },
   { title: "Entrega", icon: Package, path: "/entrega", permissionKey: "entrega", desktopOnly: true },
   { title: "Quadros", icon: Brain, path: "/projetos", permissionKey: "projetos", desktopOnly: true },
   { title: "Typebots", icon: Bot, path: "/typebots", permissionKey: "typebots", adminOnly: true, desktopOnly: true },
