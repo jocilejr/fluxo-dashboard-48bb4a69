@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
@@ -7,6 +7,17 @@ import { GroupsTable } from "@/components/grupos/GroupsTable";
 import { GroupComparisonChart } from "@/components/grupos/GroupComparisonChart";
 import { GroupHistoryModal } from "@/components/grupos/GroupHistoryModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 interface Group {
   id: string;
   name: string;
@@ -22,7 +33,26 @@ interface Group {
 
 export default function Grupos() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
   const queryClient = useQueryClient();
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (groupId: string) => {
+      const { error } = await supabase
+        .from("groups")
+        .delete()
+        .eq("id", groupId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["groups-page"] });
+      toast.success("Grupo removido com sucesso");
+      setGroupToDelete(null);
+    },
+    onError: () => {
+      toast.error("Erro ao remover grupo");
+    },
+  });
 
   const { data: groups, isLoading } = useQuery({
     queryKey: ["groups-page"],
@@ -158,7 +188,8 @@ export default function Grupos() {
       {/* Table */}
       <GroupsTable 
         groups={groups || []} 
-        onViewHistory={(group) => setSelectedGroup(group)} 
+        onViewHistory={(group) => setSelectedGroup(group)}
+        onDeleteGroup={(group) => setGroupToDelete(group)}
       />
 
       {/* History Modal */}
@@ -169,6 +200,28 @@ export default function Grupos() {
           onOpenChange={(open) => !open && setSelectedGroup(null)}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!groupToDelete} onOpenChange={(open) => !open && setGroupToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover grupo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover o grupo "{groupToDelete?.name}"? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => groupToDelete && deleteGroupMutation.mutate(groupToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

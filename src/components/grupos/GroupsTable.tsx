@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ExternalLink, History, TrendingUp, TrendingDown, Search } from "lucide-react";
+import { ExternalLink, History, TrendingUp, TrendingDown, Search, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +29,10 @@ interface Group {
 interface GroupsTableProps {
   groups: Group[];
   onViewHistory: (group: Group) => void;
+  onDeleteGroup: (group: Group) => void;
 }
 
-export function GroupsTable({ groups, onViewHistory }: GroupsTableProps) {
+export function GroupsTable({ groups, onViewHistory, onDeleteGroup }: GroupsTableProps) {
   const [search, setSearch] = useState("");
 
   const filteredGroups = groups.filter((group) =>
@@ -162,6 +163,15 @@ export function GroupsTable({ groups, onViewHistory }: GroupsTableProps) {
                             </a>
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onDeleteGroup(group)}
+                          title="Remover grupo"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
