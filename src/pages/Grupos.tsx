@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
@@ -7,7 +7,6 @@ import { GroupsTable } from "@/components/grupos/GroupsTable";
 import { GroupComparisonChart } from "@/components/grupos/GroupComparisonChart";
 import { GroupHistoryModal } from "@/components/grupos/GroupHistoryModal";
 import { Skeleton } from "@/components/ui/skeleton";
-
 interface Group {
   id: string;
   name: string;
@@ -23,6 +22,7 @@ interface Group {
 
 export default function Grupos() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: groups, isLoading } = useQuery({
     queryKey: ["groups-page"],
@@ -36,6 +36,23 @@ export default function Grupos() {
     },
   });
 
+  // Real-time subscription for automatic updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('groups-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'groups' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['groups-page'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
   // Calculate totals
   const stats = groups?.reduce(
     (acc, group) => ({

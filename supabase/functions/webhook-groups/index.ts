@@ -18,32 +18,14 @@ Deno.serve(async (req) => {
     const payload = await req.json()
     console.log('Group webhook received:', JSON.stringify(payload))
 
-    // Get Brazil date for history logging
-    const getBrazilDate = () => {
-      const now = new Date()
-      const brazilOffset = -3 * 60 // UTC-3 in minutes
-      const brazilTime = new Date(now.getTime() + brazilOffset * 60000)
-      return brazilTime.toISOString().split('T')[0]
-    }
-
     // Handle batch mode - multiple groups at once
     if (payload.batch && Array.isArray(payload.groups)) {
       console.log(`Processing batch of ${payload.groups.length} groups`)
-      const today = getBrazilDate()
       
       for (const group of payload.groups) {
-        const { 
-          whatsapp_id, 
-          group_name, 
-          batch_number, 
-          participants, 
-          whatsapp_url, 
-          active_link, 
-          entries, 
-          exits 
-        } = group
+        const { whatsapp_id, name, current_members, entries, exits } = group
 
-        if (!group_name && !whatsapp_id) {
+        if (!name && !whatsapp_id) {
           console.log('Skipping group without name or whatsapp_id')
           continue
         }
@@ -60,11 +42,11 @@ Deno.serve(async (req) => {
           existingGroup = data
         }
         
-        if (!existingGroup && group_name) {
+        if (!existingGroup && name) {
           const { data } = await supabase
             .from('groups')
             .select('*')
-            .eq('name', group_name)
+            .eq('name', name)
             .single()
           existingGroup = data
         }
@@ -74,14 +56,11 @@ Deno.serve(async (req) => {
           const { error: updateError } = await supabase
             .from('groups')
             .update({
-              name: group_name || existingGroup.name,
-              current_members: participants ?? existingGroup.current_members,
+              name: name || existingGroup.name,
+              current_members: current_members ?? existingGroup.current_members,
               total_entries: entries ?? existingGroup.total_entries,
               total_exits: exits ?? existingGroup.total_exits,
               whatsapp_id: whatsapp_id || existingGroup.whatsapp_id,
-              batch_number: batch_number ?? existingGroup.batch_number,
-              whatsapp_url: whatsapp_url || existingGroup.whatsapp_url,
-              active_link: active_link !== undefined ? active_link : existingGroup.active_link,
               updated_at: new Date().toISOString(),
             })
             .eq('id', existingGroup.id)
@@ -89,37 +68,24 @@ Deno.serve(async (req) => {
           if (updateError) {
             console.error('Error updating group:', updateError)
           } else {
-            console.log('Group updated:', group_name || whatsapp_id)
-            
-            // Upsert daily history
-            await upsertDailyHistory(supabase, existingGroup.id, today, entries || 0, exits || 0, participants ?? existingGroup.current_members)
+            console.log('Group updated:', name || whatsapp_id)
           }
         } else {
           // Create new group
-          const { data: newGroup, error: insertError } = await supabase
+          const { error: insertError } = await supabase
             .from('groups')
             .insert({
-              name: group_name || `Grupo ${whatsapp_id}`,
-              current_members: participants || 0,
+              name: name || `Grupo ${whatsapp_id}`,
+              current_members: current_members || 0,
               total_entries: entries || 0,
               total_exits: exits || 0,
               whatsapp_id,
-              batch_number: batch_number || 0,
-              whatsapp_url,
-              active_link,
             })
-            .select()
-            .single()
 
           if (insertError) {
             console.error('Error creating group:', insertError)
           } else {
-            console.log('Group created:', group_name || whatsapp_id)
-            
-            // Create initial history entry
-            if (newGroup) {
-              await upsertDailyHistory(supabase, newGroup.id, today, entries || 0, exits || 0, participants || 0)
-            }
+            console.log('Group created:', name || whatsapp_id)
           }
         }
       }
@@ -130,12 +96,12 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Handle single group mode (legacy support)
-    const { group_name, event_type, current_members, entries, exits, whatsapp_id, batch_number, whatsapp_url, active_link } = payload
+    // Handle single group mode
+    const { whatsapp_id, name, current_members, entries, exits } = payload
 
-    if (!group_name && !whatsapp_id) {
+    if (!name && !whatsapp_id) {
       return new Response(
-        JSON.stringify({ error: 'group_name or whatsapp_id is required' }),
+        JSON.stringify({ error: 'name or whatsapp_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -152,56 +118,27 @@ Deno.serve(async (req) => {
       existingGroup = data
     }
     
-    if (!existingGroup && group_name) {
+    if (!existingGroup && name) {
       const { data } = await supabase
         .from('groups')
         .select('*')
-        .eq('name', group_name)
+        .eq('name', name)
         .single()
       existingGroup = data
     }
 
-    const today = getBrazilDate()
-
     if (existingGroup) {
       // Update existing group
-      const updateData: Record<string, any> = {
-        updated_at: new Date().toISOString(),
-      }
-
-      // Update new fields if provided
-      if (whatsapp_id) updateData.whatsapp_id = whatsapp_id
-      if (batch_number !== undefined) updateData.batch_number = batch_number
-      if (whatsapp_url) updateData.whatsapp_url = whatsapp_url
-      if (active_link !== undefined) updateData.active_link = active_link
-
-      // If entries/exits/current_members are provided as numbers, SET them directly (replace)
-      if (entries !== undefined) {
-        updateData.total_entries = entries
-      }
-
-      if (exits !== undefined) {
-        updateData.total_exits = exits
-      }
-
-      if (current_members !== undefined) {
-        updateData.current_members = current_members
-      }
-
-      // event_type "entry" or "exit" increments/decrements by 1
-      if (event_type === 'entry') {
-        updateData.total_entries = (existingGroup.total_entries || 0) + 1
-        updateData.current_members = (existingGroup.current_members || 0) + 1
-      }
-
-      if (event_type === 'exit') {
-        updateData.total_exits = (existingGroup.total_exits || 0) + 1
-        updateData.current_members = Math.max(0, (existingGroup.current_members || 0) - 1)
-      }
-
       const { error: updateError } = await supabase
         .from('groups')
-        .update(updateData)
+        .update({
+          name: name || existingGroup.name,
+          current_members: current_members ?? existingGroup.current_members,
+          total_entries: entries ?? existingGroup.total_entries,
+          total_exits: exits ?? existingGroup.total_exits,
+          whatsapp_id: whatsapp_id || existingGroup.whatsapp_id,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', existingGroup.id)
 
       if (updateError) {
@@ -212,30 +149,18 @@ Deno.serve(async (req) => {
         )
       }
 
-      // Log daily statistics history
-      const dailyEntries = entries !== undefined ? entries : (event_type === 'entry' ? 1 : 0)
-      const dailyExits = exits !== undefined ? exits : (event_type === 'exit' ? 1 : 0)
-      const finalMembers = updateData.current_members ?? existingGroup.current_members
-
-      await upsertDailyHistory(supabase, existingGroup.id, today, dailyEntries, dailyExits, finalMembers, event_type)
-
-      console.log('Group updated successfully:', group_name || whatsapp_id)
+      console.log('Group updated successfully:', name || whatsapp_id)
     } else {
       // Create new group
-      const { data: newGroup, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('groups')
         .insert({
-          name: group_name || `Grupo ${whatsapp_id}`,
+          name: name || `Grupo ${whatsapp_id}`,
           current_members: current_members || 0,
           total_entries: entries || 0,
           total_exits: exits || 0,
           whatsapp_id,
-          batch_number: batch_number || 0,
-          whatsapp_url,
-          active_link,
         })
-        .select()
-        .single()
 
       if (insertError) {
         console.error('Error creating group:', insertError)
@@ -245,20 +170,7 @@ Deno.serve(async (req) => {
         )
       }
 
-      // Create initial history entry
-      if (newGroup) {
-        await supabase
-          .from('group_statistics_history')
-          .insert({
-            group_id: newGroup.id,
-            date: today,
-            entries: entries || 0,
-            exits: exits || 0,
-            current_members: current_members || 0,
-          })
-      }
-
-      console.log('Group created successfully:', group_name || whatsapp_id)
+      console.log('Group created successfully:', name || whatsapp_id)
     }
 
     return new Response(
@@ -275,50 +187,3 @@ Deno.serve(async (req) => {
     )
   }
 })
-
-// Helper function to upsert daily history
-async function upsertDailyHistory(
-  supabase: any, 
-  groupId: string, 
-  date: string, 
-  entries: number, 
-  exits: number, 
-  currentMembers: number,
-  eventType?: string
-) {
-  const { data: existingHistory } = await supabase
-    .from('group_statistics_history')
-    .select('*')
-    .eq('group_id', groupId)
-    .eq('date', date)
-    .single()
-
-  if (existingHistory) {
-    // For event-based updates, accumulate. For batch updates, replace.
-    const newEntries = eventType === 'entry' 
-      ? existingHistory.entries + 1 
-      : (eventType ? existingHistory.entries : entries)
-    const newExits = eventType === 'exit' 
-      ? existingHistory.exits + 1 
-      : (eventType ? existingHistory.exits : exits)
-
-    await supabase
-      .from('group_statistics_history')
-      .update({
-        entries: newEntries,
-        exits: newExits,
-        current_members: currentMembers,
-      })
-      .eq('id', existingHistory.id)
-  } else {
-    await supabase
-      .from('group_statistics_history')
-      .insert({
-        group_id: groupId,
-        date: date,
-        entries: entries,
-        exits: exits,
-        current_members: currentMembers,
-      })
-  }
-}
