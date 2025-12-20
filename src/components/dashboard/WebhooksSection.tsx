@@ -168,17 +168,35 @@ function GruposWebhook() {
       </div>
 
       <div className="space-y-2">
-        <PayloadExample title="Entrada no Grupo" payload={{ group_name: "Grupo VIP", event_type: "entry" }} defaultOpen />
-        <PayloadExample title="Saída do Grupo" payload={{ group_name: "Grupo VIP", event_type: "exit" }} />
-        <PayloadExample title="Atualização Completa" payload={{ group_name: "Grupo VIP", current_members: 150, entries: 5, exits: 2 }} />
+        <PayloadExample 
+          title="Atualização Única" 
+          payload={{ 
+            whatsapp_id: "120363402024543243@g.us",
+            name: "Comunidade de Orações #13",
+            current_members: 814,
+            entries: 5,
+            exits: 2
+          }} 
+          defaultOpen 
+        />
+        <PayloadExample 
+          title="Atualização em Lote (batch)" 
+          payload={{ 
+            batch: true,
+            groups: [
+              { whatsapp_id: "120363...", name: "Grupo 1", current_members: 500, entries: 10, exits: 3 },
+              { whatsapp_id: "120364...", name: "Grupo 2", current_members: 300, entries: 5, exits: 1 }
+            ]
+          }} 
+        />
       </div>
 
       <div className="p-4 bg-info/5 border border-info/20 rounded-lg">
         <h5 className="text-xs font-semibold text-info mb-2">Campos Aceitos</h5>
         <div className="text-xs text-muted-foreground space-y-1">
-          <p><strong>Obrigatório:</strong> group_name</p>
-          <p><strong>Evento:</strong> event_type ("entry" ou "exit")</p>
-          <p><strong>Direto:</strong> current_members, entries, exits</p>
+          <p><strong>Identificação:</strong> whatsapp_id (ID único) ou name (nome do grupo)</p>
+          <p><strong>Estatísticas:</strong> current_members, entries (total entradas), exits (total saídas)</p>
+          <p><strong>Lote:</strong> batch: true + groups: [...] para múltiplos grupos</p>
         </div>
       </div>
     </div>
