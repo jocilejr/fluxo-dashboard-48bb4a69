@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -30,9 +31,21 @@ interface GroupsTableProps {
   groups: Group[];
   onViewHistory: (group: Group) => void;
   onDeleteGroup: (group: Group) => void;
+  selectedGroupIds: string[];
+  onToggleGroup: (groupId: string) => void;
+  onSelectAll: (groupIds: string[]) => void;
+  onClearSelection: () => void;
 }
 
-export function GroupsTable({ groups, onViewHistory, onDeleteGroup }: GroupsTableProps) {
+export function GroupsTable({ 
+  groups, 
+  onViewHistory, 
+  onDeleteGroup,
+  selectedGroupIds,
+  onToggleGroup,
+  onSelectAll,
+  onClearSelection,
+}: GroupsTableProps) {
   const [search, setSearch] = useState("");
 
   const filteredGroups = groups.filter((group) =>
@@ -48,13 +61,31 @@ export function GroupsTable({ groups, onViewHistory, onDeleteGroup }: GroupsTabl
     });
   };
 
+  const allSelected = groups.length > 0 && groups.every((g) => selectedGroupIds.includes(g.id));
+  const someSelected = groups.some((g) => selectedGroupIds.includes(g.id));
+
+  const handleSelectAllToggle = () => {
+    if (allSelected) {
+      onClearSelection();
+    } else {
+      onSelectAll(groups.map((g) => g.id));
+    }
+  };
+
   return (
     <Card className="bg-card border-border">
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <CardTitle className="text-lg font-semibold text-foreground">
-            Todos os Grupos
-          </CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-lg font-semibold text-foreground">
+              Todos os Grupos
+            </CardTitle>
+            {selectedGroupIds.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {selectedGroupIds.length} selecionado{selectedGroupIds.length > 1 ? "s" : ""} para estatísticas
+              </Badge>
+            )}
+          </div>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -71,6 +102,18 @@ export function GroupsTable({ groups, onViewHistory, onDeleteGroup }: GroupsTabl
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={allSelected}
+                    ref={(el) => {
+                      if (el) {
+                        (el as any).indeterminate = someSelected && !allSelected;
+                      }
+                    }}
+                    onCheckedChange={handleSelectAllToggle}
+                    aria-label="Selecionar todos"
+                  />
+                </TableHead>
                 <TableHead>Nome do Grupo</TableHead>
                 <TableHead className="text-center">Envio</TableHead>
                 <TableHead className="text-center">Membros</TableHead>
@@ -84,13 +127,20 @@ export function GroupsTable({ groups, onViewHistory, onDeleteGroup }: GroupsTabl
             <TableBody>
               {filteredGroups.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {search ? "Nenhum grupo encontrado" : "Nenhum grupo cadastrado"}
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredGroups.map((group) => (
-                  <TableRow key={group.id}>
+                  <TableRow key={group.id} className={selectedGroupIds.includes(group.id) ? "bg-primary/5" : ""}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedGroupIds.includes(group.id)}
+                        onCheckedChange={() => onToggleGroup(group.id)}
+                        aria-label={`Selecionar ${group.name}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex flex-col">
                         <span className="text-foreground">{group.name}</span>
