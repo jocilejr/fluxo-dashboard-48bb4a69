@@ -34,8 +34,11 @@ interface MetaAdsInsights {
 }
 
 const Dashboard = () => {
-  const { transactions, isLoading } = useTransactions();
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultDateFilter);
+  const { transactions, isLoading } = useTransactions({
+    startDate: dateFilter.startDate,
+    endDate: dateFilter.endDate,
+  });
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
