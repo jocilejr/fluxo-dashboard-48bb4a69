@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Search, Phone, Copy, MessageCircle, User, AlertTriangle, FileText, Pencil, Trash2, Check, X, Package } from "lucide-react";
+import { Search, Phone, Copy, MessageCircle, User, AlertTriangle, FileText, Pencil, Trash2, Check, X, Package, Receipt } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -147,6 +148,7 @@ interface CustomerDetailsProps {
 }
 
 function CustomerDetails({ customer, onCopy, onWhatsApp, onClose }: CustomerDetailsProps) {
+  const navigate = useNavigate();
   const { events, stats, isLoading, refetch } = useCustomerEvents(customer.normalized_phone, customer.merged_phones);
   const { updateCustomer, deleteTransaction, deleteAbandonedEvent } = useCustomers();
   
@@ -241,6 +243,20 @@ function CustomerDetails({ customer, onCopy, onWhatsApp, onClose }: CustomerDeta
                   </button>
                 )}
               </div>
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (customer.name) params.set('nome', customer.name);
+                  if (customer.display_phone || customer.normalized_phone) {
+                    params.set('telefone', customer.display_phone || customer.normalized_phone);
+                  }
+                  if (customer.document) params.set('cpf', customer.document);
+                  navigate(`/gerar-boleto?${params.toString()}`);
+                }}
+                className="p-3 bg-primary/10 rounded-full text-primary flex-shrink-0"
+              >
+                <Receipt className="h-5 w-5" />
+              </button>
               <button
                 onClick={() => customer.normalized_phone && onWhatsApp(customer.normalized_phone)}
                 className="p-3 bg-success/10 rounded-full text-success flex-shrink-0"

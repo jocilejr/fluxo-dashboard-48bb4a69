@@ -30,8 +30,10 @@ import {
   Trash2,
   Check,
   X,
-  Unlink
+  Unlink,
+  Receipt
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -74,6 +76,7 @@ const getPaymentMethodLabel = (type?: string) => {
 };
 
 function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+  const navigate = useNavigate();
   const { events, stats, isLoading, refetch } = useCustomerEvents(customer.normalized_phone, customer.merged_phones);
   const { updateCustomer, deleteTransaction, deleteAbandonedEvent, deleteCustomerWithData, unlinkPixLink, refetch: refetchCustomers } = useCustomers();
   const [isEditingName, setIsEditingName] = useState(false);
@@ -396,8 +399,25 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
                     </div>
                   </div>
 
-                  {/* Delete Customer Action */}
-                  <div className="pt-4 mt-4 border-t border-border/30">
+                  {/* Actions */}
+                  <div className="pt-4 mt-4 border-t border-border/30 space-y-2">
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-primary/30 text-primary hover:bg-primary/10"
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        if (customer.name) params.set('nome', customer.name);
+                        if (customer.display_phone || customer.normalized_phone) {
+                          params.set('telefone', customer.display_phone || customer.normalized_phone);
+                        }
+                        if (customer.document) params.set('cpf', customer.document);
+                        navigate(`/gerar-boleto?${params.toString()}`);
+                      }}
+                    >
+                      <Receipt className="h-4 w-4 mr-2" />
+                      Gerar Boleto
+                    </Button>
                     <Button 
                       variant="outline"
                       size="sm"
