@@ -96,11 +96,14 @@ const GerarBoleto = () => {
 
     setIsLoading(true);
     try {
+      const normalizedPhone = formatPhone(formData.telefone);
+      const cpfFormatted = formatCPF(formData.cpf);
+      
       const payload = {
         nome: formData.nome.trim(),
-        telefone: formatPhone(formData.telefone),
+        telefone: normalizedPhone,
         Valor: parseFloat(formData.valor),
-        CPF: formatCPF(formData.cpf),
+        CPF: cpfFormatted,
       };
 
       const response = await fetch(webhookUrl, {
@@ -113,6 +116,21 @@ const GerarBoleto = () => {
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Update customer document (CPF) if we have a phone number
+      if (normalizedPhone && cpfFormatted) {
+        const { error: updateError } = await supabase
+          .from("customers")
+          .update({ 
+            document: cpfFormatted,
+            name: formData.nome.trim() || undefined,
+          })
+          .or(`normalized_phone.eq.${normalizedPhone},normalized_phone.like.%${normalizedPhone.slice(-10)}%`);
+        
+        if (updateError) {
+          console.error("Error updating customer document:", updateError);
+        }
       }
 
       toast.success("Boleto gerado com sucesso!");
