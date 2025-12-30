@@ -4,12 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Globe, Save, Loader2, AlertCircle, CheckCircle2, MessageSquare } from "lucide-react";
+import { Globe, Save, Loader2, AlertCircle, CheckCircle2, MessageSquare, Link } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const DomainSettings = () => {
   const [customDomain, setCustomDomain] = useState("");
+  const [globalRedirectUrl, setGlobalRedirectUrl] = useState("");
   const [linkMessageTemplate, setLinkMessageTemplate] = useState("Muito obrigada pela contribuição meu bem, vou deixar aqui o seu link de acesso 👇\n\n{link}");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,6 +34,7 @@ const DomainSettings = () => {
 
       if (data) {
         setCustomDomain(data.custom_domain || "");
+        setGlobalRedirectUrl((data as any).global_redirect_url || "");
         setLinkMessageTemplate(data.link_message_template || "Muito obrigada pela contribuição meu bem, vou deixar aqui o seu link de acesso 👇\n\n{link}");
         setSettingsId(data.id);
       }
@@ -57,9 +59,10 @@ const DomainSettings = () => {
           .from("delivery_settings")
           .update({ 
             custom_domain: cleanDomain || null, 
+            global_redirect_url: globalRedirectUrl.trim() || null,
             link_message_template: linkMessageTemplate,
             updated_at: new Date().toISOString() 
-          })
+          } as any)
           .eq("id", settingsId);
 
         if (error) throw error;
@@ -68,8 +71,9 @@ const DomainSettings = () => {
           .from("delivery_settings")
           .insert({ 
             custom_domain: cleanDomain || null,
+            global_redirect_url: globalRedirectUrl.trim() || null,
             link_message_template: linkMessageTemplate
-          })
+          } as any)
           .select()
           .single();
 
@@ -97,6 +101,42 @@ const DomainSettings = () => {
 
   return (
     <div className="space-y-6">
+      {/* URL de Redirecionamento Global */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link className="h-5 w-5" />
+            URL de Redirecionamento Global
+          </CardTitle>
+          <CardDescription>
+            Configure a URL padrão de redirecionamento para todos os produtos (produtos podem ter URL individual)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="globalRedirectUrl">URL de Redirecionamento *</Label>
+            <Input
+              id="globalRedirectUrl"
+              value={globalRedirectUrl}
+              onChange={(e) => setGlobalRedirectUrl(e.target.value)}
+              placeholder="https://wa.me/5511999999999"
+            />
+            <p className="text-xs text-muted-foreground">
+              URL para onde o usuário será redirecionado após o delay. Produtos sem URL própria usarão esta.
+            </p>
+          </div>
+
+          {globalRedirectUrl && (
+            <div className="flex items-center gap-2 p-3 bg-success/10 rounded-lg border border-success/20">
+              <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+              <p className="text-xs text-success">
+                <strong>Redirecionamento global ativo:</strong> {globalRedirectUrl}
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Mensagem do Link */}
       <Card>
         <CardHeader>

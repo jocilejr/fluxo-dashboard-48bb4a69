@@ -52,6 +52,13 @@ serve(async (req) => {
       .select("*")
       .eq("is_active", true);
 
+    // Get global settings for fallback redirect URL
+    const { data: globalSettings } = await supabase
+      .from("delivery_settings")
+      .select("global_redirect_url")
+      .limit(1)
+      .maybeSingle();
+
     // Check if phone already accessed this product
     const { data: existingAccess } = await supabase
       .from("delivery_accesses")
@@ -60,8 +67,8 @@ serve(async (req) => {
       .eq("phone", normalizedPhone)
       .maybeSingle();
 
-    // Use redirect_url from product
-    const redirectUrl = product.redirect_url || "";
+    // Use product redirect_url, fallback to global
+    const redirectUrl = product.redirect_url || globalSettings?.global_redirect_url || "";
 
     if (existingAccess) {
       console.log(`[delivery-access] Phone ${normalizedPhone} already accessed product ${product.name}`);
