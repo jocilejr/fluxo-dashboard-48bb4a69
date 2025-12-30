@@ -47,7 +47,6 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
     whatsapp_number: "",
     whatsapp_message: "",
     delivery_webhook_url: "",
-    redirect_url: "",
     page_title: "Preparando sua entrega...",
     page_message: "Você será redirecionado em instantes",
     page_logo: "",
@@ -64,7 +63,6 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
         whatsapp_number: product.whatsapp_number,
         whatsapp_message: product.whatsapp_message || "",
         delivery_webhook_url: product.delivery_webhook_url || "",
-        redirect_url: product.redirect_url || "",
         page_title: product.page_title,
         page_message: product.page_message,
         page_logo: product.page_logo || "",
@@ -79,7 +77,6 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
         whatsapp_number: "",
         whatsapp_message: "",
         delivery_webhook_url: "",
-        redirect_url: "",
         page_title: "Preparando sua entrega...",
         page_message: "Você será redirecionado em instantes",
         page_logo: "",
@@ -113,7 +110,6 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
         ...formData,
         whatsapp_message: formData.whatsapp_message || null,
         delivery_webhook_url: formData.delivery_webhook_url || null,
-        redirect_url: formData.redirect_url || null,
         page_logo: formData.page_logo || null,
       };
 
@@ -146,10 +142,6 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
     e.preventDefault();
     if (!formData.name || !formData.slug) {
       toast.error("Preencha os campos obrigatórios");
-      return;
-    }
-    if (!formData.redirect_url) {
-      toast.error("URL de redirecionamento é obrigatória");
       return;
     }
     saveMutation.mutate();
@@ -196,21 +188,6 @@ const ProductForm = ({ open, onClose, product }: ProductFormProps) => {
                       placeholder="manuscrito-do-arcanjo-miguel"
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="redirect_url">URL de Redirecionamento *</Label>
-                  <Input
-                    id="redirect_url"
-                    value={formData.redirect_url}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, redirect_url: e.target.value }))
-                    }
-                    placeholder="https://wa.me/5511999999999 ou https://seusite.com/obrigado"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    URL para onde o usuário será redirecionado após o delay
-                  </p>
                 </div>
 
                 <div className="space-y-2">
