@@ -35,10 +35,8 @@ interface MetaAdsInsights {
 
 const Dashboard = () => {
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultDateFilter);
-  const { transactions, isLoading } = useTransactions({
-    startDate: dateFilter.startDate,
-    endDate: dateFilter.endDate,
-  });
+  // Fetch all transactions - filtering is done in frontend to properly handle paid_at vs created_at
+  const { transactions, isLoading } = useTransactions();
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
