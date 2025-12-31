@@ -56,23 +56,12 @@ export function useTransactions(options?: UseTransactionsOptions) {
   const { data: transactions, refetch, isLoading } = useQuery({
     queryKey: ["transactions", options?.startDate?.toISOString(), options?.endDate?.toISOString()],
     queryFn: async () => {
-      let query = supabase
+      // Fetch all transactions - filtering will be done in the frontend
+      // to properly handle paid_at vs created_at based on status
+      const { data, error } = await supabase
         .from("transactions")
         .select("*")
         .order("created_at", { ascending: false });
-
-      // Apply date filter if provided
-      if (options?.startDate) {
-        query = query.gte("created_at", options.startDate.toISOString());
-      }
-      if (options?.endDate) {
-        // Add 1 day to include the entire end date
-        const endOfDay = new Date(options.endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        query = query.lte("created_at", endOfDay.toISOString());
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       return data as Transaction[];
