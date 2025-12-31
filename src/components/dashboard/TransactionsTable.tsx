@@ -106,9 +106,16 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   const [templateSettingsOpen, setTemplateSettingsOpen] = useState(false);
   const [selectedBoleto, setSelectedBoleto] = useState<Transaction | null>(null);
   
+  // Helper to get current date in Brazil timezone
+  const getBrazilNow = useCallback((): Date => {
+    const brazilDateStr = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+    return new Date(brazilDateStr);
+  }, []);
+
   // Transaction date filter state
   const [dateFilter, setDateFilter] = useState<TransactionDateFilter>(() => {
-    const now = new Date();
+    const brazilDateStr = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+    const now = new Date(brazilDateStr);
     return {
       type: "today",
       startDate: startOfDay(now),
@@ -131,7 +138,7 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   });
 
   const handleDatePreset = (type: TransactionDateFilterType) => {
-    const now = new Date();
+    const now = getBrazilNow();
     let startDate: Date;
     let endDate = endOfDay(now);
 
@@ -168,14 +175,28 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
     }
   };
 
-  // Filter transactions by date first
+  // Filter transactions by date first using Brazil timezone (same logic as Dashboard)
   // For paid transactions, use paid_at date; for others, use created_at
   const dateFilteredTransactions = useMemo(() => {
+    const transactionToBrazilDate = (utcDateStr: string) => {
+      return new Date(utcDateStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    };
+    
+    const extractDateParts = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const startDateStr = extractDateParts(dateFilter.startDate);
+    const endDateStr = extractDateParts(dateFilter.endDate);
+    
     return transactions.filter((t) => {
       // For paid transactions, use paid_at if available, otherwise use created_at
       const dateStr = t.status === "pago" && t.paid_at ? t.paid_at : t.created_at;
-      const date = new Date(dateStr);
-      return isWithinInterval(date, { start: dateFilter.startDate, end: dateFilter.endDate });
+      const transactionDateStr = transactionToBrazilDate(dateStr);
+      return transactionDateStr >= startDateStr && transactionDateStr <= endDateStr;
     });
   }, [transactions, dateFilter]);
 
