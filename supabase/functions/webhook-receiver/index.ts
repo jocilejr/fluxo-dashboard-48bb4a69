@@ -27,22 +27,46 @@ interface PushSubscription {
   auth: string;
 }
 
-interface WirePusherTemplate {
-  event_type: string;
-  title: string;
-  message: string;
-  notification_type: string;
-  is_active: boolean;
-}
+// ========== UTILITY FUNCTIONS ==========
 
 function normalizePhone(phone?: string): string | undefined {
   if (!phone) return undefined;
-  return phone.replace(/^\+/, '');
+  return phone.replace(/^\+/, '').replace(/\D/g, '');
 }
 
 function normalizeExternalId(externalId?: string): string | undefined {
   if (!externalId) return undefined;
   return externalId.replace(/[\s.\-\/]/g, '');
+}
+
+function getBrazilDate(): Date {
+  const now = new Date();
+  const utcOffset = now.getTimezoneOffset() * 60000;
+  const brazilOffset = -3 * 60 * 60 * 1000;
+  return new Date(now.getTime() + utcOffset + brazilOffset);
+}
+
+function isWithinWorkingHours(startHour: number, endHour: number): boolean {
+  const brazilDate = getBrazilDate();
+  const currentHour = brazilDate.getHours();
+  return currentHour >= startHour && currentHour < endHour;
+}
+
+function getGreeting(): string {
+  const brazilDate = getBrazilDate();
+  const hour = brazilDate.getHours();
+  
+  if (hour >= 6 && hour < 12) return "Bom dia";
+  if (hour >= 12 && hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function formatMessage(template: string, data: Record<string, string>): string {
+  let message = template;
+  for (const [key, value] of Object.entries(data)) {
+    message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+  }
+  return message;
 }
 
 // Base64 URL helpers
@@ -60,7 +84,7 @@ function base64UrlDecode(str: string): Uint8Array {
   return new Uint8Array([...binary].map(c => c.charCodeAt(0)));
 }
 
-// Replace template variables
+// Replace template variables for notifications
 function replaceTemplateVariables(
   text: string,
   data: { customer_name?: string; amount: number; type: string }
@@ -77,30 +101,24 @@ function replaceTemplateVariables(
     .replace(/{tipo}/g, typeLabel);
 }
 
-// Send WirePusher notification
+// ========== WIREPUSHER FUNCTIONS ==========
+
 async function sendWirePusherNotification(
   supabase: any,
   eventType: string,
   transactionData: { customer_name?: string; amount: number; type: string }
 ): Promise<void> {
   try {
-    // Get WirePusher settings
     const { data: settings, error: settingsError } = await supabase
       .from('wirepusher_settings')
       .select('device_id, is_enabled')
       .maybeSingle();
 
-    if (settingsError) {
-      console.log('[WirePusher] Error fetching settings:', settingsError);
+    if (settingsError || !settings?.is_enabled || !settings?.device_id) {
+      console.log('[WirePusher] Disabled or not configured');
       return;
     }
 
-    if (!settings?.is_enabled || !settings?.device_id) {
-      console.log('[WirePusher] Disabled or no device_id configured');
-      return;
-    }
-
-    // Get template for this event type
     const { data: template, error: templateError } = await supabase
       .from('wirepusher_notification_templates')
       .select('*')
@@ -108,34 +126,24 @@ async function sendWirePusherNotification(
       .eq('is_active', true)
       .maybeSingle();
 
-    if (templateError) {
-      console.log('[WirePusher] Error fetching template:', templateError);
-      return;
-    }
-
-    if (!template) {
+    if (templateError || !template) {
       console.log(`[WirePusher] No active template for event: ${eventType}`);
       return;
     }
 
-    // Replace variables in template
     const title = replaceTemplateVariables(template.title, transactionData);
     const message = replaceTemplateVariables(template.message, transactionData);
 
-    // Build WirePusher URL
     const url = new URL('https://wirepusher.com/send');
     url.searchParams.set('id', settings.device_id);
     url.searchParams.set('title', title);
     url.searchParams.set('message', message);
     url.searchParams.set('type', template.notification_type);
 
-    console.log(`[WirePusher] Sending notification: ${url.toString()}`);
-
     const response = await fetch(url.toString());
     
     if (!response.ok) {
-      const text = await response.text();
-      console.error('[WirePusher] Failed:', response.status, text);
+      console.error('[WirePusher] Failed:', response.status);
       return;
     }
 
@@ -145,12 +153,12 @@ async function sendWirePusherNotification(
   }
 }
 
-// Get event type for WirePusher based on transaction type and status
 function getWirePusherEventType(type: string, status: string): string {
   return `${type}_${status}`;
 }
 
-// Create VAPID JWT using Web Crypto
+// ========== PUSH NOTIFICATION FUNCTIONS ==========
+
 async function createVapidJwt(
   audience: string,
   subject: string,
@@ -169,11 +177,9 @@ async function createVapidJwt(
   const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
   const unsignedToken = `${headerB64}.${payloadB64}`;
 
-  // Decode the raw private key (32 bytes)
   const privateKeyBytes = base64UrlDecode(privateKeyBase64);
   const publicKeyBytes = base64UrlDecode(publicKeyBase64);
   
-  // Create JWK from raw keys
   const jwk = {
     kty: 'EC',
     crv: 'P-256',
@@ -182,7 +188,6 @@ async function createVapidJwt(
     d: base64UrlEncode(privateKeyBytes),
   };
 
-  // Import private key as JWK
   const privateKey = await crypto.subtle.importKey(
     'jwk',
     jwk,
@@ -191,7 +196,6 @@ async function createVapidJwt(
     ['sign']
   );
 
-  // Sign the token
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
     privateKey,
@@ -202,7 +206,6 @@ async function createVapidJwt(
   return `${unsignedToken}.${signatureB64}`;
 }
 
-// Send push notification with VAPID auth
 async function sendPushNotification(
   subscription: PushSubscription,
   payload: object,
@@ -212,8 +215,6 @@ async function sendPushNotification(
   try {
     const endpoint = new URL(subscription.endpoint);
     const audience = `${endpoint.protocol}//${endpoint.host}`;
-    
-    console.log('[Push] Creating VAPID JWT for:', audience);
     
     const jwt = await createVapidJwt(
       audience,
@@ -236,8 +237,7 @@ async function sendPushNotification(
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      console.error('[Push] Failed:', response.status, text);
+      console.error('[Push] Failed:', response.status);
       return false;
     }
 
@@ -267,12 +267,7 @@ async function sendPushToAllSubscribers(
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth');
 
-  if (error) {
-    console.error('[Push] Error fetching subscriptions:', error);
-    return;
-  }
-
-  if (!subscriptions || subscriptions.length === 0) {
+  if (error || !subscriptions || subscriptions.length === 0) {
     console.log('[Push] No subscriptions found');
     return;
   }
@@ -280,7 +275,6 @@ async function sendPushToAllSubscribers(
   console.log(`[Push] Sending to ${subscriptions.length} subscriber(s)`);
 
   const payload = { title, body, tag };
-  console.log(`[Push] Exact payload being sent:`, JSON.stringify(payload));
   const invalidSubscriptions: string[] = [];
 
   for (const sub of subscriptions) {
@@ -290,15 +284,150 @@ async function sendPushToAllSubscribers(
     }
   }
 
-  // Remove invalid subscriptions (expired or unsubscribed)
   if (invalidSubscriptions.length > 0) {
-    console.log(`[Push] Removing ${invalidSubscriptions.length} invalid subscription(s)`);
     await supabase
       .from('push_subscriptions')
       .delete()
       .in('id', invalidSubscriptions);
   }
 }
+
+// ========== INSTANT PIX/CARD RECOVERY ==========
+
+async function sendInstantPixCardRecovery(
+  supabase: any,
+  transaction: {
+    id: string;
+    customer_name?: string;
+    customer_phone?: string;
+    amount: number;
+    description?: string;
+    type: string;
+  }
+): Promise<void> {
+  try {
+    console.log('[InstantRecovery] Checking if should send PIX/Card recovery...');
+    
+    // Check if phone exists
+    if (!transaction.customer_phone) {
+      console.log('[InstantRecovery] No customer phone, skipping');
+      return;
+    }
+
+    // Get Evolution settings
+    const { data: evolutionSettings, error: settingsError } = await supabase
+      .from('evolution_api_settings')
+      .select('*')
+      .limit(1)
+      .maybeSingle();
+
+    if (settingsError || !evolutionSettings) {
+      console.log('[InstantRecovery] No Evolution settings found');
+      return;
+    }
+
+    // Check if active and PIX/Card recovery is enabled
+    if (!evolutionSettings.is_active) {
+      console.log('[InstantRecovery] Evolution API not active');
+      return;
+    }
+
+    if (!evolutionSettings.pix_card_recovery_enabled) {
+      console.log('[InstantRecovery] PIX/Card recovery not enabled');
+      return;
+    }
+
+    // Check working hours only if enabled
+    if (evolutionSettings.working_hours_enabled) {
+      if (!isWithinWorkingHours(evolutionSettings.working_hours_start, evolutionSettings.working_hours_end)) {
+        console.log('[InstantRecovery] Outside working hours');
+        return;
+      }
+    }
+
+    // Check daily limit
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const { data: todayMessages, error: countError } = await supabase
+      .from('evolution_message_log')
+      .select('id')
+      .gte('created_at', todayStart.toISOString())
+      .eq('status', 'sent');
+
+    if (countError) {
+      console.error('[InstantRecovery] Error counting messages:', countError);
+      return;
+    }
+
+    const sentToday = todayMessages?.length || 0;
+    if (sentToday >= evolutionSettings.daily_limit) {
+      console.log(`[InstantRecovery] Daily limit reached (${sentToday}/${evolutionSettings.daily_limit})`);
+      return;
+    }
+
+    // Check if already sent for this transaction
+    const { data: existingLog } = await supabase
+      .from('evolution_message_log')
+      .select('id')
+      .eq('transaction_id', transaction.id)
+      .eq('message_type', 'pix_card')
+      .limit(1)
+      .maybeSingle();
+
+    if (existingLog) {
+      console.log('[InstantRecovery] Message already sent for this transaction');
+      return;
+    }
+
+    // Get recovery message template
+    const { data: recoverySettings, error: recoveryError } = await supabase
+      .from('pix_card_recovery_settings')
+      .select('message')
+      .limit(1)
+      .maybeSingle();
+
+    if (recoveryError || !recoverySettings?.message) {
+      console.log('[InstantRecovery] No recovery message configured');
+      return;
+    }
+
+    // Format message
+    const firstName = transaction.customer_name?.split(' ')[0] || 'Cliente';
+    const formattedValue = `R$ ${Number(transaction.amount).toFixed(2).replace('.', ',')}`;
+    
+    const message = formatMessage(recoverySettings.message, {
+      nome: transaction.customer_name || 'Cliente',
+      primeiro_nome: firstName,
+      valor: formattedValue,
+      produto: transaction.description || 'Produto',
+      saudação: getGreeting(),
+    });
+
+    console.log(`[InstantRecovery] Sending recovery message to ${transaction.customer_phone}`);
+
+    // Send via evolution-send-message
+    const { data: sendResult, error: sendError } = await supabase.functions.invoke('evolution-send-message', {
+      body: {
+        phone: transaction.customer_phone,
+        message: message,
+        messageType: 'pix_card',
+        transactionId: transaction.id,
+      },
+    });
+
+    if (sendError) {
+      console.error('[InstantRecovery] Error sending message:', sendError);
+      return;
+    }
+
+    console.log('[InstantRecovery] Recovery message sent successfully!', sendResult);
+  } catch (error) {
+    console.error('[InstantRecovery] Unexpected error:', error);
+  }
+}
+
+// ========== MAIN HANDLER ==========
 
 Deno.serve(async (req) => {
   console.log('[webhook-receiver] Request received');
@@ -336,6 +465,7 @@ Deno.serve(async (req) => {
     }
 
     const normalizedIncomingId = normalizeExternalId(payload.external_id);
+    const normalizedPhone = normalizePhone(payload.customer_phone);
 
     // Prepare data for notifications
     const notificationData = {
@@ -344,6 +474,7 @@ Deno.serve(async (req) => {
       type: payload.type,
     };
 
+    // Check for existing transaction
     if (normalizedIncomingId) {
       const { data: transactions, error: fetchError } = await supabase
         .from('transactions')
@@ -366,7 +497,7 @@ Deno.serve(async (req) => {
             paid_at: paidAt,
             customer_name: payload.customer_name || undefined,
             customer_email: payload.customer_email || undefined,
-            customer_phone: normalizePhone(payload.customer_phone) || undefined,
+            customer_phone: normalizedPhone || undefined,
             metadata: payload.metadata,
             updated_at: new Date().toISOString(),
           })
@@ -398,6 +529,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Insert new transaction
     const { data, error } = await supabase
       .from('transactions')
       .insert({
@@ -408,7 +540,7 @@ Deno.serve(async (req) => {
         description: payload.description,
         customer_name: payload.customer_name,
         customer_email: payload.customer_email,
-        customer_phone: normalizePhone(payload.customer_phone),
+        customer_phone: normalizedPhone,
         customer_document: payload.customer_document,
         metadata: { ...(payload.metadata || {}), boleto_url: payload.boleto_url },
         webhook_source: req.headers.get('user-agent') || 'unknown',
@@ -419,11 +551,10 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    console.log('Transaction created:', data.id, 'amount from DB:', data.amount);
+    console.log('Transaction created:', data.id);
 
     const typeLabel = payload.type === 'boleto' ? 'Boleto' : payload.type === 'pix' ? 'PIX' : 'Cartão';
     const amount = `R$ ${Number(data.amount).toFixed(2).replace('.', ',')}`;
-    console.log('Notification amount formatted:', amount);
     
     // Send browser push notification
     await sendPushToAllSubscribers(
@@ -436,6 +567,22 @@ Deno.serve(async (req) => {
     // Send WirePusher notification (mobile)
     const wirePusherEventType = getWirePusherEventType(payload.type, status);
     await sendWirePusherNotification(supabase, wirePusherEventType, notificationData);
+
+    // ===== INSTANT RECOVERY FOR PIX/CARD =====
+    // Only for new transactions with pending status (not pago)
+    if ((payload.type === 'pix' || payload.type === 'cartao') && status !== 'pago') {
+      console.log('[webhook-receiver] PIX/Card pending transaction, triggering instant recovery...');
+      
+      // Run recovery in background (don't await to not delay webhook response)
+      sendInstantPixCardRecovery(supabase, {
+        id: data.id,
+        customer_name: payload.customer_name,
+        customer_phone: normalizedPhone,
+        amount: payload.amount,
+        description: payload.description,
+        type: payload.type,
+      }).catch(err => console.error('[InstantRecovery] Background error:', err));
+    }
 
     return new Response(
       JSON.stringify({ success: true, action: 'created', transaction_id: data.id }),

@@ -22,6 +22,7 @@ interface EvolutionSettings {
   daily_limit: number;
   cron_enabled: boolean;
   cron_interval_minutes: number;
+  working_hours_enabled: boolean;
   working_hours_start: number;
   working_hours_end: number;
 }
@@ -38,6 +39,7 @@ const defaultSettings: EvolutionSettings = {
   daily_limit: 100,
   cron_enabled: false,
   cron_interval_minutes: 60,
+  working_hours_enabled: false,
   working_hours_start: 8,
   working_hours_end: 20,
 };
@@ -115,6 +117,7 @@ export function EvolutionApiSettings() {
             daily_limit: newSettings.daily_limit,
             cron_enabled: newSettings.cron_enabled,
             cron_interval_minutes: newSettings.cron_interval_minutes,
+            working_hours_enabled: newSettings.working_hours_enabled,
             working_hours_start: newSettings.working_hours_start,
             working_hours_end: newSettings.working_hours_end,
           })
@@ -135,6 +138,7 @@ export function EvolutionApiSettings() {
             daily_limit: newSettings.daily_limit,
             cron_enabled: newSettings.cron_enabled,
             cron_interval_minutes: newSettings.cron_interval_minutes,
+            working_hours_enabled: newSettings.working_hours_enabled,
             working_hours_start: newSettings.working_hours_start,
             working_hours_end: newSettings.working_hours_end,
           });
@@ -376,32 +380,49 @@ export function EvolutionApiSettings() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="working_start">Horário de Início</Label>
-              <Input
-                id="working_start"
-                type="number"
-                min="0"
-                max="23"
-                value={settings.working_hours_start}
-                onChange={(e) => setSettings({ ...settings, working_hours_start: parseInt(e.target.value) || 8 })}
-              />
-              <p className="text-xs text-muted-foreground">Hora (0-23)</p>
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <p className="font-medium">Restringir Horário de Envio</p>
+              <p className="text-sm text-muted-foreground">
+                {settings.working_hours_enabled 
+                  ? `Mensagens enviadas apenas entre ${settings.working_hours_start}h e ${settings.working_hours_end}h`
+                  : "Mensagens enviadas 24h por dia"}
+              </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="working_end">Horário de Fim</Label>
-              <Input
-                id="working_end"
-                type="number"
-                min="0"
-                max="23"
-                value={settings.working_hours_end}
-                onChange={(e) => setSettings({ ...settings, working_hours_end: parseInt(e.target.value) || 20 })}
-              />
-              <p className="text-xs text-muted-foreground">Hora (0-23)</p>
-            </div>
+            <Switch
+              checked={settings.working_hours_enabled}
+              onCheckedChange={(checked) => setSettings({ ...settings, working_hours_enabled: checked })}
+            />
           </div>
+
+          {settings.working_hours_enabled && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="working_start">Horário de Início</Label>
+                <Input
+                  id="working_start"
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={settings.working_hours_start}
+                  onChange={(e) => setSettings({ ...settings, working_hours_start: parseInt(e.target.value) || 8 })}
+                />
+                <p className="text-xs text-muted-foreground">Hora (0-23)</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="working_end">Horário de Fim</Label>
+                <Input
+                  id="working_end"
+                  type="number"
+                  min="0"
+                  max="23"
+                  value={settings.working_hours_end}
+                  onChange={(e) => setSettings({ ...settings, working_hours_end: parseInt(e.target.value) || 20 })}
+                />
+                <p className="text-xs text-muted-foreground">Hora (0-23)</p>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-4 pt-2">
             <Switch
@@ -409,7 +430,7 @@ export function EvolutionApiSettings() {
               checked={settings.cron_enabled}
               onCheckedChange={(checked) => setSettings({ ...settings, cron_enabled: checked })}
             />
-            <Label htmlFor="cron_enabled">Executar automaticamente</Label>
+            <Label htmlFor="cron_enabled">Executar automaticamente (CRON)</Label>
             
             {settings.cron_enabled && (
               <div className="flex items-center gap-2">
@@ -425,6 +446,9 @@ export function EvolutionApiSettings() {
               </div>
             )}
           </div>
+          <p className="text-xs text-muted-foreground">
+            PIX/Cartão e Abandonados são recuperados instantaneamente via webhook. CRON é usado apenas para boletos.
+          </p>
         </CardContent>
       </Card>
 

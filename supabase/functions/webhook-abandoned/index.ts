@@ -23,10 +23,180 @@ interface AbandonedEventPayload {
   metadata?: Record<string, any>;
 }
 
+// ========== UTILITY FUNCTIONS ==========
+
 function normalizePhone(phone: string | undefined): string | null {
   if (!phone) return null;
   return phone.replace(/^\+/, '').replace(/\D/g, '');
 }
+
+function getBrazilDate(): Date {
+  const now = new Date();
+  const utcOffset = now.getTimezoneOffset() * 60000;
+  const brazilOffset = -3 * 60 * 60 * 1000;
+  return new Date(now.getTime() + utcOffset + brazilOffset);
+}
+
+function isWithinWorkingHours(startHour: number, endHour: number): boolean {
+  const brazilDate = getBrazilDate();
+  const currentHour = brazilDate.getHours();
+  return currentHour >= startHour && currentHour < endHour;
+}
+
+function getGreeting(): string {
+  const brazilDate = getBrazilDate();
+  const hour = brazilDate.getHours();
+  
+  if (hour >= 6 && hour < 12) return "Bom dia";
+  if (hour >= 12 && hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function formatMessage(template: string, data: Record<string, string>): string {
+  let message = template;
+  for (const [key, value] of Object.entries(data)) {
+    message = message.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+  }
+  return message;
+}
+
+// ========== INSTANT ABANDONED RECOVERY ==========
+
+async function sendInstantAbandonedRecovery(
+  supabase: any,
+  event: {
+    id: string;
+    customer_name?: string;
+    customer_phone?: string;
+    amount?: number;
+    product_name?: string;
+  }
+): Promise<void> {
+  try {
+    console.log('[InstantRecovery] Checking if should send abandoned recovery...');
+    
+    // Check if phone exists
+    if (!event.customer_phone) {
+      console.log('[InstantRecovery] No customer phone, skipping');
+      return;
+    }
+
+    // Get Evolution settings
+    const { data: evolutionSettings, error: settingsError } = await supabase
+      .from('evolution_api_settings')
+      .select('*')
+      .limit(1)
+      .maybeSingle();
+
+    if (settingsError || !evolutionSettings) {
+      console.log('[InstantRecovery] No Evolution settings found');
+      return;
+    }
+
+    // Check if active and abandoned recovery is enabled
+    if (!evolutionSettings.is_active) {
+      console.log('[InstantRecovery] Evolution API not active');
+      return;
+    }
+
+    if (!evolutionSettings.abandoned_recovery_enabled) {
+      console.log('[InstantRecovery] Abandoned recovery not enabled');
+      return;
+    }
+
+    // Check working hours only if enabled
+    if (evolutionSettings.working_hours_enabled) {
+      if (!isWithinWorkingHours(evolutionSettings.working_hours_start, evolutionSettings.working_hours_end)) {
+        console.log('[InstantRecovery] Outside working hours');
+        return;
+      }
+    }
+
+    // Check daily limit
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const { data: todayMessages, error: countError } = await supabase
+      .from('evolution_message_log')
+      .select('id')
+      .gte('created_at', todayStart.toISOString())
+      .eq('status', 'sent');
+
+    if (countError) {
+      console.error('[InstantRecovery] Error counting messages:', countError);
+      return;
+    }
+
+    const sentToday = todayMessages?.length || 0;
+    if (sentToday >= evolutionSettings.daily_limit) {
+      console.log(`[InstantRecovery] Daily limit reached (${sentToday}/${evolutionSettings.daily_limit})`);
+      return;
+    }
+
+    // Check if already sent for this event
+    const { data: existingLog } = await supabase
+      .from('evolution_message_log')
+      .select('id')
+      .eq('abandoned_event_id', event.id)
+      .eq('message_type', 'abandoned')
+      .limit(1)
+      .maybeSingle();
+
+    if (existingLog) {
+      console.log('[InstantRecovery] Message already sent for this event');
+      return;
+    }
+
+    // Get recovery message template
+    const { data: recoverySettings, error: recoveryError } = await supabase
+      .from('abandoned_recovery_settings')
+      .select('message')
+      .limit(1)
+      .maybeSingle();
+
+    if (recoveryError || !recoverySettings?.message) {
+      console.log('[InstantRecovery] No recovery message configured');
+      return;
+    }
+
+    // Format message
+    const firstName = event.customer_name?.split(' ')[0] || 'Cliente';
+    const formattedValue = event.amount 
+      ? `R$ ${Number(event.amount).toFixed(2).replace('.', ',')}` 
+      : 'R$ 0,00';
+    
+    const message = formatMessage(recoverySettings.message, {
+      nome: event.customer_name || 'Cliente',
+      primeiro_nome: firstName,
+      valor: formattedValue,
+      produto: event.product_name || 'Produto',
+      saudação: getGreeting(),
+    });
+
+    console.log(`[InstantRecovery] Sending abandoned recovery message to ${event.customer_phone}`);
+
+    // Send via evolution-send-message
+    const { data: sendResult, error: sendError } = await supabase.functions.invoke('evolution-send-message', {
+      body: {
+        phone: event.customer_phone,
+        message: message,
+        messageType: 'abandoned',
+        abandonedEventId: event.id,
+      },
+    });
+
+    if (sendError) {
+      console.error('[InstantRecovery] Error sending message:', sendError);
+      return;
+    }
+
+    console.log('[InstantRecovery] Abandoned recovery message sent successfully!', sendResult);
+  } catch (error) {
+    console.error('[InstantRecovery] Unexpected error:', error);
+  }
+}
+
+// ========== MAIN HANDLER ==========
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -54,13 +224,15 @@ Deno.serve(async (req) => {
       if (isNaN(amount)) amount = null;
     }
 
+    const normalizedPhone = normalizePhone(payload.customer_phone);
+
     // Insert the abandoned event
     const { data, error } = await supabase
       .from('abandoned_events')
       .insert({
         event_type: payload.event_type || 'cart_abandoned',
         customer_name: payload.customer_name || null,
-        customer_phone: normalizePhone(payload.customer_phone),
+        customer_phone: normalizedPhone,
         customer_email: payload.customer_email || null,
         customer_document: payload.customer_document || null,
         amount: amount,
@@ -83,6 +255,18 @@ Deno.serve(async (req) => {
     }
 
     console.log('Abandoned event created successfully:', data.id);
+
+    // ===== INSTANT RECOVERY FOR ABANDONED =====
+    console.log('[webhook-abandoned] Triggering instant abandoned recovery...');
+    
+    // Run recovery in background (don't await to not delay webhook response)
+    sendInstantAbandonedRecovery(supabase, {
+      id: data.id,
+      customer_name: payload.customer_name,
+      customer_phone: normalizedPhone || undefined,
+      amount: amount || undefined,
+      product_name: payload.product_name,
+    }).catch(err => console.error('[InstantRecovery] Background error:', err));
 
     return new Response(
       JSON.stringify({ success: true, id: data.id }),

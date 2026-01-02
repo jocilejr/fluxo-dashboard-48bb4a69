@@ -94,8 +94,8 @@ serve(async (req) => {
       );
     }
 
-    // Check working hours (unless force run)
-    if (!forceRun && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
+    // Check working hours (unless force run or working_hours_enabled is false)
+    if (!forceRun && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
       console.log('Outside working hours, skipping...');
       return new Response(
         JSON.stringify({ success: true, message: 'Fora do horário de funcionamento', skipped: true }),
