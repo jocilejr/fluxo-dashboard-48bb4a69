@@ -110,17 +110,7 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   const [templateSettingsOpen, setTemplateSettingsOpen] = useState(false);
   const [selectedBoleto, setSelectedBoleto] = useState<Transaction | null>(null);
   
-  // Get transaction IDs for recovery logs
-  const transactionIds = useMemo(() => transactions.map(t => t.id), [transactions]);
-  const { logs: recoveryLogs, isLoading: recoveryLogsLoading } = useTransactionRecoveryLogs(transactionIds);
-  
-  // Debug log for recovery logs
-  console.log('[TransactionsTable] Recovery logs state:', {
-    transactionCount: transactions.length,
-    logsCount: Object.keys(recoveryLogs).length,
-    isLoading: recoveryLogsLoading,
-    sampleLogs: Object.entries(recoveryLogs).slice(0, 2)
-  });
+  // Recovery logs will be fetched after filtering (moved below)
   
   // Get phone numbers for automatic validation
   const phoneNumbers = useMemo(() => transactions.map(t => t.customer_phone), [transactions]);
@@ -396,6 +386,19 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
 
     return result;
   }, [tabFilteredTransactions, searchQuery, sortField, sortDirection]);
+
+  // Get recovery logs only for visible transactions (max 50 to avoid URL too long)
+  const visibleTransactionIds = useMemo(() => {
+    return filteredTransactions.slice(0, visibleCount).map(t => t.id);
+  }, [filteredTransactions, visibleCount]);
+  
+  const { logs: recoveryLogs, isLoading: recoveryLogsLoading } = useTransactionRecoveryLogs(visibleTransactionIds);
+  
+  console.log('[TransactionsTable] Recovery logs:', {
+    visibleIds: visibleTransactionIds.length,
+    logsCount: Object.keys(recoveryLogs).length,
+    isLoading: recoveryLogsLoading
+  });
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
