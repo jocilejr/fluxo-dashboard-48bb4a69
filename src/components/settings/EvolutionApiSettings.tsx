@@ -8,6 +8,7 @@ import { Loader2, Wifi, WifiOff, Send, Play, Settings2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { EvolutionMessageLogs } from "./EvolutionMessageLogs";
 
 interface EvolutionSettings {
   id?: string;
@@ -524,6 +525,9 @@ export function EvolutionApiSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Message Logs */}
+      <EvolutionMessageLogs />
 
       {/* Save Button */}
       <div className="flex justify-end">
