@@ -742,22 +742,17 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                     <span className="text-sm font-bold">{formatCurrency(Number(transaction.amount))}</span>
                   </td>
                   <td className="py-3.5 px-4 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <Badge variant="outline" className={cn("font-medium text-xs", statusStyles[transaction.status])}>
-                        {statusLabels[transaction.status]}
-                      </Badge>
-                      {(() => {
-                        const recoveryLog = recoveryLogs[transaction.id];
-                        return (
-                          <RecoveryStatusIndicator 
-                            status={recoveryLog?.status || null}
-                            errorMessage={recoveryLog?.error_message}
-                            sentAt={recoveryLog?.sent_at}
-                            isLoading={recoveryLogsLoading}
-                          />
-                        );
-                      })()}
-                    </div>
+                    {(() => {
+                      const recoveryLog = recoveryLogs[transaction.id];
+                      return (
+                        <RecoveryStatusIndicator 
+                          status={recoveryLog?.status || null}
+                          errorMessage={recoveryLog?.error_message}
+                          sentAt={recoveryLog?.sent_at}
+                          isLoading={recoveryLogsLoading}
+                        />
+                      );
+                    })()}
                   </td>
                   <td className="py-3.5 px-4">
                     <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
