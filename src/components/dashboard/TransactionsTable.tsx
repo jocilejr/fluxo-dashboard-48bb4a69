@@ -39,9 +39,10 @@ import { PixCardQuickRecovery } from "./PixCardQuickRecovery";
 import { PixCardRecoverySettings } from "./PixCardRecoverySettings";
 import { AbandonedEventsTab } from "./AbandonedEventsTab";
 import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
-import { PhoneValidationButton } from "./PhoneValidationButton";
 import { RecoveryStatusIndicator } from "./RecoveryStatusIndicator";
+import { PhoneValidationIndicator } from "./PhoneValidationIndicator";
 import { useTransactionRecoveryLogs } from "@/hooks/useTransactionRecoveryLogs";
+import { usePhoneValidation } from "@/hooks/usePhoneValidation";
 
 interface TransactionsTableProps {
   transactions: Transaction[];
@@ -112,6 +113,10 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   // Get transaction IDs for recovery logs
   const transactionIds = useMemo(() => transactions.map(t => t.id), [transactions]);
   const { getRecoveryStatus } = useTransactionRecoveryLogs(transactionIds);
+  
+  // Get phone numbers for automatic validation
+  const phoneNumbers = useMemo(() => transactions.map(t => t.customer_phone), [transactions]);
+  const { getValidationStatus } = usePhoneValidation(phoneNumbers);
   
   // Helper to get current date in Brazil timezone
   const getBrazilNow = useCallback((): Date => {
@@ -678,9 +683,20 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                     </div>
                   </td>
                   <td className="py-3.5 px-4 hidden xl:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {transaction.customer_phone || '-'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {transaction.customer_phone || '-'}
+                      </span>
+                      {transaction.customer_phone && (() => {
+                        const validationStatus = getValidationStatus(transaction.customer_phone);
+                        return (
+                          <PhoneValidationIndicator 
+                            status={validationStatus?.status || null}
+                            errorMessage={validationStatus?.result?.error}
+                          />
+                        );
+                      })()}
+                    </div>
                   </td>
                   <td className="py-3.5 px-4">
                     <TooltipProvider>
@@ -777,9 +793,6 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                      )}
-                      {transaction.customer_phone && (
-                        <PhoneValidationButton phone={transaction.customer_phone} />
                       )}
                       <AlertDialog>
                         <TooltipProvider>
