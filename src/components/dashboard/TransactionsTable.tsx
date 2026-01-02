@@ -393,12 +393,6 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   }, [filteredTransactions, visibleCount]);
   
   const { logs: recoveryLogs, isLoading: recoveryLogsLoading } = useTransactionRecoveryLogs(visibleTransactionIds);
-  
-  console.log('[TransactionsTable] Recovery logs:', {
-    visibleIds: visibleTransactionIds.length,
-    logsCount: Object.keys(recoveryLogs).length,
-    isLoading: recoveryLogsLoading
-  });
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
