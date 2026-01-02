@@ -482,6 +482,120 @@ export type Database = {
         }
         Relationships: []
       }
+      evolution_api_settings: {
+        Row: {
+          abandoned_recovery_enabled: boolean
+          api_key: string
+          boleto_recovery_enabled: boolean
+          created_at: string
+          cron_enabled: boolean
+          cron_interval_minutes: number
+          daily_limit: number
+          delay_between_messages: number
+          id: string
+          instance_name: string
+          is_active: boolean
+          pix_card_recovery_enabled: boolean
+          server_url: string
+          updated_at: string
+          working_hours_end: number
+          working_hours_start: number
+        }
+        Insert: {
+          abandoned_recovery_enabled?: boolean
+          api_key?: string
+          boleto_recovery_enabled?: boolean
+          created_at?: string
+          cron_enabled?: boolean
+          cron_interval_minutes?: number
+          daily_limit?: number
+          delay_between_messages?: number
+          id?: string
+          instance_name?: string
+          is_active?: boolean
+          pix_card_recovery_enabled?: boolean
+          server_url?: string
+          updated_at?: string
+          working_hours_end?: number
+          working_hours_start?: number
+        }
+        Update: {
+          abandoned_recovery_enabled?: boolean
+          api_key?: string
+          boleto_recovery_enabled?: boolean
+          created_at?: string
+          cron_enabled?: boolean
+          cron_interval_minutes?: number
+          daily_limit?: number
+          delay_between_messages?: number
+          id?: string
+          instance_name?: string
+          is_active?: boolean
+          pix_card_recovery_enabled?: boolean
+          server_url?: string
+          updated_at?: string
+          working_hours_end?: number
+          working_hours_start?: number
+        }
+        Relationships: []
+      }
+      evolution_message_log: {
+        Row: {
+          abandoned_event_id: string | null
+          created_at: string
+          error_message: string | null
+          evolution_response: Json | null
+          id: string
+          message: string
+          message_type: string
+          phone: string
+          sent_at: string | null
+          status: string
+          transaction_id: string | null
+        }
+        Insert: {
+          abandoned_event_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          evolution_response?: Json | null
+          id?: string
+          message: string
+          message_type: string
+          phone: string
+          sent_at?: string | null
+          status?: string
+          transaction_id?: string | null
+        }
+        Update: {
+          abandoned_event_id?: string | null
+          created_at?: string
+          error_message?: string | null
+          evolution_response?: Json | null
+          id?: string
+          message?: string
+          message_type?: string
+          phone?: string
+          sent_at?: string | null
+          status?: string
+          transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evolution_message_log_abandoned_event_id_fkey"
+            columns: ["abandoned_event_id"]
+            isOneToOne: false
+            referencedRelation: "abandoned_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evolution_message_log_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_settings: {
         Row: {
           created_at: string

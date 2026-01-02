@@ -44,3 +44,12 @@ verify_jwt = false
 
 [functions.lead-summary]
 verify_jwt = true
+
+[functions.evolution-send-message]
+verify_jwt = true
+
+[functions.evolution-auto-recovery]
+verify_jwt = true
+
+[functions.evolution-test-connection]
+verify_jwt = true
