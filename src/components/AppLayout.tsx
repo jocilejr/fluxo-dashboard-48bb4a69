@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { supabase } from "@/integrations/supabase/client";
-import { Menu, RefreshCw } from "lucide-react";
+import { Menu, RefreshCw, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -11,6 +11,7 @@ import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
 import { useUnviewedAbandonedEvents } from "@/hooks/useUnviewedAbandonedEvents";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useQuery } from "@tanstack/react-query";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -37,6 +38,19 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { events: abandonedEvents } = useAbandonedEvents();
   const unviewedAbandonedCount = useUnviewedAbandonedEvents(abandonedEvents);
   const { extensionStatus, retryConnection } = useWhatsAppExtension();
+
+  // Fetch Evolution API settings
+  const { data: evolutionSettings } = useQuery({
+    queryKey: ["evolution-settings-header"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("evolution_api_settings")
+        .select("instance_name, is_active, server_url")
+        .maybeSingle();
+      return data;
+    },
+    staleTime: 30000,
+  });
   
   const totalNotifications = unviewedCount + unviewedAbandonedCount;
 
@@ -100,6 +114,34 @@ export function AppLayout({ children }: AppLayoutProps) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-2">
+            {/* Evolution API Status - Desktop Only */}
+            {evolutionSettings?.instance_name && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        evolutionSettings.is_active
+                          ? "bg-success/10 text-success border border-success/30"
+                          : "bg-muted text-muted-foreground border border-border"
+                      }`}
+                    >
+                      <Smartphone className="h-3 w-3" />
+                      <span className="hidden xl:inline max-w-[100px] truncate">
+                        {evolutionSettings.instance_name}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Evolution API: {evolutionSettings.instance_name}
+                      {evolutionSettings.is_active ? " (Ativo)" : " (Inativo)"}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
             {/* WhatsApp Extension Status - Desktop Only */}
             <TooltipProvider>
               <Tooltip>
