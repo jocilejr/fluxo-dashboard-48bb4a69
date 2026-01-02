@@ -742,8 +742,8 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                         {statusLabels[transaction.status]}
                       </Badge>
                       {(() => {
-                        // Force re-render when logs change by accessing recoveryLogs
-                        const recoveryLog = recoveryLogs.get(transaction.id);
+                        // Access recoveryLogs object directly to force re-render
+                        const recoveryLog = recoveryLogs[transaction.id];
                         return (
                           <RecoveryStatusIndicator 
                             status={recoveryLog?.status || null}
