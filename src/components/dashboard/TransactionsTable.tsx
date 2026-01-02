@@ -613,9 +613,6 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
               <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Status
               </th>
-              <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">
-                Recup.
-              </th>
               <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Ações
               </th>
@@ -624,7 +621,7 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
           <tbody className="divide-y divide-border/20">
             {filteredTransactions.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                <td colSpan={7} className="py-12 text-center text-muted-foreground">
                   {searchQuery ? (
                     <div>
                       <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -740,21 +737,21 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                     <span className="text-sm font-bold">{formatCurrency(Number(transaction.amount))}</span>
                   </td>
                   <td className="py-3.5 px-4 text-center">
-                    <Badge variant="outline" className={cn("font-medium text-xs", statusStyles[transaction.status])}>
-                      {statusLabels[transaction.status]}
-                    </Badge>
-                  </td>
-                  <td className="py-3.5 px-4 text-center hidden lg:table-cell">
-                    {(() => {
-                      const recoveryLog = getRecoveryStatus(transaction.id);
-                      return (
-                        <RecoveryStatusIndicator 
-                          status={recoveryLog?.status || null}
-                          errorMessage={recoveryLog?.error_message}
-                          sentAt={recoveryLog?.sent_at}
-                        />
-                      );
-                    })()}
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Badge variant="outline" className={cn("font-medium text-xs", statusStyles[transaction.status])}>
+                        {statusLabels[transaction.status]}
+                      </Badge>
+                      {(() => {
+                        const recoveryLog = getRecoveryStatus(transaction.id);
+                        return (
+                          <RecoveryStatusIndicator 
+                            status={recoveryLog?.status || null}
+                            errorMessage={recoveryLog?.error_message}
+                            sentAt={recoveryLog?.sent_at}
+                          />
+                        );
+                      })()}
+                    </div>
                   </td>
                   <td className="py-3.5 px-4">
                     <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
