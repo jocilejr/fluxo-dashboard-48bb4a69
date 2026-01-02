@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { supabase } from "@/integrations/supabase/client";
-import { Menu, RefreshCw, Smartphone } from "lucide-react";
+import { Menu, RefreshCw, Smartphone, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -11,10 +11,112 @@ import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
 import { useUnviewedAbandonedEvents } from "@/hooks/useUnviewedAbandonedEvents";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 interface AppLayoutProps {
   children: React.ReactNode;
+}
+
+interface EvolutionSettings {
+  instance_name: string;
+  is_active: boolean;
+  server_url: string;
+  api_key: string;
+}
+
+function EvolutionStatusBadge({ evolutionSettings }: { evolutionSettings: EvolutionSettings }) {
+  const [testing, setTesting] = useState(false);
+  const [connectionState, setConnectionState] = useState<"idle" | "connected" | "disconnected">("idle");
+
+  const testConnection = async () => {
+    setTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("evolution-test-connection", {
+        body: {
+          serverUrl: evolutionSettings.server_url,
+          apiKey: evolutionSettings.api_key,
+          instanceName: evolutionSettings.instance_name,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.connected) {
+        setConnectionState("connected");
+        toast.success("Instância conectada!");
+      } else {
+        setConnectionState("disconnected");
+        toast.error(`Instância não conectada: ${data?.state || "desconhecido"}`);
+      }
+    } catch (err) {
+      setConnectionState("disconnected");
+      toast.error("Erro ao testar conexão");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+            evolutionSettings.is_active
+              ? "bg-success/10 text-success border border-success/30 hover:bg-success/20"
+              : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
+          }`}
+        >
+          <Smartphone className="h-3 w-3" />
+          <span className="hidden xl:inline max-w-[100px] truncate">
+            {evolutionSettings.instance_name}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3">
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm font-medium">Evolution API</p>
+            <p className="text-xs text-muted-foreground truncate">{evolutionSettings.instance_name}</p>
+          </div>
+          
+          <div className="flex items-center gap-2 text-xs">
+            <span className={`px-2 py-0.5 rounded-full ${evolutionSettings.is_active ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
+              {evolutionSettings.is_active ? "Ativo" : "Inativo"}
+            </span>
+            {connectionState === "connected" && (
+              <span className="flex items-center gap-1 text-success">
+                <CheckCircle className="h-3 w-3" /> Online
+              </span>
+            )}
+            {connectionState === "disconnected" && (
+              <span className="flex items-center gap-1 text-destructive">
+                <XCircle className="h-3 w-3" /> Offline
+              </span>
+            )}
+          </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full"
+            onClick={testConnection}
+            disabled={testing}
+          >
+            {testing ? (
+              <>
+                <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                Testando...
+              </>
+            ) : (
+              "Testar Conexão"
+            )}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 const pageConfig: Record<string, { title: string; subtitle: string }> = {
@@ -45,7 +147,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     queryFn: async () => {
       const { data } = await supabase
         .from("evolution_api_settings")
-        .select("instance_name, is_active, server_url")
+        .select("instance_name, is_active, server_url, api_key")
         .maybeSingle();
       return data;
     },
@@ -116,30 +218,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="flex items-center gap-2">
             {/* Evolution API Status - Desktop Only */}
             {evolutionSettings?.instance_name && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div
-                      className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                        evolutionSettings.is_active
-                          ? "bg-success/10 text-success border border-success/30"
-                          : "bg-muted text-muted-foreground border border-border"
-                      }`}
-                    >
-                      <Smartphone className="h-3 w-3" />
-                      <span className="hidden xl:inline max-w-[100px] truncate">
-                        {evolutionSettings.instance_name}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      Evolution API: {evolutionSettings.instance_name}
-                      {evolutionSettings.is_active ? " (Ativo)" : " (Inativo)"}
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <EvolutionStatusBadge evolutionSettings={evolutionSettings as EvolutionSettings} />
             )}
 
             {/* WhatsApp Extension Status - Desktop Only */}
