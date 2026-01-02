@@ -12,6 +12,9 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
   const [logs, setLogs] = useState<Map<string, TransactionRecoveryLog>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
+  // Create a stable key for the dependency
+  const idsKey = useMemo(() => transactionIds.sort().join(','), [transactionIds]);
+
   useEffect(() => {
     if (transactionIds.length === 0) {
       setLogs(new Map());
@@ -21,13 +24,17 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
     const fetchLogs = async () => {
       setIsLoading(true);
       try {
+        // Fetch all logs that have a transaction_id matching any of the provided IDs
         const { data, error } = await supabase
           .from('evolution_message_log')
           .select('transaction_id, status, sent_at, error_message')
+          .not('transaction_id', 'is', null)
           .in('transaction_id', transactionIds)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
+
+        console.log('[RecoveryLogs] Fetched logs:', data?.length, 'for', transactionIds.length, 'transactions');
 
         // Group by transaction_id, keeping only the most recent log
         const logsMap = new Map<string, TransactionRecoveryLog>();
@@ -51,7 +58,7 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
     };
 
     fetchLogs();
-  }, [transactionIds.join(',')]);
+  }, [idsKey]);
 
   const getRecoveryStatus = (transactionId: string) => {
     return logs.get(transactionId) || null;
