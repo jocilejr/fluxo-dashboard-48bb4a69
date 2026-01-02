@@ -112,7 +112,15 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   
   // Get transaction IDs for recovery logs
   const transactionIds = useMemo(() => transactions.map(t => t.id), [transactions]);
-  const { logs: recoveryLogs, getRecoveryStatus } = useTransactionRecoveryLogs(transactionIds);
+  const { logs: recoveryLogs, isLoading: recoveryLogsLoading } = useTransactionRecoveryLogs(transactionIds);
+  
+  // Debug log for recovery logs
+  console.log('[TransactionsTable] Recovery logs state:', {
+    transactionCount: transactions.length,
+    logsCount: Object.keys(recoveryLogs).length,
+    isLoading: recoveryLogsLoading,
+    sampleLogs: Object.entries(recoveryLogs).slice(0, 2)
+  });
   
   // Get phone numbers for automatic validation
   const phoneNumbers = useMemo(() => transactions.map(t => t.customer_phone), [transactions]);
@@ -742,13 +750,13 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                         {statusLabels[transaction.status]}
                       </Badge>
                       {(() => {
-                        // Access recoveryLogs object directly to force re-render
                         const recoveryLog = recoveryLogs[transaction.id];
                         return (
                           <RecoveryStatusIndicator 
                             status={recoveryLog?.status || null}
                             errorMessage={recoveryLog?.error_message}
                             sentAt={recoveryLog?.sent_at}
+                            isLoading={recoveryLogsLoading}
                           />
                         );
                       })()}

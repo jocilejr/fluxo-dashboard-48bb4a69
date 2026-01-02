@@ -1,5 +1,4 @@
-import { cn } from "@/lib/utils";
-import { CheckCircle2, XCircle, Clock, Minus } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Minus, Loader2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -11,9 +10,17 @@ interface RecoveryStatusIndicatorProps {
   status: 'sent' | 'failed' | 'pending' | null;
   errorMessage?: string | null;
   sentAt?: string | null;
+  isLoading?: boolean;
 }
 
-export function RecoveryStatusIndicator({ status, errorMessage, sentAt }: RecoveryStatusIndicatorProps) {
+export function RecoveryStatusIndicator({ status, errorMessage, sentAt, isLoading }: RecoveryStatusIndicatorProps) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
   if (status === null) {
     return (
       <TooltipProvider>
