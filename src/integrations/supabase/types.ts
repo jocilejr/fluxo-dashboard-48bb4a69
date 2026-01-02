@@ -977,6 +977,36 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_validations: {
+        Row: {
+          created_at: string
+          exists_on_whatsapp: boolean
+          id: string
+          is_mobile: boolean | null
+          jid: string | null
+          normalized_phone: string
+          validated_at: string
+        }
+        Insert: {
+          created_at?: string
+          exists_on_whatsapp?: boolean
+          id?: string
+          is_mobile?: boolean | null
+          jid?: string | null
+          normalized_phone: string
+          validated_at?: string
+        }
+        Update: {
+          created_at?: string
+          exists_on_whatsapp?: boolean
+          id?: string
+          is_mobile?: boolean | null
+          jid?: string | null
+          normalized_phone?: string
+          validated_at?: string
+        }
+        Relationships: []
+      }
       pix_card_recovery_clicks: {
         Row: {
           clicked_at: string
