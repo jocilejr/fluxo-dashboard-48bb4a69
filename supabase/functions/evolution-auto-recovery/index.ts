@@ -26,6 +26,20 @@ function isWithinWorkingHours(startHour: number, endHour: number): boolean {
   return currentHour >= startHour && currentHour < endHour;
 }
 
+// Get greeting based on Brazil timezone
+function getGreeting(): string {
+  const brazilDate = getBrazilDate();
+  const hour = brazilDate.getHours();
+  
+  if (hour >= 6 && hour < 12) {
+    return "Bom dia";
+  } else if (hour >= 12 && hour < 18) {
+    return "Boa tarde";
+  } else {
+    return "Boa noite";
+  }
+}
+
 // Replace template variables
 function formatMessage(template: string, data: Record<string, string>): string {
   let message = template;
@@ -247,7 +261,8 @@ serve(async (req) => {
                   primeiro_nome: firstName,
                   valor: formattedValue,
                   produto: boleto.description || 'Produto',
-                  vencimento: dueDate.toLocaleDateString('pt-BR')
+                  vencimento: dueDate.toLocaleDateString('pt-BR'),
+                  saudação: getGreeting()
                 });
 
                 await sendWithDelay(boleto.customer_phone!, message, 'boleto', boleto.id);
@@ -320,7 +335,8 @@ serve(async (req) => {
             nome: tx.customer_name || 'Cliente',
             primeiro_nome: firstName,
             valor: formattedValue,
-            produto: tx.description || 'Produto'
+            produto: tx.description || 'Produto',
+            saudação: getGreeting()
           });
 
           await sendWithDelay(tx.customer_phone!, message, 'pix_card', tx.id);
@@ -377,7 +393,8 @@ serve(async (req) => {
             nome: event.customer_name || 'Cliente',
             primeiro_nome: firstName,
             valor: formattedValue,
-            produto: event.product_name || 'Produto'
+            produto: event.product_name || 'Produto',
+            saudação: getGreeting()
           });
 
           await sendWithDelay(event.customer_phone!, message, 'abandoned', undefined, event.id);
