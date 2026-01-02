@@ -12,23 +12,23 @@ export interface TransactionRecoveryLog {
 export type RecoveryLogsRecord = Record<string, TransactionRecoveryLog>;
 
 export function useTransactionRecoveryLogs(transactionIds: string[]) {
-  // Create stable key from sorted valid IDs
-  const idsKey = useMemo(() => {
-    const validIds = transactionIds.filter(id => id && id.length > 0);
-    console.log('[RecoveryLogs] Hook called with', validIds.length, 'valid IDs');
-    return validIds.sort().join(',');
+  // Filter valid IDs immediately
+  const validIds = useMemo(() => {
+    const filtered = transactionIds.filter(id => id && id.length > 0);
+    return filtered;
   }, [transactionIds]);
 
   const { data: logs = {}, isLoading } = useQuery({
-    queryKey: ['transaction-recovery-logs', idsKey],
+    queryKey: ['transaction-recovery-logs', validIds],
     queryFn: async (): Promise<RecoveryLogsRecord> => {
-      if (!idsKey) {
-        console.log('[RecoveryLogs] No IDs to fetch');
+      console.log('[RecoveryLogs] queryFn starting with', validIds.length, 'IDs');
+      
+      if (validIds.length === 0) {
+        console.log('[RecoveryLogs] No valid IDs, returning empty');
         return {};
       }
 
-      const validIds = idsKey.split(',');
-      console.log('[RecoveryLogs] Fetching logs for', validIds.length, 'transactions');
+      console.log('[RecoveryLogs] Fetching logs for IDs:', validIds.slice(0, 5), '...');
 
       const { data, error } = await supabase
         .from('evolution_message_log')
@@ -57,19 +57,21 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
         }
       });
 
-      console.log('[RecoveryLogs] Mapped logs:', Object.keys(logsRecord).length, 'unique transactions');
-      console.log('[RecoveryLogs] Sample logs:', Object.entries(logsRecord).slice(0, 3));
+      console.log('[RecoveryLogs] Mapped logs:', Object.keys(logsRecord).length, 'transactions');
+      console.log('[RecoveryLogs] Log entries:', Object.entries(logsRecord).slice(0, 3));
       
       return logsRecord;
     },
-    enabled: idsKey.length > 0,
-    staleTime: 30000, // 30 seconds
-    refetchOnWindowFocus: false,
+    enabled: validIds.length > 0,
+    staleTime: 10000, // 10 seconds
+    refetchOnWindowFocus: true,
   });
 
+  // Debug log on every render
+  console.log('[RecoveryLogs] Hook render - validIds:', validIds.length, 'logs:', Object.keys(logs).length, 'loading:', isLoading);
+
   const getRecoveryStatus = (transactionId: string): TransactionRecoveryLog | null => {
-    const result = logs[transactionId] || null;
-    return result;
+    return logs[transactionId] || null;
   };
 
   return { logs, isLoading, getRecoveryStatus };
