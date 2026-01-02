@@ -39,6 +39,9 @@ import { PixCardQuickRecovery } from "./PixCardQuickRecovery";
 import { PixCardRecoverySettings } from "./PixCardRecoverySettings";
 import { AbandonedEventsTab } from "./AbandonedEventsTab";
 import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
+import { PhoneValidationButton } from "./PhoneValidationButton";
+import { RecoveryStatusIndicator } from "./RecoveryStatusIndicator";
+import { useTransactionRecoveryLogs } from "@/hooks/useTransactionRecoveryLogs";
 
 interface TransactionsTableProps {
   transactions: Transaction[];
@@ -105,6 +108,10 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   const [quickRecoveryOpen, setQuickRecoveryOpen] = useState(false);
   const [templateSettingsOpen, setTemplateSettingsOpen] = useState(false);
   const [selectedBoleto, setSelectedBoleto] = useState<Transaction | null>(null);
+  
+  // Get transaction IDs for recovery logs
+  const transactionIds = useMemo(() => transactions.map(t => t.id), [transactions]);
+  const { getRecoveryStatus } = useTransactionRecoveryLogs(transactionIds);
   
   // Helper to get current date in Brazil timezone
   const getBrazilNow = useCallback((): Date => {
@@ -601,6 +608,9 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
               <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Status
               </th>
+              <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden lg:table-cell">
+                Recup.
+              </th>
               <th className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Ações
               </th>
@@ -609,7 +619,7 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
           <tbody className="divide-y divide-border/20">
             {filteredTransactions.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                <td colSpan={8} className="py-12 text-center text-muted-foreground">
                   {searchQuery ? (
                     <div>
                       <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -718,6 +728,18 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                       {statusLabels[transaction.status]}
                     </Badge>
                   </td>
+                  <td className="py-3.5 px-4 text-center hidden lg:table-cell">
+                    {(() => {
+                      const recoveryLog = getRecoveryStatus(transaction.id);
+                      return (
+                        <RecoveryStatusIndicator 
+                          status={recoveryLog?.status || null}
+                          errorMessage={recoveryLog?.error_message}
+                          sentAt={recoveryLog?.sent_at}
+                        />
+                      );
+                    })()}
+                  </td>
                   <td className="py-3.5 px-4">
                     <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                       {transaction.type === 'boleto' && transaction.metadata?.boleto_url && (
@@ -755,6 +777,9 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                      )}
+                      {transaction.customer_phone && (
+                        <PhoneValidationButton phone={transaction.customer_phone} />
                       )}
                       <AlertDialog>
                         <TooltipProvider>
