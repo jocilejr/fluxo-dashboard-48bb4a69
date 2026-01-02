@@ -5,14 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Users, DollarSign, MessageSquare, Link as LinkIcon, Shield, Bell, Database, TrendingUp, FileText, Bot } from "lucide-react";
+import { Settings, Users, DollarSign, MessageSquare, Link as LinkIcon, Shield, Bell, Database, TrendingUp, FileText, Bot, Smartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import DataImportExport from "@/components/settings/DataImportExport";
 import ActivityLogs from "@/components/settings/ActivityLogs";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { WebhooksSection } from "@/components/dashboard/WebhooksSection";
-import { Trash2, Plus, Loader2, Key, Smartphone, Save } from "lucide-react";
+import { EvolutionApiSettings } from "@/components/settings/EvolutionApiSettings";
+import { Trash2, Plus, Loader2, Key, Save } from "lucide-react";
 
 interface UserWithPermissions {
   user_id: string;
@@ -663,6 +664,10 @@ const Configuracoes = () => {
               <FileText className="h-3.5 w-3.5" />
               Logs
             </TabsTrigger>
+            <TabsTrigger value="evolution" className="gap-2 data-[state=active]:bg-foreground data-[state=active]:text-background text-xs">
+              <Smartphone className="h-3.5 w-3.5" />
+              Evolution API
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1180,6 +1185,10 @@ const Configuracoes = () => {
 
         <TabsContent value="logs">
           <ActivityLogs />
+        </TabsContent>
+
+        <TabsContent value="evolution">
+          <EvolutionApiSettings />
         </TabsContent>
       </Tabs>
     </div>
