@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface TransactionRecoveryLog {
@@ -12,11 +12,14 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
   const [logs, setLogs] = useState<Map<string, TransactionRecoveryLog>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
-  // Create a stable key for the dependency
-  const idsKey = useMemo(() => transactionIds.sort().join(','), [transactionIds]);
+  // Filter out empty/null IDs and create stable sorted list
+  const validIds = useMemo(() => 
+    transactionIds.filter(id => id && id.length > 0).sort(), 
+    [transactionIds]
+  );
 
   useEffect(() => {
-    if (transactionIds.length === 0) {
+    if (validIds.length === 0) {
       setLogs(new Map());
       return;
     }
@@ -29,12 +32,13 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
           .from('evolution_message_log')
           .select('transaction_id, status, sent_at, error_message')
           .not('transaction_id', 'is', null)
-          .in('transaction_id', transactionIds)
+          .in('transaction_id', validIds)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
-
-        console.log('[RecoveryLogs] Fetched logs:', data?.length, 'for', transactionIds.length, 'transactions');
+        if (error) {
+          console.error('[RecoveryLogs] Error fetching:', error);
+          throw error;
+        }
 
         // Group by transaction_id, keeping only the most recent log
         const logsMap = new Map<string, TransactionRecoveryLog>();
@@ -58,11 +62,11 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
     };
 
     fetchLogs();
-  }, [idsKey]);
+  }, [validIds.join(',')]);
 
-  const getRecoveryStatus = (transactionId: string) => {
+  const getRecoveryStatus = useCallback((transactionId: string): TransactionRecoveryLog | null => {
     return logs.get(transactionId) || null;
-  };
+  }, [logs]);
 
   return { logs, isLoading, getRecoveryStatus };
 }
