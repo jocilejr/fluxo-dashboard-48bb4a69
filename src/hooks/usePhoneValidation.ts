@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { 
+  getPhoneValidationsFromCache, 
+  savePhoneValidationToCache,
+  savePhoneValidationsToCache,
+  CachedPhoneValidation 
+} from "@/lib/localCache";
 
 interface ValidationResult {
   exists: boolean | null;
@@ -23,7 +29,24 @@ function normalizePhone(phone: string): string {
 }
 
 export function usePhoneValidation(phones: (string | null)[]) {
-  const [validationState, setValidationState] = useState<PhoneValidationState>({});
+  const [validationState, setValidationState] = useState<PhoneValidationState>(() => {
+    // Initialize from localStorage cache immediately
+    const cachedValidations = getPhoneValidationsFromCache();
+    const initialState: PhoneValidationState = {};
+    
+    for (const [phone, cached] of Object.entries(cachedValidations)) {
+      if (cached.exists === true) {
+        initialState[phone] = { status: 'valid', result: { exists: true, phone, isMobile: cached.isMobile, jid: cached.jid } };
+      } else if (cached.exists === false) {
+        initialState[phone] = { status: 'invalid', result: { exists: false, phone, isMobile: cached.isMobile } };
+      } else if (cached.error) {
+        initialState[phone] = { status: 'error', result: { exists: null, phone, isMobile: false, error: cached.error } };
+      }
+    }
+    
+    return initialState;
+  });
+  
   const isValidatingRef = useRef<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
@@ -33,14 +56,19 @@ export function usePhoneValidation(phones: (string | null)[]) {
     return [...new Set(filtered.map(normalizePhone))];
   }, [phones]);
 
-  // Fetch cached validations from database
-  const { data: cachedValidations = [] } = useQuery({
-    queryKey: ['phone-validations', uniquePhones.join(',')],
+  // Get phones not in local cache
+  const phonesNotInLocalCache = useMemo(() => {
+    return uniquePhones.filter(p => !validationState[p]);
+  }, [uniquePhones, validationState]);
+
+  // Fetch cached validations from database only for phones not in local cache
+  const { data: dbValidations = [] } = useQuery({
+    queryKey: ['phone-validations-db', phonesNotInLocalCache.join(',')],
     queryFn: async () => {
-      if (uniquePhones.length === 0) return [];
+      if (phonesNotInLocalCache.length === 0) return [];
       
-      // Limit to 50 phones per query to avoid URL too long
-      const phonesToQuery = uniquePhones.slice(0, 50);
+      // Limit to 50 phones per query
+      const phonesToQuery = phonesNotInLocalCache.slice(0, 50);
       
       const { data, error } = await supabase
         .from('phone_validations')
@@ -48,32 +76,36 @@ export function usePhoneValidation(phones: (string | null)[]) {
         .in('normalized_phone', phonesToQuery);
 
       if (error) {
-        console.error('[PhoneValidation] Error fetching cached:', error);
         return [];
       }
 
       return data || [];
     },
-    enabled: uniquePhones.length > 0,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: phonesNotInLocalCache.length > 0,
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Create a set of already cached phones for quick lookup
+  // Create a set of already cached phones (local + db) for quick lookup
   const cachedPhoneSet = useMemo(() => {
-    return new Set(cachedValidations.map(v => v.normalized_phone));
-  }, [cachedValidations]);
+    const set = new Set(Object.keys(validationState));
+    dbValidations.forEach(v => set.add(v.normalized_phone));
+    return set;
+  }, [validationState, dbValidations]);
 
-  // Update validation state from cached data
+  // Update validation state from database data and save to local cache
   useEffect(() => {
-    if (cachedValidations.length === 0) return;
+    if (dbValidations.length === 0) return;
+
+    const newLocalCache: Record<string, CachedPhoneValidation> = {};
 
     setValidationState(prev => {
       const newState = { ...prev };
       
-      cachedValidations.forEach(cached => {
+      dbValidations.forEach(cached => {
         if (!newState[cached.normalized_phone]) {
+          const status = cached.exists_on_whatsapp ? 'valid' : 'invalid';
           newState[cached.normalized_phone] = {
-            status: cached.exists_on_whatsapp ? 'valid' : 'invalid',
+            status,
             result: {
               exists: cached.exists_on_whatsapp,
               phone: cached.normalized_phone,
@@ -81,14 +113,26 @@ export function usePhoneValidation(phones: (string | null)[]) {
               jid: cached.jid || undefined,
             }
           };
+          
+          // Prepare for local cache
+          newLocalCache[cached.normalized_phone] = {
+            exists: cached.exists_on_whatsapp,
+            jid: cached.jid || undefined,
+            isMobile: cached.is_mobile || false,
+          };
         }
       });
       
       return newState;
     });
-  }, [cachedValidations]);
 
-  // Validate a single phone and save to database
+    // Save to local cache
+    if (Object.keys(newLocalCache).length > 0) {
+      savePhoneValidationsToCache(newLocalCache);
+    }
+  }, [dbValidations]);
+
+  // Validate a single phone and save to both database and local cache
   const validatePhone = useCallback(async (phone: string) => {
     const normalizedPhone = normalizePhone(phone);
     
@@ -109,23 +153,27 @@ export function usePhoneValidation(phones: (string | null)[]) {
       });
 
       if (error) {
+        const errorResult: CachedPhoneValidation = { exists: null, isMobile: false, error: 'Erro na API' };
         setValidationState(prev => ({
           ...prev,
           [normalizedPhone]: { status: 'error', result: { exists: null, phone: normalizedPhone, isMobile: false, error: 'Erro na API' } }
         }));
+        savePhoneValidationToCache(normalizedPhone, errorResult);
         return;
       }
 
       if (data.error) {
+        const errorResult: CachedPhoneValidation = { exists: null, isMobile: false, error: data.error };
         setValidationState(prev => ({
           ...prev,
           [normalizedPhone]: { status: 'error', result: data }
         }));
+        savePhoneValidationToCache(normalizedPhone, errorResult);
         return;
       }
 
-      // Save to database for caching
-      const { error: insertError } = await supabase
+      // Save to database for persistence
+      await supabase
         .from('phone_validations')
         .upsert({
           normalized_phone: normalizedPhone,
@@ -137,11 +185,13 @@ export function usePhoneValidation(phones: (string | null)[]) {
           onConflict: 'normalized_phone'
         });
 
-      if (insertError) {
-        console.error('[PhoneValidation] Error saving to cache:', insertError);
-      }
+      // Update state and local cache
+      const cachedResult: CachedPhoneValidation = {
+        exists: data.exists === true,
+        jid: data.jid || undefined,
+        isMobile: data.isMobile || false,
+      };
 
-      // Update state
       if (data.exists === true) {
         setValidationState(prev => ({
           ...prev,
@@ -154,18 +204,20 @@ export function usePhoneValidation(phones: (string | null)[]) {
         }));
       }
 
-      // Invalidate cache to include new validation
-      queryClient.invalidateQueries({ queryKey: ['phone-validations'] });
+      // Save to local cache
+      savePhoneValidationToCache(normalizedPhone, cachedResult);
       
     } catch (err) {
+      const errorResult: CachedPhoneValidation = { exists: null, isMobile: false, error: 'Erro desconhecido' };
       setValidationState(prev => ({
         ...prev,
         [normalizedPhone]: { status: 'error', result: { exists: null, phone: normalizedPhone, isMobile: false, error: 'Erro desconhecido' } }
       }));
+      savePhoneValidationToCache(normalizedPhone, errorResult);
     } finally {
       isValidatingRef.current.delete(normalizedPhone);
     }
-  }, [cachedPhoneSet, queryClient]);
+  }, [cachedPhoneSet]);
 
   // Validate phones that are not cached yet
   useEffect(() => {
