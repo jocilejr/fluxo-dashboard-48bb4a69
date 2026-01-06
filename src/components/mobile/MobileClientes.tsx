@@ -302,7 +302,8 @@ function CustomerDetails({ customer, onCopy, onWhatsApp, onClose }: CustomerDeta
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex-1 overflow-auto mt-2 px-3 pb-6">
+        <ScrollArea className="flex-1 mt-2">
+          <div className="px-3 pb-6">
           {/* Transações */}
           <TabsContent value="transacoes" className="mt-0 space-y-1.5">
             {isLoading ? (
@@ -430,7 +431,8 @@ function CustomerDetails({ customer, onCopy, onWhatsApp, onClose }: CustomerDeta
               ))
             )}
           </TabsContent>
-        </div>
+          </div>
+        </ScrollArea>
       </Tabs>
 
       {/* Dialog de confirmação */}
