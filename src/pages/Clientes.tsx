@@ -253,7 +253,7 @@ function CustomerDetailedModal({ customer, onClose }: { customer: Customer; onCl
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="h-[60vh]">
             {/* Resumo Tab */}
             <TabsContent value="resumo" className="p-4 m-0">
               {isLoading ? (
