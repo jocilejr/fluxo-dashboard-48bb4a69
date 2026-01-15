@@ -695,6 +695,9 @@ export type Database = {
           created_at: string
           current_members: number
           id: string
+          last_day_total_entries: number | null
+          last_day_total_exits: number | null
+          last_reset_date: string | null
           name: string
           total_entries: number
           total_exits: number
@@ -708,6 +711,9 @@ export type Database = {
           created_at?: string
           current_members?: number
           id?: string
+          last_day_total_entries?: number | null
+          last_day_total_exits?: number | null
+          last_reset_date?: string | null
           name: string
           total_entries?: number
           total_exits?: number
@@ -721,6 +727,9 @@ export type Database = {
           created_at?: string
           current_members?: number
           id?: string
+          last_day_total_entries?: number | null
+          last_day_total_exits?: number | null
+          last_reset_date?: string | null
           name?: string
           total_entries?: number
           total_exits?: number
