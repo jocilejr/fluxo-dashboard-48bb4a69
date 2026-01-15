@@ -36,6 +36,35 @@ export function GroupStatsCards() {
     },
   });
 
+  // Query today's stats from history table
+  const { data: todayStats } = useQuery({
+    queryKey: ["group-stats-today", selectedGroupId],
+    queryFn: async () => {
+      const today = new Date().toISOString().split("T")[0];
+      
+      let query = supabase
+        .from("group_statistics_history")
+        .select("entries, exits")
+        .eq("date", today);
+      
+      if (selectedGroupId !== "all") {
+        query = query.eq("group_id", selectedGroupId);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      // Sum entries and exits from today
+      return data.reduce(
+        (acc, row) => ({
+          entries: acc.entries + (row.entries || 0),
+          exits: acc.exits + (row.exits || 0),
+        }),
+        { entries: 0, exits: 0 }
+      );
+    },
+  });
+
   // Realtime subscription
   useEffect(() => {
     const channel = supabase
@@ -47,6 +76,13 @@ export function GroupStatsCards() {
           queryClient.invalidateQueries({ queryKey: ["groups"] });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "group_statistics_history" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["group-stats-today"] });
+        }
+      )
       .subscribe();
 
     return () => {
@@ -54,16 +90,14 @@ export function GroupStatsCards() {
     };
   }, [queryClient]);
 
-  const stats = groups.reduce(
+  const currentMembers = groups.reduce(
     (acc, group) => {
       if (selectedGroupId === "all" || selectedGroupId === group.id) {
-        acc.currentMembers += group.current_members;
-        acc.totalEntries += group.total_entries;
-        acc.totalExits += group.total_exits;
+        acc += group.current_members;
       }
       return acc;
     },
-    { currentMembers: 0, totalEntries: 0, totalExits: 0 }
+    0
   );
 
   if (groups.length === 0) {
@@ -99,7 +133,7 @@ export function GroupStatsCards() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <p className="text-xl font-bold">{stats.currentMembers}</p>
+            <p className="text-xl font-bold">{currentMembers}</p>
           </CardContent>
         </Card>
 
@@ -107,11 +141,11 @@ export function GroupStatsCards() {
           <CardHeader className="pb-2 pt-3 px-3">
             <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <UserPlus className="h-3.5 w-3.5 text-green-500" />
-              Entradas
+              Entradas Hoje
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <p className="text-xl font-bold text-green-500">{stats.totalEntries}</p>
+            <p className="text-xl font-bold text-green-500">{todayStats?.entries || 0}</p>
           </CardContent>
         </Card>
 
@@ -119,11 +153,11 @@ export function GroupStatsCards() {
           <CardHeader className="pb-2 pt-3 px-3">
             <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <UserMinus className="h-3.5 w-3.5 text-red-500" />
-              Saídas
+              Saídas Hoje
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <p className="text-xl font-bold text-red-500">{stats.totalExits}</p>
+            <p className="text-xl font-bold text-red-500">{todayStats?.exits || 0}</p>
           </CardContent>
         </Card>
       </div>
