@@ -76,14 +76,23 @@ export function GroupHistoryChart() {
       return acc;
     }, {} as Record<string, { date: string; entries: number; exits: number; members: number }>);
 
-    // Fill missing dates
+    // Fill missing dates using UTC dates consistently
     const result = [];
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    
     for (let i = days; i >= 0; i--) {
-      const date = subDays(new Date(), i);
-      const dateKey = date.toISOString().split("T")[0];
+      const dateUtc = new Date(todayUtc);
+      dateUtc.setUTCDate(todayUtc.getUTCDate() - i);
+      const dateKey = dateUtc.toISOString().split("T")[0];
       const existing = byDate[dateKey];
+      
+      // Format using UTC date parts
+      const day = String(dateUtc.getUTCDate()).padStart(2, '0');
+      const month = String(dateUtc.getUTCMonth() + 1).padStart(2, '0');
+      
       result.push({
-        date: format(date, "dd/MM", { locale: ptBR }),
+        date: `${day}/${month}`,
         fullDate: dateKey,
         entries: existing?.entries || 0,
         exits: existing?.exits || 0,
