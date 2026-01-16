@@ -365,7 +365,12 @@ async function handleWebhookGroups(req: Request): Promise<Response> {
 
     await supabase.from('groups').update(updateData).eq('id', existingGroup.id);
 
-    const today = new Date().toISOString().split('T')[0];
+    // Use Brazil timezone (UTC-3) for date
+    const now = new Date();
+    const brazilOffset = -3 * 60;
+    const localOffset = now.getTimezoneOffset();
+    const brazilTime = new Date(now.getTime() + (localOffset - brazilOffset) * 60000);
+    const today = brazilTime.toISOString().split('T')[0];
     const finalMembers = updateData.current_members ?? existingGroup.current_members;
 
     const { data: existingHistory } = await supabase
