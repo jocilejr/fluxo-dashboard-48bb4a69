@@ -102,101 +102,45 @@ async function processGroup(
     existingGroup = data
   }
 
-  const today = getTodayBrazil()
+  // Use received values DIRECTLY - they already represent today's totals
+  const todayEntries = entries ?? 0
+  const todayExits = exits ?? 0
+  const currentMembersValue = current_members ?? 0
 
   if (existingGroup) {
-    const newCurrentMembers = current_members ?? existingGroup.current_members
-    const incomingEntries = entries ?? existingGroup.total_entries
-    const incomingExits = exits ?? existingGroup.total_exits
-    
-    // Check if we need to reset (new day)
-    const lastResetDate = existingGroup.last_reset_date
-    const needsReset = lastResetDate !== today
-    
-    let todayEntries: number
-    let todayExits: number
-    
-    if (needsReset) {
-      // It's a new day! Reset the counters
-      // Today's entries/exits = incoming total - last day's total
-      todayEntries = Math.max(0, incomingEntries - existingGroup.total_entries)
-      todayExits = Math.max(0, incomingExits - existingGroup.total_exits)
-      
-      console.log(`New day detected for group ${name || whatsapp_id}. Resetting counters.`)
-      console.log(`Yesterday's total: entries=${existingGroup.total_entries}, exits=${existingGroup.total_exits}`)
-      console.log(`Today's incoming: entries=${incomingEntries}, exits=${incomingExits}`)
-      console.log(`Today's calculated: entries=${todayEntries}, exits=${todayExits}`)
-      
-      // Update group with new baseline
-      const { error: updateError } = await supabase
-        .from('groups')
-        .update({
-          name: name || existingGroup.name,
-          current_members: newCurrentMembers,
-          total_entries: incomingEntries,
-          total_exits: incomingExits,
-          whatsapp_id: whatsapp_id || existingGroup.whatsapp_id,
-          last_day_total_entries: existingGroup.total_entries, // Save yesterday's total as baseline
-          last_day_total_exits: existingGroup.total_exits,
-          last_reset_date: today,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingGroup.id)
+    // Update existing group - SIMPLE: just update with received values
+    const { error: updateError } = await supabase
+      .from('groups')
+      .update({
+        name: name || existingGroup.name,
+        current_members: currentMembersValue,
+        total_entries: todayEntries, // Direct value from webhook
+        total_exits: todayExits,     // Direct value from webhook
+        whatsapp_id: whatsapp_id || existingGroup.whatsapp_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingGroup.id)
 
-      if (updateError) {
-        console.error('Error updating group:', updateError)
-        return { error: updateError }
-      }
-    } else {
-      // Same day - calculate difference from the day's baseline
-      todayEntries = Math.max(0, incomingEntries - existingGroup.last_day_total_entries)
-      todayExits = Math.max(0, incomingExits - existingGroup.last_day_total_exits)
-      
-      console.log(`Same day update for group ${name || whatsapp_id}`)
-      console.log(`Baseline: entries=${existingGroup.last_day_total_entries}, exits=${existingGroup.last_day_total_exits}`)
-      console.log(`Incoming: entries=${incomingEntries}, exits=${incomingExits}`)
-      console.log(`Today's: entries=${todayEntries}, exits=${todayExits}`)
-      
-      // Update group
-      const { error: updateError } = await supabase
-        .from('groups')
-        .update({
-          name: name || existingGroup.name,
-          current_members: newCurrentMembers,
-          total_entries: incomingEntries,
-          total_exits: incomingExits,
-          whatsapp_id: whatsapp_id || existingGroup.whatsapp_id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingGroup.id)
-
-      if (updateError) {
-        console.error('Error updating group:', updateError)
-        return { error: updateError }
-      }
+    if (updateError) {
+      console.error('Error updating group:', updateError)
+      return { error: updateError }
     }
 
-    console.log('Group updated:', name || whatsapp_id)
-    // Save history with today's entries/exits only
-    await saveGroupHistory(supabase, existingGroup.id, newCurrentMembers, todayEntries, todayExits)
+    console.log('Group updated:', name || whatsapp_id, 'members:', currentMembersValue, 'entries:', todayEntries, 'exits:', todayExits)
+    
+    // Save history with today's values
+    await saveGroupHistory(supabase, existingGroup.id, currentMembersValue, todayEntries, todayExits)
     return { success: true, action: 'updated' }
   } else {
     // Create new group
-    const newCurrentMembers = current_members || 0
-    const initialEntries = entries || 0
-    const initialExits = exits || 0
-    
     const { data: newGroup, error: insertError } = await supabase
       .from('groups')
       .insert({
         name: name || `Grupo ${whatsapp_id}`,
-        current_members: newCurrentMembers,
-        total_entries: initialEntries,
-        total_exits: initialExits,
+        current_members: currentMembersValue,
+        total_entries: todayEntries,
+        total_exits: todayExits,
         whatsapp_id,
-        last_day_total_entries: 0, // Start fresh
-        last_day_total_exits: 0,
-        last_reset_date: today,
       })
       .select()
       .single()
@@ -206,10 +150,11 @@ async function processGroup(
       return { error: insertError }
     }
 
-    console.log('Group created:', name || whatsapp_id)
+    console.log('Group created:', name || whatsapp_id, 'members:', currentMembersValue, 'entries:', todayEntries, 'exits:', todayExits)
+    
     // Save initial history for new group
     if (newGroup) {
-      await saveGroupHistory(supabase, newGroup.id, newCurrentMembers, initialEntries, initialExits)
+      await saveGroupHistory(supabase, newGroup.id, currentMembersValue, todayEntries, todayExits)
     }
     return { success: true, action: 'created' }
   }
