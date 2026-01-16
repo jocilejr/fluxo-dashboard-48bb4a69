@@ -59,7 +59,7 @@ export function GroupHistoryChart() {
       (h) => new Date(h.date) >= startDate
     );
 
-    // Group by date and aggregate
+    // Group by date and aggregate - sum entries/exits and members across all groups
     const byDate = filtered.reduce((acc, item) => {
       const dateKey = item.date;
       if (!acc[dateKey]) {
@@ -72,7 +72,7 @@ export function GroupHistoryChart() {
       }
       acc[dateKey].entries += item.entries;
       acc[dateKey].exits += item.exits;
-      acc[dateKey].members = Math.max(acc[dateKey].members, item.current_members);
+      acc[dateKey].members += item.current_members; // Sum all members from all groups
       return acc;
     }, {} as Record<string, { date: string; entries: number; exits: number; members: number }>);
 
