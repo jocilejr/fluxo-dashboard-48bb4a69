@@ -5,6 +5,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Get today's date in Brazil timezone (America/Sao_Paulo = UTC-3)
+function getTodayBrazil(): string {
+  const now = new Date();
+  // Brasília is UTC-3
+  const brazilOffset = -3 * 60; // minutes
+  const localOffset = now.getTimezoneOffset(); // minutes
+  const brazilTime = new Date(now.getTime() + (localOffset - brazilOffset) * 60000);
+  return brazilTime.toISOString().split('T')[0];
+}
+
 // deno-lint-ignore no-explicit-any
 async function saveGroupHistory(
   supabase: any,
@@ -13,7 +23,7 @@ async function saveGroupHistory(
   todayEntries: number,
   todayExits: number
 ) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = getTodayBrazil()
   
   // Check for existing history record for today
   const { data: existingHistory } = await supabase
@@ -92,7 +102,7 @@ async function processGroup(
     existingGroup = data
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = getTodayBrazil()
 
   if (existingGroup) {
     const newCurrentMembers = current_members ?? existingGroup.current_members

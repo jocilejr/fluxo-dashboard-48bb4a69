@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, UserPlus, UserMinus, UsersRound } from "lucide-react";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   Select,
   SelectContent,
@@ -40,7 +41,7 @@ export function GroupStatsCards() {
   const { data: todayStats } = useQuery({
     queryKey: ["group-stats-today", selectedGroupId],
     queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = formatInTimeZone(new Date(), "America/Sao_Paulo", "yyyy-MM-dd");
       
       let query = supabase
         .from("group_statistics_history")

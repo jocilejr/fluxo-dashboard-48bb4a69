@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { format, subDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { subDays } from "date-fns";
+import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface GroupHistoryData {
@@ -76,23 +76,17 @@ export function GroupHistoryChart() {
       return acc;
     }, {} as Record<string, { date: string; entries: number; exits: number; members: number }>);
 
-    // Fill missing dates using UTC dates consistently
+    // Fill missing dates using Brazil timezone (America/Sao_Paulo)
     const result = [];
-    const now = new Date();
-    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const nowBrazil = toZonedTime(new Date(), "America/Sao_Paulo");
     
     for (let i = days; i >= 0; i--) {
-      const dateUtc = new Date(todayUtc);
-      dateUtc.setUTCDate(todayUtc.getUTCDate() - i);
-      const dateKey = dateUtc.toISOString().split("T")[0];
+      const dateBrazil = subDays(nowBrazil, i);
+      const dateKey = formatInTimeZone(dateBrazil, "America/Sao_Paulo", "yyyy-MM-dd");
       const existing = byDate[dateKey];
       
-      // Format using UTC date parts
-      const day = String(dateUtc.getUTCDate()).padStart(2, '0');
-      const month = String(dateUtc.getUTCMonth() + 1).padStart(2, '0');
-      
       result.push({
-        date: `${day}/${month}`,
+        date: formatInTimeZone(dateBrazil, "America/Sao_Paulo", "dd/MM"),
         fullDate: dateKey,
         entries: existing?.entries || 0,
         exits: existing?.exits || 0,
