@@ -193,10 +193,8 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
     };
     
     const extractDateParts = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      // Use Brazil timezone to extract date parts to match transaction dates
+      return date.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     };
     
     const startDateStr = extractDateParts(dateFilter.startDate);
