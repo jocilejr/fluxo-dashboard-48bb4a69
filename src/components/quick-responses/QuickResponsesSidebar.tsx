@@ -187,29 +187,6 @@ export function QuickResponsesSidebar({
         </div>
       </ScrollArea>
 
-      {/* Edit Category Dialog */}
-      <Dialog open={editingCategory !== null} onOpenChange={(open) => !open && handleCancelEdit()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Renomear Categoria</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label>Novo nome</Label>
-              <Input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Nome da categoria"
-                onKeyDown={(e) => e.key === "Enter" && handleSaveEdit()}
-                autoFocus
-              />
-            </div>
-            <Button className="w-full" onClick={handleSaveEdit} disabled={!editName.trim()}>
-              Salvar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
