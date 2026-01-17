@@ -5,11 +5,18 @@ import { QuickResponsesList } from "@/components/quick-responses/QuickResponsesL
 
 const Projetos = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { responses, categories, createResponse, updateResponse, deleteResponse } = useQuickResponses();
+  const { responses, categories, createResponse, updateResponse, deleteResponse, renameCategory } = useQuickResponses();
 
   const handleCreateCategory = (name: string) => {
     // Category is created automatically when first response with that category is added
     setSelectedCategory(name);
+  };
+
+  const handleRenameCategory = (oldName: string, newName: string) => {
+    renameCategory.mutate({ oldName, newName });
+    if (selectedCategory === oldName) {
+      setSelectedCategory(newName);
+    }
   };
 
   return (
@@ -19,6 +26,7 @@ const Projetos = () => {
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
         onCreateCategory={handleCreateCategory}
+        onRenameCategory={handleRenameCategory}
       />
       
       <QuickResponsesList

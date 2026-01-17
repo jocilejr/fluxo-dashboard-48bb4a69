@@ -100,6 +100,28 @@ export function useQuickResponses() {
     },
   });
 
+  const renameCategory = useMutation({
+    mutationFn: async ({ oldName, newName }: { oldName: string; newName: string }) => {
+      const responsesToUpdate = responses.filter((r) => r.category === oldName);
+      
+      for (const response of responsesToUpdate) {
+        const { error } = await supabase
+          .from("quick_responses")
+          .update({ category: newName })
+          .eq("id", response.id);
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quick-responses"] });
+      toast.success("Categoria renomeada!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao renomear categoria: " + error.message);
+    },
+  });
+
   return {
     responses,
     categories,
@@ -107,5 +129,6 @@ export function useQuickResponses() {
     createResponse,
     updateResponse,
     deleteResponse,
+    renameCategory,
   };
 }
