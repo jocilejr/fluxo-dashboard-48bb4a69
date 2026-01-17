@@ -56,15 +56,32 @@ export function useTransactions(options?: UseTransactionsOptions) {
   const { data: transactions, refetch, isLoading } = useQuery({
     queryKey: ["transactions", options?.startDate?.toISOString(), options?.endDate?.toISOString()],
     queryFn: async () => {
-      // Fetch all transactions - filtering will be done in the frontend
-      // to properly handle paid_at vs created_at based on status
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Fetch all transactions without limit - Supabase default is 1000
+      // We need to fetch in batches or use range to get all records
+      const allTransactions: Transaction[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
 
-      if (error) throw error;
-      return data as Transaction[];
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allTransactions.push(...(data as Transaction[]));
+          from += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      return allTransactions;
     },
   });
 
