@@ -922,7 +922,7 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
               <CalendarIcon className="h-3.5 w-3.5" />
               {dateFilter.type === "custom" ? (
                 <span>
-                  {format(dateFilter.startDate, "dd/MM", { locale: ptBR })} - {format(dateFilter.endDate, "dd/MM", { locale: ptBR })}
+                  {format(dateFilter.startDate, "dd/MM/yy", { locale: ptBR })} - {format(dateFilter.endDate, "dd/MM/yy", { locale: ptBR })}
                 </span>
               ) : (
                 <span>Personalizado</span>
@@ -933,12 +933,13 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
             <Calendar
               initialFocus
               mode="range"
-              defaultMonth={customRange?.from}
+              defaultMonth={customRange?.from || getBrazilNow()}
               selected={customRange}
               onSelect={handleCustomRangeSelect}
               numberOfMonths={1}
               locale={ptBR}
               className="pointer-events-auto"
+              toDate={getBrazilNow()}
             />
           </PopoverContent>
         </Popover>
