@@ -200,6 +200,20 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
     const startDateStr = extractDateParts(dateFilter.startDate);
     const endDateStr = extractDateParts(dateFilter.endDate);
     
+    // Debug logging
+    console.log('[DateFilter Debug]', {
+      filterType: dateFilter.type,
+      startDate: dateFilter.startDate.toISOString(),
+      endDate: dateFilter.endDate.toISOString(),
+      startDateStr,
+      endDateStr,
+      totalTransactions: transactions.length,
+      sampleTransactionDates: transactions.slice(0, 3).map(t => ({
+        created_at: t.created_at,
+        brazilDate: transactionToBrazilDate(t.created_at)
+      }))
+    });
+    
     return transactions.filter((t) => {
       // For paid transactions, use paid_at if available, otherwise use created_at
       const dateStr = t.status === "pago" && t.paid_at ? t.paid_at : t.created_at;
