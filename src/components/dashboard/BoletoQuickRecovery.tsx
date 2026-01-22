@@ -645,6 +645,22 @@ export function BoletoQuickRecovery({ open, onOpenChange, transaction, onTransac
                 )}
               </div>
 
+              {/* CPF/Documento */}
+              {transaction.customer_document && (
+                <div className="p-3 rounded-lg bg-card border border-border">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>CPF</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium font-mono">{transaction.customer_document}</p>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleCopyField(transaction.customer_document!, "document")}>
+                      {copiedId === "document" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {/* Valor - Destacado */}
               <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
                 <div className="flex items-center gap-2 text-xs text-primary/70 mb-1">

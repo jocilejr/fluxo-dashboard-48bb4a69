@@ -14,6 +14,7 @@ export interface Transaction {
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
+  customer_document: string | null;
   created_at: string;
   paid_at: string | null;
   metadata: { boleto_url?: string } | null;
