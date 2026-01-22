@@ -103,6 +103,34 @@ serve(async (req) => {
       console.error("[delivery-access] Error inserting access:", insertError);
     }
 
+    // Use global pixels
+    const activePixels = (globalPixels || []);
+
+    // Log pixel fires to the database
+    if (activePixels.length > 0) {
+      const pixelsData = activePixels.map((p: any) => ({
+        platform: p.platform,
+        pixel_id: p.pixel_id,
+        event_name: p.event_name,
+      }));
+
+      const { error: pixelLogError } = await supabase
+        .from("pixel_fire_logs")
+        .insert({
+          product_id: product.id,
+          product_name: product.name,
+          phone: normalizedPhone,
+          pixels_fired: pixelsData,
+          product_value: product.value || 0,
+        });
+
+      if (pixelLogError) {
+        console.error("[delivery-access] Error logging pixel fires:", pixelLogError);
+      } else {
+        console.log(`[delivery-access] Logged ${activePixels.length} pixels for ${normalizedPhone}`);
+      }
+    }
+
     // Send delivery webhook if configured
     if (product.delivery_webhook_url) {
       try {
@@ -125,9 +153,6 @@ serve(async (req) => {
         console.error("[delivery-access] Webhook error:", webhookError);
       }
     }
-
-    // Use global pixels
-    const activePixels = (globalPixels || []);
 
     console.log(`[delivery-access] First access for ${normalizedPhone}, returning ${activePixels.length} global pixels`);
 

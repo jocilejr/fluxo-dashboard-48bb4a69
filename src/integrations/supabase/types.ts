@@ -1069,6 +1069,44 @@ export type Database = {
         }
         Relationships: []
       }
+      pixel_fire_logs: {
+        Row: {
+          created_at: string | null
+          id: string
+          phone: string
+          pixels_fired: Json
+          product_id: string | null
+          product_name: string
+          product_value: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          phone: string
+          pixels_fired?: Json
+          product_id?: string | null
+          product_name: string
+          product_value?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          phone?: string
+          pixels_fired?: Json
+          product_id?: string | null
+          product_name?: string
+          product_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pixel_fire_logs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
