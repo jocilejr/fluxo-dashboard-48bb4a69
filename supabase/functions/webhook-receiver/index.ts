@@ -498,6 +498,7 @@ Deno.serve(async (req) => {
             customer_name: payload.customer_name || undefined,
             customer_email: payload.customer_email || undefined,
             customer_phone: normalizedPhone || undefined,
+            customer_document: payload.customer_document || undefined,
             metadata: payload.metadata,
             updated_at: new Date().toISOString(),
           })
