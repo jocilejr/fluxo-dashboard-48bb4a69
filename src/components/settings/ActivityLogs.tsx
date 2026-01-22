@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Trash2, Search, RefreshCw, Download, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ActivityLog {
   id: string;
@@ -51,17 +52,76 @@ export const clearActivityLogs = () => {
   window.dispatchEvent(new CustomEvent("activity-logs-cleared"));
 };
 
+interface PixelFireLog {
+  id: string;
+  product_name: string;
+  phone: string;
+  pixels_fired: Array<{ platform: string; pixel_id: string; event_name: string }>;
+  product_value: number;
+  created_at: string;
+}
+
 const ActivityLogs = () => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchPixelLogs = async (): Promise<ActivityLog[]> => {
+    try {
+      const { data, error } = await supabase
+        .from("pixel_fire_logs" as any)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.error("Error fetching pixel logs:", error);
+        return [];
+      }
+
+      return ((data || []) as unknown as PixelFireLog[]).map((log) => {
+        const platforms = log.pixels_fired.map(p => p.platform).join(", ");
+        const value = log.product_value ? `R$ ${log.product_value.toFixed(2).replace(".", ",")}` : "";
+        
+        return {
+          id: `pixel-${log.id}`,
+          timestamp: log.created_at,
+          type: "success" as const,
+          category: "Pixel",
+          message: `Pixels disparados: ${platforms}`,
+          details: `Produto: ${log.product_name} | Telefone: ${log.phone}${value ? ` | Valor: ${value}` : ""}`,
+        };
+      });
+    } catch (error) {
+      console.error("Error fetching pixel logs:", error);
+      return [];
+    }
+  };
+
+  const loadAllLogs = async () => {
+    setIsLoading(true);
+    try {
+      const localLogs = getActivityLogs();
+      const pixelLogs = await fetchPixelLogs();
+      
+      // Merge and sort by timestamp
+      const allLogs = [...localLogs, ...pixelLogs].sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      
+      setLogs(allLogs);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    setLogs(getActivityLogs());
+    loadAllLogs();
     
-    const handleLogAdded = () => setLogs(getActivityLogs());
-    const handleLogsCleared = () => setLogs([]);
+    const handleLogAdded = () => loadAllLogs();
+    const handleLogsCleared = () => loadAllLogs();
     
     window.addEventListener("activity-log-added", handleLogAdded);
     window.addEventListener("activity-logs-cleared", handleLogsCleared);
@@ -84,7 +144,10 @@ const ActivityLogs = () => {
     return matchesSearch && matchesType && matchesCategory;
   });
 
-  const categories = [...new Set(logs.map(l => l.category))];
+  // Fixed categories including Pixel
+  const fixedCategories = ["Pixel"];
+  const dynamicCategories = [...new Set(logs.map(l => l.category).filter(c => !fixedCategories.includes(c)))];
+  const categories = [...fixedCategories, ...dynamicCategories];
   
   const getTypeBadge = (type: ActivityLog["type"]) => {
     const variants: Record<string, string> = {
@@ -132,10 +195,11 @@ const ActivityLogs = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => setLogs(getActivityLogs())}
+              onClick={loadAllLogs}
+              disabled={isLoading}
               className="h-8"
             >
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
               Atualizar
             </Button>
             <Button 
