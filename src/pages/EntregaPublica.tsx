@@ -46,14 +46,39 @@ const EntregaPublica = () => {
   const [pixelsFired, setPixelsFired] = useState(false);
   const pixelsRef = useRef<PixelInfo[]>([]);
 
-  // Load and fire Meta Pixel using official implementation with enhanced tracking
-  const loadMetaPixel = (pixelId: string, eventName: string, value: number) => {
-    console.log(`[Pixel] Loading Meta Pixel: ${pixelId}, event: ${eventName}, value: ${value}`);
+  // Format phone for Meta Advanced Matching (digits only with country code)
+  const formatPhoneForMeta = (phone: string | null): string | null => {
+    if (!phone) return null;
+    
+    // Remove all non-digit characters
+    let digits = phone.replace(/\D/g, '');
+    
+    // Add country code 55 if not present
+    if (digits.length >= 10 && digits.length <= 11) {
+      digits = '55' + digits;
+    }
+    
+    // Must be at least 12 digits for valid Brazilian phone with country code
+    if (digits.length < 12) return null;
+    
+    return digits;
+  };
+
+  // Load and fire Meta Pixel using official implementation with Advanced Matching
+  const loadMetaPixel = (pixelId: string, eventName: string, value: number, phone: string | null) => {
+    const formattedPhone = formatPhoneForMeta(phone);
+    console.log(`[Pixel] Loading Meta Pixel: ${pixelId}, event: ${eventName}, value: ${value}, phone: ${formattedPhone ? formattedPhone.slice(0, 4) + '***' : 'null'}`);
     
     const fireMetaEvent = () => {
       try {
-        // Initialize this specific pixel
-        window.fbq('init', pixelId);
+        // Initialize with Advanced Matching data for better attribution
+        const advancedMatchingData: { ph?: string; external_id?: string } = {};
+        if (formattedPhone) {
+          advancedMatchingData.ph = formattedPhone;
+          advancedMatchingData.external_id = formattedPhone;
+        }
+        
+        window.fbq('init', pixelId, advancedMatchingData);
         window.fbq('track', 'PageView');
         
         // Fire the conversion event with proper parameters
@@ -63,7 +88,7 @@ const EntregaPublica = () => {
           content_type: 'product',
           content_ids: [pixelId],
         });
-        console.log(`[Pixel] Meta ${eventName} fired successfully for ${pixelId} with value ${value}`);
+        console.log(`[Pixel] Meta ${eventName} fired successfully for ${pixelId} with value ${value} and Advanced Matching`);
       } catch (err) {
         console.error(`[Pixel] Error firing Meta event:`, err);
       }
@@ -116,16 +141,18 @@ const EntregaPublica = () => {
       fireMetaEvent();
     }
 
-    // Always fire via img tag as reliable fallback for tracking
+    // Always fire via img tag as reliable fallback for tracking with Advanced Matching
     const img = document.createElement('img');
     img.height = 1;
     img.width = 1;
     img.style.display = 'none';
     img.setAttribute('alt', '');
     const timestamp = Date.now();
-    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=${encodeURIComponent(eventName || 'Purchase')}&cd[value]=${value}&cd[currency]=BRL&noscript=1&_t=${timestamp}`;
+    // Include ud[ph] parameter for Advanced Matching in img fallback
+    const phoneParam = formattedPhone ? `&ud[ph]=${formattedPhone}` : '';
+    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=${encodeURIComponent(eventName || 'Purchase')}&cd[value]=${value}&cd[currency]=BRL${phoneParam}&noscript=1&_t=${timestamp}`;
     document.body.appendChild(img);
-    console.log(`[Pixel] Meta img fallback fired for ${pixelId}`);
+    console.log(`[Pixel] Meta img fallback fired for ${pixelId} with Advanced Matching`);
   };
 
   // Load and fire TikTok Pixel
@@ -279,14 +306,14 @@ const EntregaPublica = () => {
   };
 
   // Fire all tracking pixels with dynamic loading
-  const firePixels = (pixels: PixelInfo[], value: number) => {
+  const firePixels = (pixels: PixelInfo[], value: number, phone: string | null) => {
     console.log(`[Pixel] Firing ${pixels.length} pixels with value ${value}`);
     
     pixels.forEach((pixel) => {
       try {
         switch (pixel.platform) {
           case "meta":
-            loadMetaPixel(pixel.pixel_id, pixel.event_name, value);
+            loadMetaPixel(pixel.pixel_id, pixel.event_name, value, phone);
             break;
           case "tiktok":
             loadTikTokPixel(pixel.pixel_id, pixel.event_name, value);
@@ -356,11 +383,11 @@ const EntregaPublica = () => {
     if (!loading && !error && product && pixelsRef.current.length > 0 && !pixelsFired) {
       // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
-        firePixels(pixelsRef.current, product.value || 0);
+        firePixels(pixelsRef.current, product.value || 0, telefone);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [loading, error, product, pixelsFired]);
+  }, [loading, error, product, pixelsFired, telefone]);
 
   // Countdown and redirect
   useEffect(() => {
