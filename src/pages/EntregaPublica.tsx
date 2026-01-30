@@ -46,57 +46,84 @@ const EntregaPublica = () => {
   const [pixelsFired, setPixelsFired] = useState(false);
   const pixelsRef = useRef<PixelInfo[]>([]);
 
-  // Load and fire Meta Pixel using official implementation
+  // Load and fire Meta Pixel using official implementation with enhanced tracking
   const loadMetaPixel = (pixelId: string, eventName: string, value: number) => {
     console.log(`[Pixel] Loading Meta Pixel: ${pixelId}, event: ${eventName}, value: ${value}`);
     
+    const fireMetaEvent = () => {
+      try {
+        // Initialize this specific pixel
+        window.fbq('init', pixelId);
+        window.fbq('track', 'PageView');
+        
+        // Fire the conversion event with proper parameters
+        window.fbq('track', eventName || 'Purchase', {
+          value: value,
+          currency: 'BRL',
+          content_type: 'product',
+          content_ids: [pixelId],
+        });
+        console.log(`[Pixel] Meta ${eventName} fired successfully for ${pixelId} with value ${value}`);
+      } catch (err) {
+        console.error(`[Pixel] Error firing Meta event:`, err);
+      }
+    };
+
     // Check if fbq already exists and is functional
-    if (window.fbq && typeof window.fbq === 'function') {
-      console.log(`[Pixel] fbq already exists, firing event directly`);
-      window.fbq('init', pixelId);
-      window.fbq('track', 'PageView');
-      window.fbq('track', eventName || 'Purchase', {
-        value: value,
-        currency: 'BRL',
-      });
-      console.log(`[Pixel] Meta ${eventName} fired with value ${value}`);
-      return;
+    if (window.fbq && typeof window.fbq === 'function' && window.fbq.loaded) {
+      console.log(`[Pixel] fbq already loaded, firing event directly`);
+      fireMetaEvent();
+    } else {
+      // Official Meta Pixel base code - initialize fresh
+      const existingFbq = window.fbq;
+      const n: any = window.fbq = function() {
+        if (n.callMethod) {
+          n.callMethod.apply(n, arguments);
+        } else {
+          n.queue.push(arguments);
+        }
+      };
+      if (!existingFbq) {
+        window._fbq = n;
+      }
+      n.push = n;
+      n.loaded = true;
+      n.version = '2.0';
+      n.queue = n.queue || [];
+
+      // Load the script
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://connect.facebook.net/en_US/fbevents.js';
+      
+      script.onload = () => {
+        console.log(`[Pixel] Meta fbevents.js loaded successfully`);
+        fireMetaEvent();
+      };
+      
+      script.onerror = () => {
+        console.error(`[Pixel] Failed to load Meta fbevents.js`);
+      };
+
+      const firstScript = document.getElementsByTagName('script')[0];
+      if (firstScript && firstScript.parentNode) {
+        firstScript.parentNode.insertBefore(script, firstScript);
+      } else {
+        document.head.appendChild(script);
+      }
+      
+      // Fire queued event immediately (will be processed when script loads)
+      fireMetaEvent();
     }
 
-    // Official Meta Pixel base code
-    (function(f: any, b: Document, e: string, v: string) {
-      let n: any, t: any, s: any;
-      if (f.fbq) return;
-      n = f.fbq = function() {
-        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-      };
-      if (!f._fbq) f._fbq = n;
-      n.push = n;
-      n.loaded = !0;
-      n.version = '2.0';
-      n.queue = [];
-      t = b.createElement(e);
-      t.async = !0;
-      t.src = v;
-      s = b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t, s);
-    })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
-
-    // Initialize and track after script setup
-    window.fbq('init', pixelId);
-    window.fbq('track', 'PageView');
-    window.fbq('track', eventName || 'Purchase', {
-      value: value,
-      currency: 'BRL',
-    });
-    console.log(`[Pixel] Meta ${eventName} queued with value ${value}`);
-
-    // Also fire via img tag for maximum reliability
+    // Always fire via img tag as reliable fallback for tracking
     const img = document.createElement('img');
     img.height = 1;
     img.width = 1;
     img.style.display = 'none';
-    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=${encodeURIComponent(eventName || 'Purchase')}&cd[value]=${value}&cd[currency]=BRL&noscript=1`;
+    img.setAttribute('alt', '');
+    const timestamp = Date.now();
+    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=${encodeURIComponent(eventName || 'Purchase')}&cd[value]=${value}&cd[currency]=BRL&noscript=1&_t=${timestamp}`;
     document.body.appendChild(img);
     console.log(`[Pixel] Meta img fallback fired for ${pixelId}`);
   };
