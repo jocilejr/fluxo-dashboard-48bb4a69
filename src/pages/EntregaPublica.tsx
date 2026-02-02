@@ -141,18 +141,6 @@ const EntregaPublica = () => {
       fireMetaEvent();
     }
 
-    // Always fire via img tag as reliable fallback for tracking with Advanced Matching
-    const img = document.createElement('img');
-    img.height = 1;
-    img.width = 1;
-    img.style.display = 'none';
-    img.setAttribute('alt', '');
-    const timestamp = Date.now();
-    // Include ud[ph] parameter for Advanced Matching in img fallback
-    const phoneParam = formattedPhone ? `&ud[ph]=${formattedPhone}` : '';
-    img.src = `https://www.facebook.com/tr?id=${pixelId}&ev=${encodeURIComponent(eventName || 'Purchase')}&cd[value]=${value}&cd[currency]=BRL${phoneParam}&noscript=1&_t=${timestamp}`;
-    document.body.appendChild(img);
-    console.log(`[Pixel] Meta img fallback fired for ${pixelId} with Advanced Matching`);
   };
 
   // Load and fire TikTok Pixel
