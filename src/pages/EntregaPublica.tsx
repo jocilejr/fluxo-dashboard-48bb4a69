@@ -64,83 +64,46 @@ const EntregaPublica = () => {
     return digits;
   };
 
-  // Load and fire Meta Pixel using official implementation with Advanced Matching
+  // Load and fire Meta Pixel using official IIFE implementation with Advanced Matching
   const loadMetaPixel = (pixelId: string, eventName: string, value: number, phone: string | null) => {
     const formattedPhone = formatPhoneForMeta(phone);
-    console.log(`[Pixel] Loading Meta Pixel: ${pixelId}, event: ${eventName}, value: ${value}, phone: ${formattedPhone ? formattedPhone.slice(0, 4) + '***' : 'null'}`);
+    console.log(`[Pixel] Loading Meta Pixel: ${pixelId}, event: ${eventName}, value: ${value}`);
     
-    const fireMetaEvent = () => {
-      try {
-        // Initialize with Advanced Matching data for better attribution
-        const advancedMatchingData: { ph?: string; external_id?: string } = {};
-        if (formattedPhone) {
-          advancedMatchingData.ph = formattedPhone;
-          advancedMatchingData.external_id = formattedPhone;
-        }
-        
-        window.fbq('init', pixelId, advancedMatchingData);
-        window.fbq('track', 'PageView');
-        
-        // Fire the conversion event with proper parameters
-        window.fbq('track', eventName || 'Purchase', {
-          value: value,
-          currency: 'BRL',
-          content_type: 'product',
-          content_ids: [pixelId],
-        });
-        console.log(`[Pixel] Meta ${eventName} fired successfully for ${pixelId} with value ${value} and Advanced Matching`);
-      } catch (err) {
-        console.error(`[Pixel] Error firing Meta event:`, err);
-      }
-    };
-
-    // Check if fbq already exists and is functional
-    if (window.fbq && typeof window.fbq === 'function' && window.fbq.loaded) {
-      console.log(`[Pixel] fbq already loaded, firing event directly`);
-      fireMetaEvent();
-    } else {
-      // Official Meta Pixel base code - initialize fresh
-      const existingFbq = window.fbq;
-      const n: any = window.fbq = function() {
-        if (n.callMethod) {
-          n.callMethod.apply(n, arguments);
-        } else {
-          n.queue.push(arguments);
-        }
+    // Usar o código oficial do Meta Pixel via IIFE
+    (function(f: any, b: any, e: any, v: any, n?: any, t?: any, s?: any) {
+      if (f.fbq) return; // Já existe, não recarregar
+      n = f.fbq = function() {
+        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
       };
-      if (!existingFbq) {
-        window._fbq = n;
-      }
+      if (!f._fbq) f._fbq = n;
       n.push = n;
-      n.loaded = true;
+      n.loaded = !0;
       n.version = '2.0';
-      n.queue = n.queue || [];
+      n.queue = [];
+      t = b.createElement(e);
+      t.async = !0;
+      t.src = v;
+      s = b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t, s);
+    })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
 
-      // Load the script
-      const script = document.createElement('script');
-      script.async = true;
-      script.src = 'https://connect.facebook.net/en_US/fbevents.js';
-      
-      script.onload = () => {
-        console.log(`[Pixel] Meta fbevents.js loaded successfully`);
-        fireMetaEvent();
-      };
-      
-      script.onerror = () => {
-        console.error(`[Pixel] Failed to load Meta fbevents.js`);
-      };
-
-      const firstScript = document.getElementsByTagName('script')[0];
-      if (firstScript && firstScript.parentNode) {
-        firstScript.parentNode.insertBefore(script, firstScript);
-      } else {
-        document.head.appendChild(script);
-      }
-      
-      // Fire queued event immediately (will be processed when script loads)
-      fireMetaEvent();
+    // Preparar dados de Advanced Matching
+    const advancedMatchingData: { ph?: string; external_id?: string } = {};
+    if (formattedPhone) {
+      advancedMatchingData.ph = formattedPhone;
+      advancedMatchingData.external_id = formattedPhone;
     }
 
+    // Enfileirar os comandos (serão processados quando o script carregar)
+    window.fbq('init', pixelId, advancedMatchingData);
+    window.fbq('track', 'PageView');
+    window.fbq('track', eventName || 'Purchase', {
+      value: value,
+      currency: 'BRL',
+      content_type: 'product',
+    });
+    
+    console.log(`[Pixel] Meta ${eventName} queued for ${pixelId}`);
   };
 
   // Load and fire TikTok Pixel
