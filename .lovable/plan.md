@@ -1,97 +1,135 @@
 
+## Diagnóstico atualizado (com base no código atual)
 
-# Corrigir Tempo Relativo e Status de Recuperacao em Tempo Real
+Identifiquei **4 causas concretas** para o problema continuar mesmo após as últimas mudanças:
 
-## Problemas Identificados
+1. **Chave de cache inconsistente das transações**
+   - O hook de dados usa `queryKey: ["transactions", options?.startDate?.toISOString(), options?.endDate?.toISOString()]`.
+   - O hook de realtime atualiza `["transactions"]` (chave diferente).
+   - Resultado: o evento realtime chega, mas a lista visível não recebe o update otimista.
 
-### 1. Tempo relativo nao atualiza ("Agora" para sempre)
-A funcao `formatRelativeTime` no `TransactionsTable.tsx` calcula o tempo relativo apenas quando o componente renderiza. Como nao ha nenhum mecanismo para forcar re-renderizacao periodica, o texto "Agora" permanece mesmo apos 16 minutos.
+2. **Cache de status de recuperação fica preso em memória**
+   - `useTransactionRecoveryLogs` inicializa `localCacheLogs` com localStorage e depois só busca IDs fora desse cache.
+   - Quando o evento realtime limpa apenas localStorage, o estado React (`localCacheLogs`) continua com dado antigo.
+   - Resultado: badge/status não muda até recarregar página.
 
-### 2. Badge de "contactado" nao atualiza sem F5
-O hook `useTransactionRecoveryLogs` busca dados da tabela `evolution_message_log` mas:
-- Usa `staleTime: 30000` e `refetchOnWindowFocus: false`
-- Usa cache local (localStorage) que impede novas buscas para IDs ja cacheados
-- Nao ha canal Realtime escutando mudancas na tabela `evolution_message_log`
-- Apos enviar uma recuperacao, o cache local ja tem o ID, entao nunca rebusca do banco
+3. **Badge de “contactado” no fluxo rápido não invalida a query do contador**
+   - `BoletoQuickRecovery.registerClick()` grava em `boleto_recovery_contacts`, mas não invalida `["boleto-recovery-count", transaction.id]`.
+   - Resultado: ícone/contador pode atualizar só após F5.
 
-## Solucao
+4. **Realtime está só no layout desktop**
+   - `useTransactionRealtime()` está no `AppLayout`, mas não no `MobileLayout`.
+   - Se estiver em viewport mobile, não há assinatura realtime global.
+   - Resultado: no mobile, atualização em tempo real pode não acontecer.
 
-### 1. Timer para atualizar tempo relativo
-Adicionar um estado `tick` no `TransactionsTable.tsx` que incrementa a cada 60 segundos, forcando re-renderizacao e recalculo dos tempos relativos.
+---
 
-```text
-TransactionsTable.tsx:
-- Adicionar: const [tick, setTick] = useState(0)
-- Adicionar: useEffect com setInterval de 60s para incrementar tick
-- O React re-renderiza automaticamente, recalculando formatRelativeTime
+## Implementação proposta
+
+### 1) Unificar a estratégia de cache de transações para o realtime funcionar de verdade
+- Criar helper de chave em `useTransactions` (ex.: `getTransactionsQueryKey(options)`).
+- Padronizar:
+  - `["transactions"]` quando não há filtro.
+  - chave composta só quando realmente houver filtros.
+- No hook realtime, trocar `setQueryData(["transactions"], ...)` por `setQueriesData({ queryKey: ["transactions"] }, updater)` para atualizar **todas** as variações da query.
+- Ajustar também leitura inicial (`getQueryData`) para buscar a chave correta, evitando descompasso de notificação.
+
+**Impacto esperado:** novas transações/status passam a refletir instantaneamente sem F5.
+
+---
+
+### 2) Corrigir o hook de status de recuperação para não travar em cache local
+- Refatorar `useTransactionRecoveryLogs` para:
+  - consultar por `validIds` (visíveis) mesmo que existam no cache local;
+  - usar cache local apenas como valor inicial/otimização;
+  - remover lógica “somente IDs fora do cache local”.
+- Manter gravação em localStorage após resposta do backend.
+- Realtime continuará invalidando as queries de status, mas agora haverá refetch efetivo dos IDs visíveis.
+
+**Impacto esperado:** badge/status de recuperação muda automaticamente ao registrar envio/erro/pendente, sem refresh manual.
+
+---
+
+### 3) Atualizar badge “contactado” imediatamente após ação manual
+- Em `BoletoQuickRecovery.registerClick()`:
+  - invalidar `["boleto-recovery-count", transaction.id]` após insert;
+  - opcionalmente fazer update otimista do contador via `setQueryData`.
+- Também invalidar `["boleto-recovery-contacts"]` para consistência com telas de recuperação.
+
+**Impacto esperado:** contador/indicador de contato atualiza no ato.
+
+---
+
+### 4) Garantir realtime também no layout mobile
+- Incluir `useTransactionRealtime()` no `MobileLayout`.
+- Garantir que exista apenas uma assinatura por sessão (desktop **ou** mobile), sem duplicidade simultânea.
+
+**Impacto esperado:** comportamento realtime consistente em qualquer dispositivo.
+
+---
+
+### 5) Blindagem adicional para timestamps relativos
+- Manter o timer de 60s em `TransactionsTable`.
+- Aplicar o mesmo padrão onde também existe tempo relativo (ex.: `AbandonedEventsTab`), para evitar “Agora” congelado em outras abas.
+- Opcional: extrair hook reutilizável `useRelativeTimeTick(60000)` para padronizar.
+
+**Impacto esperado:** textos relativos evoluem continuamente (“Agora” → “1min atrás” → ...).
+
+---
+
+## Ajustes de backend (se necessário para sincronização entre sessões)
+
+Se quisermos que mudanças de contato em outras sessões/dispositivos também reflitam instantaneamente, incluir realtime para a tabela de contatos de recuperação:
+
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.boleto_recovery_contacts;
 ```
 
-### 2. Realtime para recovery logs
-Adicionar um canal Realtime no `useTransactionRealtime.ts` escutando a tabela `evolution_message_log`. Quando uma mensagem de recuperacao e registrada, invalidar o cache de recovery logs e atualizar o cache local.
+Observação: isso complementa a invalidação local; não substitui a correção de cache no front.
 
-```text
-useTransactionRealtime.ts:
-- Adicionar segundo listener no mesmo canal para tabela evolution_message_log
-- Ao receber INSERT/UPDATE: invalidar queryKey ['transaction-recovery-logs-db']
-- Atualizar o localStorage cache para refletir o novo status
-```
+---
 
-### 3. Corrigir cache agressivo de recovery logs
-No `useTransactionRecoveryLogs.ts`, o filtro `idsNotInLocalCache` impede rebusca de IDs ja cacheados localmente. Precisamos:
-- Invalidar o cache local quando recebemos evento realtime
-- Ou adicionar uma funcao `invalidateRecoveryLog` que remove um ID do cache local
+## Arquivos que serão alterados
 
-## Arquivos a Modificar
+- `src/hooks/useTransactions.ts`
+- `src/hooks/useTransactionRealtime.ts`
+- `src/hooks/useTransactionRecoveryLogs.ts`
+- `src/components/dashboard/BoletoQuickRecovery.tsx`
+- `src/components/mobile/MobileLayout.tsx`
+- `src/components/dashboard/AbandonedEventsTab.tsx` (se aplicarmos timer relativo também aqui)
+- `supabase/migrations/...sql` (apenas se habilitarmos realtime de `boleto_recovery_contacts`)
 
-### `src/components/dashboard/TransactionsTable.tsx`
-- Adicionar estado `tick` com `useState(0)`
-- Adicionar `useEffect` com `setInterval` de 60 segundos
-- Incluir `tick` como dependencia implícita (o state change ja forca re-render)
+---
 
-### `src/hooks/useTransactionRealtime.ts`
-- Adicionar listener para `evolution_message_log` no mesmo canal
-- Ao receber evento: chamar `queryClient.invalidateQueries({ queryKey: ['transaction-recovery-logs-db'] })`
-- Limpar o cache localStorage dos recovery logs afetados
+## Sequência de execução recomendada
 
-### `src/hooks/useTransactionRecoveryLogs.ts`
-- Exportar funcao `invalidateLocalCache(transactionId)` para permitir limpeza externa
-- Ou: reduzir `staleTime` e habilitar `refetchOnWindowFocus` para permitir atualizacoes mais frequentes
-- Alternativa mais simples: ao invalidar via React Query, tambem limpar o localStorage cache do ID afetado
+1. Corrigir chave de cache de transações + `setQueriesData` no realtime.  
+2. Refatorar `useTransactionRecoveryLogs` (remover bloqueio por cache local).  
+3. Corrigir invalidação do contador em `BoletoQuickRecovery`.  
+4. Adicionar realtime no `MobileLayout`.  
+5. (Opcional) incluir realtime de `boleto_recovery_contacts` no backend.  
+6. Padronizar timer relativo em componentes faltantes.
 
-## Detalhes Tecnicos
+---
 
-### Timer de tick (TransactionsTable.tsx)
-```text
-const [tick, setTick] = useState(0);
-useEffect(() => {
-  const interval = setInterval(() => setTick(t => t + 1), 60000);
-  return () => clearInterval(interval);
-}, []);
-```
+## Critérios de aceite (teste ponta a ponta)
 
-### Realtime para evolution_message_log (useTransactionRealtime.ts)
-```text
-// Adicionar ao canal existente:
-.on(
-  "postgres_changes",
-  { event: "*", schema: "public", table: "evolution_message_log" },
-  (payload) => {
-    // Invalidar cache de recovery logs
-    queryClient.invalidateQueries({ queryKey: ['transaction-recovery-logs-db'] });
-    // Limpar localStorage cache para forcar rebusca
-  }
-)
-```
+1. Nova transação entrando no backend aparece na lista em até poucos segundos, sem F5.  
+2. Um item marcado como recuperado atualiza badge/status automaticamente.  
+3. Clicar em “Abrir conversa no WhatsApp” atualiza contador “contactado” imediatamente.  
+4. Texto de tempo relativo muda sozinho após 1–2 minutos (sem interação).  
+5. Fluxo funciona igual em desktop e mobile.
 
-### Migracao SQL necessaria
-```text
-ALTER PUBLICATION supabase_realtime ADD TABLE public.evolution_message_log;
-```
-Isso habilita o Realtime para a tabela de logs de recuperacao.
+---
 
-### Ajuste no useTransactionRecoveryLogs.ts
-```text
-- Ao receber invalidacao, limpar localCacheLogs state para os IDs afetados
-- Isso permite que o useQuery rebusque os dados atualizados do banco
-```
+## Riscos e mitigação
+
+- **Risco:** refetch pesado em tabela grande.  
+  **Mitigação:** manter update otimista com `setQueriesData`; evitar refetch completo por evento.
+
+- **Risco:** inconsistência entre cache local e memória.  
+  **Mitigação:** transformar cache local em suporte inicial, não em fonte exclusiva.
+
+- **Risco:** múltiplas assinaturas realtime.  
+  **Mitigação:** manter assinatura somente no layout ativo por dispositivo (desktop/mobile).
 
