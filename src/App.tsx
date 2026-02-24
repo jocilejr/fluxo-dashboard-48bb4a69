@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,27 +7,38 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ResponsiveLayout } from "./components/ResponsiveLayout";
 import { MobileLayout } from "./components/mobile/MobileLayout";
 import { MobileProfile } from "./components/mobile/MobileProfile";
-import Dashboard from "./pages/Dashboard";
-import Transacoes from "./pages/Transacoes";
-import Recuperacao from "./pages/Recuperacao";
-import Projetos from "./pages/Projetos";
-import TypebotRanking from "./pages/TypebotRanking";
-import GerarBoleto from "./pages/GerarBoleto";
-import Configuracoes from "./pages/Configuracoes";
-import Entrega from "./pages/Entrega";
-import EntregaPublica from "./pages/EntregaPublica";
-import LinksUteis from "./pages/LinksUteis";
-import Clientes from "./pages/Clientes";
-import Grupos from "./pages/Grupos";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { addActivityLog } from "./components/settings/ActivityLogs";
+import { Loader2 } from "lucide-react";
 
-const queryClient = new QueryClient();
+// Lazy loaded pages
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Transacoes = lazy(() => import("./pages/Transacoes"));
+const Recuperacao = lazy(() => import("./pages/Recuperacao"));
+const Projetos = lazy(() => import("./pages/Projetos"));
+const TypebotRanking = lazy(() => import("./pages/TypebotRanking"));
+const GerarBoleto = lazy(() => import("./pages/GerarBoleto"));
+const Configuracoes = lazy(() => import("./pages/Configuracoes"));
+const Entrega = lazy(() => import("./pages/Entrega"));
+const EntregaPublica = lazy(() => import("./pages/EntregaPublica"));
+const LinksUteis = lazy(() => import("./pages/LinksUteis"));
+const Clientes = lazy(() => import("./pages/Clientes"));
+const Grupos = lazy(() => import("./pages/Grupos"));
+const Auth = lazy(() => import("./pages/Auth"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Navegador = lazy(() => import("./pages/Navegador"));
 
-// Log app initialization
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000,
+      gcTime: 300000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 const logAppStart = () => {
   addActivityLog({
     type: "info",
@@ -36,6 +47,12 @@ const logAppStart = () => {
     details: `Versão: ${new Date().toISOString()}`
   });
 };
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 const App = () => {
   useEffect(() => {
@@ -49,6 +66,7 @@ const App = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route
@@ -171,11 +189,22 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/navegador"
+            element={
+              <ProtectedRoute>
+                <ResponsiveLayout>
+                  <Navegador />
+                </ResponsiveLayout>
+              </ProtectedRoute>
+            }
+          />
           {/* Rota pública para página de entrega - sem autenticação */}
           <Route path="/e/:slug" element={<EntregaPublica />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -56,6 +56,8 @@ export function useTransactions(options?: UseTransactionsOptions) {
 
   const { data: transactions, refetch, isLoading } = useQuery({
     queryKey: ["transactions", options?.startDate?.toISOString(), options?.endDate?.toISOString()],
+    staleTime: 30000,
+    gcTime: 300000,
     queryFn: async () => {
       // Fetch all transactions without limit - Supabase default is 1000
       // We need to fetch in batches or use range to get all records

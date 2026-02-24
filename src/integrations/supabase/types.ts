@@ -233,6 +233,45 @@ export type Database = {
         }
         Relationships: []
       }
+      browser_sessions: {
+        Row: {
+          created_at: string
+          favicon: string | null
+          id: string
+          is_pinned: boolean
+          last_accessed_at: string
+          sort_order: number
+          title: string | null
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          favicon?: string | null
+          id?: string
+          is_pinned?: boolean
+          last_accessed_at?: string
+          sort_order?: number
+          title?: string | null
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          favicon?: string | null
+          id?: string
+          is_pinned?: boolean
+          last_accessed_at?: string
+          sort_order?: number
+          title?: string | null
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           created_at: string

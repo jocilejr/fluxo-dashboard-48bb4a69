@@ -15,6 +15,7 @@ import {
   Link,
   Users,
   UsersRound,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +42,7 @@ const navItems: NavItem[] = [
   { title: "Typebots", icon: Bot, path: "/typebots", permissionKey: "typebots", adminOnly: true, desktopOnly: true },
   { title: "Gerar Boleto", icon: FileText, path: "/gerar-boleto", permissionKey: "gerar_boleto", desktopOnly: true },
   { title: "Links Úteis", icon: Link, path: "/links-uteis", permissionKey: "links_uteis", desktopOnly: true },
+  { title: "Navegador", icon: Globe, path: "/navegador", permissionKey: "navegador", desktopOnly: true },
   { title: "Configurações", icon: Settings, path: "/configuracoes", permissionKey: "configuracoes", adminOnly: true },
 ];
 

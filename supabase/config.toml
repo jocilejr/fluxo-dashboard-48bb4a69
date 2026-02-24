@@ -56,3 +56,6 @@ verify_jwt = true
 
 [functions.evolution-validate-number]
 verify_jwt = true
+
+[functions.browser-proxy]
+verify_jwt = true
