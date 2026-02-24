@@ -126,3 +126,9 @@ export function saveRecoveryLogsToCache(logs: Record<string, CachedRecoveryLog>)
   
   setCache(RECOVERY_LOGS_CACHE_KEY, store);
 }
+
+export function clearRecoveryLogFromCache(transactionId: string): void {
+  const store = getCache<CachedRecoveryLog>(RECOVERY_LOGS_CACHE_KEY);
+  delete store[transactionId];
+  setCache(RECOVERY_LOGS_CACHE_KEY, store);
+}

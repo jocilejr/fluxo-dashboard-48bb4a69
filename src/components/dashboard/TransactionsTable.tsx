@@ -101,6 +101,13 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("aprovados");
   const { events: abandonedEvents } = useAbandonedEvents();
+
+  // Tick timer to force re-render every 60s for relative time updates
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [visibleCount, setVisibleCount] = useState(15);
