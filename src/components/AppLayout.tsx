@@ -6,6 +6,7 @@ import { Menu, RefreshCw, Smartphone, Loader2, CheckCircle, XCircle } from "luci
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTransactions } from "@/hooks/useTransactions";
+import { NotificationPopup } from "@/components/layout/NotificationPopup";
 import { useUnviewedTransactions } from "@/hooks/useUnviewedTransactions";
 import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
 import { useUnviewedAbandonedEvents } from "@/hooks/useUnviewedAbandonedEvents";
@@ -127,7 +128,6 @@ const pageConfig: Record<string, { title: string; subtitle: string }> = {
   "/typebots": { title: "Typebots", subtitle: "Análise de performance" },
   "/gerar-boleto": { title: "Gerar Boleto", subtitle: "Crie novos boletos" },
   "/configuracoes": { title: "Configurações", subtitle: "Ajustes do sistema" },
-  "/navegador": { title: "Navegador", subtitle: "Navegue na web" },
 };
 
 export function AppLayout({ children }: AppLayoutProps) {
@@ -136,7 +136,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userName, setUserName] = useState<string>("");
   const location = useLocation();
-  const { transactions } = useTransactions();
+  const { transactions, notifications, dismissAllNotifications } = useTransactions();
   const unviewedCount = useUnviewedTransactions(transactions);
   const { events: abandonedEvents } = useAbandonedEvents();
   const unviewedAbandonedCount = useUnviewedAbandonedEvents(abandonedEvents);
@@ -264,18 +264,8 @@ export function AppLayout({ children }: AppLayoutProps) {
               </Tooltip>
             </TooltipProvider>
 
-            {/* New Transaction Alert Indicator */}
-            {totalNotifications > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/30 rounded-full animate-pulse">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
-                </span>
-                <span className="text-xs font-medium text-success">
-                  {totalNotifications} nova{totalNotifications > 1 ? 's' : ''}
-                </span>
-              </div>
-            )}
+            {/* Transaction Notifications */}
+            <NotificationPopup notifications={notifications} onDismiss={dismissAllNotifications} />
             
             <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-border/50">
               <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
