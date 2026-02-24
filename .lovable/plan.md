@@ -1,67 +1,97 @@
 
 
-# Corrigir Atualizacao em Tempo Real das Transacoes
+# Corrigir Tempo Relativo e Status de Recuperacao em Tempo Real
 
-## Problema Identificado
+## Problemas Identificados
 
-O sistema de realtime esta **funcionando no backend** (os logs confirmam que o canal esta "SUBSCRIBED" e os webhooks estao criando transacoes). Porem, ha dois problemas principais:
+### 1. Tempo relativo nao atualiza ("Agora" para sempre)
+A funcao `formatRelativeTime` no `TransactionsTable.tsx` calcula o tempo relativo apenas quando o componente renderiza. Como nao ha nenhum mecanismo para forcar re-renderizacao periodica, o texto "Agora" permanece mesmo apos 16 minutos.
 
-1. **Hook duplicado**: O `useTransactions()` e chamado em multiplos lugares simultaneamente (AppLayout, Dashboard, Transacoes), criando **canais realtime duplicados** que competem entre si. Os logs confirmam: aparecem duas mensagens "Setting up subscription..." e dois "SUBSCRIBED".
-
-2. **Refetch muito pesado**: Cada evento realtime dispara um `refetch()` que busca **todas as 4.383 transacoes** em lotes de 1.000 (5 requisicoes sequenciais). Isso torna a atualizacao muito lenta e pode parecer que nao funciona.
+### 2. Badge de "contactado" nao atualiza sem F5
+O hook `useTransactionRecoveryLogs` busca dados da tabela `evolution_message_log` mas:
+- Usa `staleTime: 30000` e `refetchOnWindowFocus: false`
+- Usa cache local (localStorage) que impede novas buscas para IDs ja cacheados
+- Nao ha canal Realtime escutando mudancas na tabela `evolution_message_log`
+- Apos enviar uma recuperacao, o cache local ja tem o ID, entao nunca rebusca do banco
 
 ## Solucao
 
-### 1. Separar o realtime do hook de dados
+### 1. Timer para atualizar tempo relativo
+Adicionar um estado `tick` no `TransactionsTable.tsx` que incrementa a cada 60 segundos, forcando re-renderizacao e recalculo dos tempos relativos.
 
-Criar um hook dedicado `useTransactionRealtime` que sera chamado **apenas uma vez** no `AppLayout`. Este hook:
-- Gerencia o canal Supabase Realtime (unico)
-- Dispara notificacoes (popup, browser notification, activity log)
-- Invalida o cache do React Query para que todos os consumidores atualizem
+```text
+TransactionsTable.tsx:
+- Adicionar: const [tick, setTick] = useState(0)
+- Adicionar: useEffect com setInterval de 60s para incrementar tick
+- O React re-renderiza automaticamente, recalculando formatRelativeTime
+```
 
-### 2. Simplificar o `useTransactions` 
+### 2. Realtime para recovery logs
+Adicionar um canal Realtime no `useTransactionRealtime.ts` escutando a tabela `evolution_message_log`. Quando uma mensagem de recuperacao e registrada, invalidar o cache de recovery logs e atualizar o cache local.
 
-Remover toda a logica de realtime e notificacoes do `useTransactions`. Ele passa a ser apenas um hook de dados (query + stats). Isso evita canais duplicados.
+```text
+useTransactionRealtime.ts:
+- Adicionar segundo listener no mesmo canal para tabela evolution_message_log
+- Ao receber INSERT/UPDATE: invalidar queryKey ['transaction-recovery-logs-db']
+- Atualizar o localStorage cache para refletir o novo status
+```
 
-### 3. Otimizar o refetch
-
-Em vez de buscar todas as 4.383+ transacoes novamente, usar `queryClient.invalidateQueries` para invalidar o cache, e adicionar a nova transacao diretamente no cache via `queryClient.setQueryData` (optimistic update).
+### 3. Corrigir cache agressivo de recovery logs
+No `useTransactionRecoveryLogs.ts`, o filtro `idsNotInLocalCache` impede rebusca de IDs ja cacheados localmente. Precisamos:
+- Invalidar o cache local quando recebemos evento realtime
+- Ou adicionar uma funcao `invalidateRecoveryLog` que remove um ID do cache local
 
 ## Arquivos a Modificar
 
-### `src/hooks/useTransactionRealtime.ts` (novo)
-- Hook dedicado ao canal Realtime
-- Chamado apenas no AppLayout
-- Ao receber evento: atualiza cache do React Query e gera notificacoes
-- Canal unico com ID estavel
+### `src/components/dashboard/TransactionsTable.tsx`
+- Adicionar estado `tick` com `useState(0)`
+- Adicionar `useEffect` com `setInterval` de 60 segundos
+- Incluir `tick` como dependencia implícita (o state change ja forca re-render)
 
-### `src/hooks/useTransactions.ts` (modificar)
-- Remover toda logica de Realtime (canal, subscribe, notificacoes)
-- Manter apenas: `useQuery` para buscar dados + calculo de `stats`
-- Exportar apenas `transactions`, `stats`, `isLoading`, `refetch`
+### `src/hooks/useTransactionRealtime.ts`
+- Adicionar listener para `evolution_message_log` no mesmo canal
+- Ao receber evento: chamar `queryClient.invalidateQueries({ queryKey: ['transaction-recovery-logs-db'] })`
+- Limpar o cache localStorage dos recovery logs afetados
 
-### `src/components/AppLayout.tsx` (modificar)  
-- Importar e usar o novo `useTransactionRealtime()`
-- Obter `notifications` e `dismissAllNotifications` do hook de realtime
-- Manter `useTransactions()` apenas para `transactions` (dados para contagem)
-
-### `src/pages/Dashboard.tsx` e `src/pages/Transacoes.tsx`
-- Nenhuma mudanca necessaria - continuam chamando `useTransactions()` normalmente
-- Atualizacao automatica via invalidacao do cache React Query
+### `src/hooks/useTransactionRecoveryLogs.ts`
+- Exportar funcao `invalidateLocalCache(transactionId)` para permitir limpeza externa
+- Ou: reduzir `staleTime` e habilitar `refetchOnWindowFocus` para permitir atualizacoes mais frequentes
+- Alternativa mais simples: ao invalidar via React Query, tambem limpar o localStorage cache do ID afetado
 
 ## Detalhes Tecnicos
 
-O novo hook `useTransactionRealtime` usara:
-
+### Timer de tick (TransactionsTable.tsx)
 ```text
-1. Um unico canal Supabase com ID fixo (sem Date.now())
-2. Ao receber INSERT/UPDATE:
-   - queryClient.setQueryData para adicionar/atualizar a transacao no cache imediatamente
-   - queryClient.invalidateQueries com refetchType: 'none' para marcar como stale
-   - Gerar notificacao visual
-3. Notificacoes de browser via Service Worker (existente)
-4. Activity log (existente)
+const [tick, setTick] = useState(0);
+useEffect(() => {
+  const interval = setInterval(() => setTick(t => t + 1), 60000);
+  return () => clearInterval(interval);
+}, []);
 ```
 
-Isso garante que a UI atualiza **instantaneamente** sem precisar re-buscar 4.383+ registros.
+### Realtime para evolution_message_log (useTransactionRealtime.ts)
+```text
+// Adicionar ao canal existente:
+.on(
+  "postgres_changes",
+  { event: "*", schema: "public", table: "evolution_message_log" },
+  (payload) => {
+    // Invalidar cache de recovery logs
+    queryClient.invalidateQueries({ queryKey: ['transaction-recovery-logs-db'] });
+    // Limpar localStorage cache para forcar rebusca
+  }
+)
+```
+
+### Migracao SQL necessaria
+```text
+ALTER PUBLICATION supabase_realtime ADD TABLE public.evolution_message_log;
+```
+Isso habilita o Realtime para a tabela de logs de recuperacao.
+
+### Ajuste no useTransactionRecoveryLogs.ts
+```text
+- Ao receber invalidacao, limpar localCacheLogs state para os IDs afetados
+- Isso permite que o useQuery rebusque os dados atualizados do banco
+```
 
