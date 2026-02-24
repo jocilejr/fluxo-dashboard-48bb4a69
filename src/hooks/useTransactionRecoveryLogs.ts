@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -17,38 +17,16 @@ export interface TransactionRecoveryLog {
 export type RecoveryLogsRecord = Record<string, TransactionRecoveryLog>;
 
 export function useTransactionRecoveryLogs(transactionIds: string[]) {
-  // Initialize from localStorage cache immediately
-  const [localCacheLogs, setLocalCacheLogs] = useState<RecoveryLogsRecord>(() => {
-    const cached = getRecoveryLogsFromCache();
-    const result: RecoveryLogsRecord = {};
-    
-    for (const [transactionId, log] of Object.entries(cached)) {
-      result[transactionId] = {
-        transaction_id: transactionId,
-        status: log.status,
-        sent_at: log.sentAt,
-        error_message: log.errorMessage,
-      };
-    }
-    
-    return result;
-  });
-
   // Filter valid IDs
   const validIds = useMemo(() => {
     return transactionIds.filter(id => id && id.length > 0);
   }, [transactionIds]);
 
-  // Find IDs not in local cache
-  const idsNotInLocalCache = useMemo(() => {
-    return validIds.filter(id => !localCacheLogs[id]);
-  }, [validIds, localCacheLogs]);
-
-  // Only fetch from database for IDs not in local cache
-  const { data: dbLogs = {}, isLoading } = useQuery({
-    queryKey: ['transaction-recovery-logs-db', idsNotInLocalCache],
+  // Always fetch from database for all visible IDs, using localStorage only as initialData
+  const { data: logs = {}, isLoading } = useQuery({
+    queryKey: ['transaction-recovery-logs', validIds],
     queryFn: async (): Promise<RecoveryLogsRecord> => {
-      if (idsNotInLocalCache.length === 0) {
+      if (validIds.length === 0) {
         return {};
       }
 
@@ -56,7 +34,7 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
         .from('evolution_message_log')
         .select('transaction_id, status, sent_at, error_message')
         .not('transaction_id', 'is', null)
-        .in('transaction_id', idsNotInLocalCache)
+        .in('transaction_id', validIds)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -75,37 +53,40 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
           };
         }
       });
+
+      // Save to localStorage for future initial loads
+      const cacheData: Record<string, CachedRecoveryLog> = {};
+      for (const [transactionId, log] of Object.entries(logsRecord)) {
+        cacheData[transactionId] = {
+          status: log.status,
+          sentAt: log.sent_at,
+          errorMessage: log.error_message,
+        };
+      }
+      saveRecoveryLogsToCache(cacheData);
       
       return logsRecord;
     },
-    enabled: idsNotInLocalCache.length > 0,
+    // Use localStorage cache as placeholder/initial data for instant UI
+    placeholderData: () => {
+      const cached = getRecoveryLogsFromCache();
+      const result: RecoveryLogsRecord = {};
+      for (const id of validIds) {
+        if (cached[id]) {
+          result[id] = {
+            transaction_id: id,
+            status: cached[id].status,
+            sent_at: cached[id].sentAt,
+            error_message: cached[id].errorMessage,
+          };
+        }
+      }
+      return Object.keys(result).length > 0 ? result : undefined;
+    },
+    enabled: validIds.length > 0,
     staleTime: 10000,
     refetchOnWindowFocus: true,
   });
-
-  // Update local cache when we get new data from database
-  useEffect(() => {
-    if (Object.keys(dbLogs).length === 0) return;
-
-    // Update state
-    setLocalCacheLogs(prev => ({ ...prev, ...dbLogs }));
-
-    // Save to localStorage
-    const cacheData: Record<string, CachedRecoveryLog> = {};
-    for (const [transactionId, log] of Object.entries(dbLogs)) {
-      cacheData[transactionId] = {
-        status: log.status,
-        sentAt: log.sent_at,
-        errorMessage: log.error_message,
-      };
-    }
-    saveRecoveryLogsToCache(cacheData);
-  }, [dbLogs]);
-
-  // Merge local cache with db logs
-  const logs = useMemo(() => {
-    return { ...localCacheLogs, ...dbLogs };
-  }, [localCacheLogs, dbLogs]);
 
   const getRecoveryStatus = (transactionId: string): TransactionRecoveryLog | null => {
     return logs[transactionId] || null;

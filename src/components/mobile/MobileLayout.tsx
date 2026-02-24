@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MobileBottomNav } from "./MobileBottomNav";
 import { MobileHeader } from "./MobileHeader";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useTransactionRealtime } from "@/hooks/useTransactionRealtime";
 import { useUnviewedTransactions } from "@/hooks/useUnviewedTransactions";
 import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
 import { useUnviewedAbandonedEvents } from "@/hooks/useUnviewedAbandonedEvents";
@@ -27,6 +28,7 @@ export function MobileLayout({ children }: MobileLayoutProps) {
   const location = useLocation();
   
   const { transactions } = useTransactions();
+  useTransactionRealtime(); // Subscribe to realtime updates on mobile
   const unviewedCount = useUnviewedTransactions(transactions);
   const { events: abandonedEvents } = useAbandonedEvents();
   const unviewedAbandonedCount = useUnviewedAbandonedEvents(abandonedEvents);
