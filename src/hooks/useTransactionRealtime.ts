@@ -29,12 +29,23 @@ export function useTransactionRealtime() {
   // Pre-populate seen IDs from cached data once
   useEffect(() => {
     if (initializedRef.current) return;
-    const cached = queryClient.getQueryData<Transaction[]>(["transactions"]);
-    if (cached && cached.length > 0) {
-      cached.forEach(t => seenIdsRef.current.add(`${t.id}-${t.status}`));
-      initializedRef.current = true;
+    // Search all query variations that start with ["transactions"]
+    const allQueries = queryClient.getQueriesData<Transaction[]>({ queryKey: ["transactions"] });
+    for (const [, data] of allQueries) {
+      if (data && data.length > 0) {
+        data.forEach(t => seenIdsRef.current.add(`${t.id}-${t.status}`));
+        initializedRef.current = true;
+      }
     }
   });
+
+  // Helper to update ALL transaction query variations optimistically
+  const updateAllTransactionQueries = useCallback((updater: (old: Transaction[] | undefined) => Transaction[]) => {
+    const allQueries = queryClient.getQueriesData<Transaction[]>({ queryKey: ["transactions"] });
+    for (const [queryKey] of allQueries) {
+      queryClient.setQueryData<Transaction[]>(queryKey, (old) => updater(old));
+    }
+  }, [queryClient]);
 
   // Single realtime channel
   useEffect(() => {
@@ -49,21 +60,20 @@ export function useTransactionRealtime() {
           const newData = payload.new as Transaction;
           const oldData = payload.old as Transaction | null;
 
-          // Optimistic cache update
+          // Optimistic cache update - update ALL query variations
           if (payload.eventType === "INSERT" && newData) {
-            queryClient.setQueryData<Transaction[]>(["transactions"], (old) => {
+            updateAllTransactionQueries((old) => {
               if (!old) return [newData];
-              // Avoid duplicates
               if (old.some(t => t.id === newData.id)) return old;
               return [newData, ...old];
             });
           } else if (payload.eventType === "UPDATE" && newData) {
-            queryClient.setQueryData<Transaction[]>(["transactions"], (old) => {
+            updateAllTransactionQueries((old) => {
               if (!old) return [newData];
               return old.map(t => t.id === newData.id ? { ...t, ...newData } : t);
             });
           } else if (payload.eventType === "DELETE" && oldData) {
-            queryClient.setQueryData<Transaction[]>(["transactions"], (old) => {
+            updateAllTransactionQueries((old) => {
               if (!old) return [];
               return old.filter(t => t.id !== oldData.id);
             });
@@ -145,7 +155,21 @@ export function useTransactionRealtime() {
           }
           
           // Invalidate React Query cache to trigger refetch
-          queryClient.invalidateQueries({ queryKey: ['transaction-recovery-logs-db'] });
+          queryClient.invalidateQueries({ queryKey: ['transaction-recovery-logs'] });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "boleto_recovery_contacts" },
+        (payload) => {
+          console.log("[Realtime] Recovery contact event:", payload.eventType);
+          const newContact = payload.new as any;
+          
+          // Invalidate the specific count query and general contacts
+          if (newContact?.transaction_id) {
+            queryClient.invalidateQueries({ queryKey: ["boleto-recovery-count", newContact.transaction_id] });
+          }
+          queryClient.invalidateQueries({ queryKey: ["boleto-recovery-count"] });
         }
       )
       .subscribe((status) => {
@@ -155,7 +179,7 @@ export function useTransactionRealtime() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, updateAllTransactionQueries]);
 
   const dismissNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));

@@ -111,6 +111,9 @@ export function BoletoQuickRecovery({ open, onOpenChange, transaction, onTransac
       contact_method: "whatsapp",
     });
     setClickCount((prev) => prev + 1);
+    
+    // Invalidate the count query so BoletoRecoveryIcon updates immediately
+    queryClient.invalidateQueries({ queryKey: ["boleto-recovery-count", transaction.id] });
   };
 
   const queryClient = useQueryClient();
