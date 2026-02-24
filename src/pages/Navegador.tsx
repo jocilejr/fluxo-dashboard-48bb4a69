@@ -70,7 +70,7 @@ export default function Navegador() {
           onReload={handleReload}
           loading={loading}
         />
-        <BrowserFrame proxyUrl={proxyUrl} loading={loading} />
+        <BrowserFrame proxyUrl={proxyUrl} loading={loading} currentUrl={currentUrl} />
       </div>
     </div>
   );
