@@ -79,8 +79,8 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
       return logsRecord;
     },
     enabled: idsNotInLocalCache.length > 0,
-    staleTime: 30000,
-    refetchOnWindowFocus: false,
+    staleTime: 10000,
+    refetchOnWindowFocus: true,
   });
 
   // Update local cache when we get new data from database

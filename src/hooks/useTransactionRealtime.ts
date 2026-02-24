@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTabNotification } from "./useTabNotification";
 import { addActivityLog } from "@/components/settings/ActivityLogs";
 import type { Transaction, TransactionNotification } from "./useTransactions";
+import { clearRecoveryLogFromCache } from "@/lib/localCache";
 
 function getNotificationTitle(type: Transaction["type"], status: "gerado" | "pago" | "pendente"): string {
   const titles: Record<string, Record<string, string>> = {
@@ -129,6 +130,22 @@ export function useTransactionRealtime() {
               }))
               .catch(() => {});
           }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "evolution_message_log" },
+        (payload) => {
+          console.log("[Realtime] Recovery log event:", payload.eventType);
+          const newLog = payload.new as any;
+          
+          // Clear local cache for the affected transaction so it re-fetches
+          if (newLog?.transaction_id) {
+            clearRecoveryLogFromCache(newLog.transaction_id);
+          }
+          
+          // Invalidate React Query cache to trigger refetch
+          queryClient.invalidateQueries({ queryKey: ['transaction-recovery-logs-db'] });
         }
       )
       .subscribe((status) => {
