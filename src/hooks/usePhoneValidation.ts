@@ -8,6 +8,24 @@ import {
   CachedPhoneValidation 
 } from "@/lib/localCache";
 
+// Check if Evolution API is active before validating
+function useEvolutionApiActive() {
+  const { data: isActive = false } = useQuery({
+    queryKey: ['evolution-api-active'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('evolution_api_settings')
+        .select('is_active')
+        .limit(1)
+        .single();
+      return data?.is_active ?? false;
+    },
+    staleTime: 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
+  return isActive;
+}
+
 interface ValidationResult {
   exists: boolean | null;
   phone: string;
@@ -29,6 +47,7 @@ function normalizePhone(phone: string): string {
 }
 
 export function usePhoneValidation(phones: (string | null)[]) {
+  const isEvolutionActive = useEvolutionApiActive();
   const [validationState, setValidationState] = useState<PhoneValidationState>(() => {
     // Initialize from localStorage cache immediately
     const cachedValidations = getPhoneValidationsFromCache();
@@ -134,6 +153,7 @@ export function usePhoneValidation(phones: (string | null)[]) {
 
   // Validate a single phone and save to both database and local cache
   const validatePhone = useCallback(async (phone: string) => {
+    if (!isEvolutionActive) return;
     const normalizedPhone = normalizePhone(phone);
     
     // Skip if already cached or currently validating
@@ -217,7 +237,7 @@ export function usePhoneValidation(phones: (string | null)[]) {
     } finally {
       isValidatingRef.current.delete(normalizedPhone);
     }
-  }, [cachedPhoneSet]);
+  }, [cachedPhoneSet, isEvolutionActive]);
 
   // Validate phones that are not cached yet
   useEffect(() => {
