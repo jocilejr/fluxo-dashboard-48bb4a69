@@ -127,6 +127,7 @@ const pageConfig: Record<string, { title: string; subtitle: string }> = {
   "/typebots": { title: "Typebots", subtitle: "Análise de performance" },
   "/gerar-boleto": { title: "Gerar Boleto", subtitle: "Crie novos boletos" },
   "/configuracoes": { title: "Configurações", subtitle: "Ajustes do sistema" },
+  "/navegador": { title: "Navegador", subtitle: "Navegue na web" },
 };
 
 export function AppLayout({ children }: AppLayoutProps) {
