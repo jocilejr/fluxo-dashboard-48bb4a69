@@ -6,6 +6,7 @@ import { Menu, RefreshCw, Smartphone, Loader2, CheckCircle, XCircle } from "luci
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useTransactionRealtime } from "@/hooks/useTransactionRealtime";
 import { NotificationPopup } from "@/components/layout/NotificationPopup";
 import { useUnviewedTransactions } from "@/hooks/useUnviewedTransactions";
 import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
@@ -136,7 +137,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userName, setUserName] = useState<string>("");
   const location = useLocation();
-  const { transactions, notifications, dismissAllNotifications } = useTransactions();
+  const { transactions } = useTransactions();
+  const { notifications, dismissAllNotifications } = useTransactionRealtime();
   const unviewedCount = useUnviewedTransactions(transactions);
   const { events: abandonedEvents } = useAbandonedEvents();
   const unviewedAbandonedCount = useUnviewedAbandonedEvents(abandonedEvents);
