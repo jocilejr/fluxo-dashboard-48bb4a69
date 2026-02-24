@@ -27,7 +27,7 @@ const Clientes = lazy(() => import("./pages/Clientes"));
 const Grupos = lazy(() => import("./pages/Grupos"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const Navegador = lazy(() => import("./pages/Navegador"));
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -185,16 +185,6 @@ const App = () => {
               <ProtectedRoute>
                 <ResponsiveLayout>
                   <Grupos />
-                </ResponsiveLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/navegador"
-            element={
-              <ProtectedRoute>
-                <ResponsiveLayout>
-                  <Navegador />
                 </ResponsiveLayout>
               </ProtectedRoute>
             }
