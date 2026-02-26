@@ -47,8 +47,33 @@ export function useTransactionRealtime() {
     }
   }, [queryClient]);
 
-  // Single realtime channel
+  // Auto-refetch when coming back online or regaining visibility
   useEffect(() => {
+    const handleOnline = () => {
+      console.log("[Realtime] Back online - refetching transactions");
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["transaction-recovery-logs"] });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        console.log("[Realtime] Tab visible again - checking stale data");
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      }
+    };
+
+    window.addEventListener("online", handleOnline);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [queryClient]);
+
+  // Single realtime channel with reconnection
+  useEffect(() => {
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const channel = supabase
       .channel("transactions-global-realtime")
       .on(
@@ -174,9 +199,28 @@ export function useTransactionRealtime() {
       )
       .subscribe((status) => {
         console.log("[Realtime] Global channel status:", status);
+        
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[Realtime] Connection lost, scheduling reconnect...");
+          // On reconnection, refetch all data to catch missed events
+          retryTimeout = setTimeout(() => {
+            console.log("[Realtime] Refetching after reconnect...");
+            queryClient.invalidateQueries({ queryKey: ["transactions"] });
+            queryClient.invalidateQueries({ queryKey: ["transaction-recovery-logs"] });
+          }, 2000);
+        }
+        
+        if (status === "SUBSCRIBED") {
+          // Clear any pending retry
+          if (retryTimeout) {
+            clearTimeout(retryTimeout);
+            retryTimeout = null;
+          }
+        }
       });
 
     return () => {
+      if (retryTimeout) clearTimeout(retryTimeout);
       supabase.removeChannel(channel);
     };
   }, [queryClient, updateAllTransactionQueries]);
