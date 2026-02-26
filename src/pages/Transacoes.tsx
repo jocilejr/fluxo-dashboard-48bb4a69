@@ -6,9 +6,11 @@ import { getDefaultDateFilter } from "@/components/dashboard/DateFilter";
 
 const Transacoes = () => {
   const defaultFilter = getDefaultDateFilter();
+  const [startDate, setStartDate] = useState(defaultFilter.startDate);
+  const [endDate, setEndDate] = useState(defaultFilter.endDate);
   const { transactions, isLoading, refetch } = useTransactions({
-    startDate: defaultFilter.startDate,
-    endDate: defaultFilter.endDate,
+    startDate,
+    endDate,
   });
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
 
@@ -29,6 +31,11 @@ const Transacoes = () => {
     checkRole();
   }, []);
 
+  const handleDateFilterChange = (newStart: Date, newEnd: Date) => {
+    setStartDate(newStart);
+    setEndDate(newEnd);
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-4 animate-fade-in">
       <TransactionsTable 
@@ -36,6 +43,7 @@ const Transacoes = () => {
         isLoading={isLoading} 
         onDelete={refetch}
         isAdmin={isRealAdmin === true}
+        onDateFilterChange={handleDateFilterChange}
       />
     </div>
   );
