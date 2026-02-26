@@ -45,6 +45,10 @@ export function useTransactions(options?: UseTransactionsOptions) {
     queryKey: ["transactions", options?.startDate?.toISOString(), options?.endDate?.toISOString()],
     staleTime: 30000,
     gcTime: 300000,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
     queryFn: async () => {
       const allTransactions: Transaction[] = [];
       const pageSize = 1000;
