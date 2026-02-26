@@ -49,6 +49,7 @@ interface TransactionsTableProps {
   isLoading?: boolean;
   onDelete?: () => void;
   isAdmin?: boolean;
+  onDateFilterChange?: (startDate: Date, endDate: Date) => void;
 }
 
 type TransactionDateFilterType = "today" | "yesterday" | "7days" | "30days" | "custom";
@@ -97,7 +98,7 @@ type SortDirection = "asc" | "desc";
 
 const isTransactionTab = (tab: TabKey): tab is TransactionTabKey => tab !== "abandono-falha";
 
-export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin = false }: TransactionsTableProps) {
+export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin = false, onDateFilterChange }: TransactionsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("aprovados");
   const { events: abandonedEvents } = useAbandonedEvents();
@@ -178,16 +179,19 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
     }
 
     setDateFilter({ type, startDate, endDate });
+    onDateFilterChange?.(startDate, endDate);
   };
 
   const handleCustomRangeSelect = (range: DateRange | undefined) => {
     setCustomRange(range);
     if (range?.from && range?.to) {
-      setDateFilter({
-        type: "custom",
+      const newFilter = {
+        type: "custom" as const,
         startDate: startOfDay(range.from),
         endDate: endOfDay(range.to),
-      });
+      };
+      setDateFilter(newFilter);
+      onDateFilterChange?.(newFilter.startDate, newFilter.endDate);
       setIsCalendarOpen(false);
     }
   };
