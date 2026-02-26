@@ -881,7 +881,12 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   return (
     <div className="glass-card rounded-xl p-4 sm:p-6 animate-slide-up" style={{ animationDelay: "400ms" }}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base sm:text-lg font-semibold">Transações Recentes</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base sm:text-lg font-semibold">Transações Recentes</h3>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { onDelete?.(); toast.success("Transações atualizadas"); }}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
         <span className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
           Mostrando {Math.min(visibleCount, filteredTransactions.length)} de {filteredTransactions.length}
         </span>
