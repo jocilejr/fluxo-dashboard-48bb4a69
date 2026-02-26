@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { AppLayout } from "./AppLayout";
 import { MobileLayout } from "./mobile/MobileLayout";
 import ProtectedRoute from "./ProtectedRoute";
+import { PageTransition } from "./PageTransition";
 
 export function ProtectedLayout() {
   const isMobile = useIsMobile();
@@ -11,11 +13,15 @@ export function ProtectedLayout() {
     <ProtectedRoute>
       {isMobile ? (
         <MobileLayout>
-          <Outlet />
+          <Suspense fallback={<PageTransition />}>
+            <Outlet />
+          </Suspense>
         </MobileLayout>
       ) : (
         <AppLayout>
-          <Outlet />
+          <Suspense fallback={<PageTransition />}>
+            <Outlet />
+          </Suspense>
         </AppLayout>
       )}
     </ProtectedRoute>

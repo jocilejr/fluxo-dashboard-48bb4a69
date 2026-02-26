@@ -66,9 +66,8 @@ const App = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth" element={<Suspense fallback={<PageLoader />}><Auth /></Suspense>} />
           
           {/* All protected routes share the same layout (sidebar persists) */}
           <Route element={<ProtectedLayout />}>
@@ -87,10 +86,9 @@ const App = () => {
           </Route>
 
           {/* Public route */}
-          <Route path="/e/:slug" element={<EntregaPublica />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/e/:slug" element={<Suspense fallback={<PageLoader />}><EntregaPublica /></Suspense>} />
+          <Route path="*" element={<Suspense fallback={<PageLoader />}><NotFound /></Suspense>} />
         </Routes>
-        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
