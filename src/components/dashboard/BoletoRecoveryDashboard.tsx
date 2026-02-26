@@ -46,11 +46,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { addActivityLog } from "@/components/settings/ActivityLogs";
 
 interface BoletoRecoveryDashboardProps {
-  transactions: Transaction[];
+  transactions?: Transaction[];
   isLoading?: boolean;
 }
 
-export function BoletoRecoveryDashboard({ transactions, isLoading }: BoletoRecoveryDashboardProps) {
+export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp }: BoletoRecoveryDashboardProps) {
   const { toast } = useToast();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
@@ -64,7 +64,10 @@ export function BoletoRecoveryDashboard({ transactions, isLoading }: BoletoRecov
     processedBoletos,
     stats,
     addContact,
+    isLoading: isLoadingHook,
   } = useBoletoRecovery(transactions);
+
+  const isLoading = isLoadingProp || isLoadingHook;
 
   // Filter boletos by search
   const filterBoletos = (boletos: BoletoWithRecovery[]) => {
