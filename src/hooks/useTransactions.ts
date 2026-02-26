@@ -41,39 +41,62 @@ interface UseTransactionsOptions {
 }
 
 export function useTransactions(options?: UseTransactionsOptions) {
+  // Default: last 30 days when no explicit date filter
+  const hasDateFilter = !!(options?.startDate || options?.endDate);
+  const defaultStart = new Date();
+  defaultStart.setDate(defaultStart.getDate() - 30);
+
+  const effectiveStart = options?.startDate || defaultStart;
+  const effectiveEnd = options?.endDate || new Date();
+
   const { data: transactions, refetch, isLoading } = useQuery({
-    queryKey: ["transactions", options?.startDate?.toISOString(), options?.endDate?.toISOString()],
+    queryKey: ["transactions", effectiveStart.toISOString(), effectiveEnd.toISOString()],
     staleTime: 30000,
     gcTime: 300000,
     refetchOnReconnect: true,
-    refetchOnWindowFocus: true,
-    retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
+    refetchOnWindowFocus: false, // Realtime handles updates; avoid heavy refetch on focus
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     queryFn: async () => {
-      const allTransactions: Transaction[] = [];
-      const pageSize = 1000;
-      let from = 0;
-      let hasMore = true;
+      let query = supabase
+        .from("transactions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .gte("created_at", effectiveStart.toISOString())
+        .lte("created_at", effectiveEnd.toISOString());
 
-      while (hasMore) {
-        const { data, error } = await supabase
-          .from("transactions")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .range(from, from + pageSize - 1);
+      // Only paginate when fetching large historical ranges
+      if (hasDateFilter) {
+        const allTransactions: Transaction[] = [];
+        const pageSize = 1000;
+        let from = 0;
+        let hasMore = true;
 
-        if (error) throw error;
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from("transactions")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .gte("created_at", effectiveStart.toISOString())
+            .lte("created_at", effectiveEnd.toISOString())
+            .range(from, from + pageSize - 1);
 
-        if (data && data.length > 0) {
-          allTransactions.push(...(data as Transaction[]));
-          from += pageSize;
-          hasMore = data.length === pageSize;
-        } else {
-          hasMore = false;
+          if (error) throw error;
+          if (data && data.length > 0) {
+            allTransactions.push(...(data as Transaction[]));
+            from += pageSize;
+            hasMore = data.length === pageSize;
+          } else {
+            hasMore = false;
+          }
         }
+        return allTransactions;
       }
 
-      return allTransactions;
+      // Default path: single fast query (last 30 days, max 1000)
+      const { data, error } = await query.limit(1000);
+      if (error) throw error;
+      return (data as Transaction[]) || [];
     },
   });
 
