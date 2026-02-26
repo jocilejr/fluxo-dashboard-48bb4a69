@@ -2,9 +2,14 @@ import { useState, useEffect } from "react";
 import { TransactionsTable } from "@/components/dashboard/TransactionsTable";
 import { useTransactions } from "@/hooks/useTransactions";
 import { supabase } from "@/integrations/supabase/client";
+import { getDefaultDateFilter } from "@/components/dashboard/DateFilter";
 
 const Transacoes = () => {
-  const { transactions, isLoading, refetch } = useTransactions();
+  const defaultFilter = getDefaultDateFilter();
+  const { transactions, isLoading, refetch } = useTransactions({
+    startDate: defaultFilter.startDate,
+    endDate: defaultFilter.endDate,
+  });
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {

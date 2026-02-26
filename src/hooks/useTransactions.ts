@@ -41,13 +41,10 @@ interface UseTransactionsOptions {
 }
 
 export function useTransactions(options?: UseTransactionsOptions) {
-  // Default: last 30 days when no explicit date filter
-  const hasDateFilter = !!(options?.startDate || options?.endDate);
-  const defaultStart = new Date();
-  defaultStart.setDate(defaultStart.getDate() - 30);
-
-  const effectiveStart = options?.startDate || defaultStart;
+  // Default: today only for fast initial load
+  const effectiveStart = options?.startDate || new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]);
   const effectiveEnd = options?.endDate || new Date();
+  const hasDateFilter = !!(options?.startDate || options?.endDate);
 
   const { data: transactions, refetch, isLoading } = useQuery({
     queryKey: ["transactions", effectiveStart.toISOString(), effectiveEnd.toISOString()],

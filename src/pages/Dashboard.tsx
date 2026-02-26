@@ -35,8 +35,10 @@ interface MetaAdsInsights {
 
 const Dashboard = () => {
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultDateFilter);
-  // Fetch all transactions - filtering is done in frontend to properly handle paid_at vs created_at
-  const { transactions, isLoading } = useTransactions();
+  const { transactions, isLoading } = useTransactions({
+    startDate: dateFilter.startDate,
+    endDate: dateFilter.endDate,
+  });
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -102,27 +104,8 @@ const Dashboard = () => {
     enabled: isRealAdmin === true,
   });
 
-  const filteredTransactions = useMemo(() => {
-    const transactionToBrazilDate = (utcDateStr: string) => {
-      return new Date(utcDateStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-    };
-    
-    const extractDateParts = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-    
-    const startDateStr = extractDateParts(dateFilter.startDate);
-    const endDateStr = extractDateParts(dateFilter.endDate);
-    
-    return transactions.filter((t) => {
-      const dateStr = t.status === "pago" && t.paid_at ? t.paid_at : t.created_at;
-      const transactionDateStr = transactionToBrazilDate(dateStr);
-      return transactionDateStr >= startDateStr && transactionDateStr <= endDateStr;
-    });
-  }, [transactions, dateFilter]);
+  // Transactions are already filtered by date range from the hook
+  const filteredTransactions = transactions;
 
   const stats = useMemo(() => {
     const totalOrders = filteredTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
