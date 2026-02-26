@@ -14,7 +14,9 @@ import {
   Percent,
   Wallet,
   Megaphone,
+  RefreshCw,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { GroupStatsCards } from "@/components/dashboard/GroupStatsCards";
 import { GroupHistoryChart } from "@/components/dashboard/GroupHistoryChart";
 import { MetaAdsSpendCard } from "@/components/dashboard/MetaAdsSpendCard";
@@ -35,10 +37,17 @@ interface MetaAdsInsights {
 
 const Dashboard = () => {
   const [dateFilter, setDateFilter] = useState<DateFilterValue>(getDefaultDateFilter);
-  const { transactions, isLoading } = useTransactions({
+  const { transactions, isLoading, refetch } = useTransactions({
     startDate: dateFilter.startDate,
     endDate: dateFilter.endDate,
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
   const [isRealAdmin, setIsRealAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -156,11 +165,14 @@ const Dashboard = () => {
     <div className="p-4 lg:p-6 space-y-6 animate-fade-in">
       {isRealAdmin && (
         <>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="text-muted-foreground text-sm">Filtrando por período</p>
-            </div>
-            <DateFilter value={dateFilter} onChange={setDateFilter} />
+           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+             <div className="flex items-center gap-2">
+               <p className="text-muted-foreground text-sm">Filtrando por período</p>
+               <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing} className="h-8 w-8">
+                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+               </Button>
+             </div>
+             <DateFilter value={dateFilter} onChange={setDateFilter} />
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
