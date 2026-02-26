@@ -57,7 +57,7 @@ export interface BoletoWithRecovery extends Transaction {
   shouldContactToday: boolean;
 }
 
-export function useBoletoRecovery(transactions: Transaction[]) {
+export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
   const queryClient = useQueryClient();
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -67,6 +67,42 @@ export function useBoletoRecovery(transactions: Transaction[]) {
       setUserId(data.user?.id || null);
     });
   }, []);
+
+  // Dedicated query: fetch all unpaid boletos directly from database
+  const { data: unpaidBoletos, isLoading: isLoadingBoletos } = useQuery({
+    queryKey: ["unpaid-boletos"],
+    staleTime: 60000,
+    gcTime: 300000,
+    queryFn: async () => {
+      const allBoletos: Transaction[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .eq("type", "boleto")
+          .not("status", "in", '("pago","cancelado","expirado")')
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allBoletos.push(...(data as Transaction[]));
+          from += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      return allBoletos;
+    },
+  });
+
+  // Use prop transactions if provided (backward compat), otherwise use dedicated query
+  const transactions = transactionsFromProp ?? unpaidBoletos ?? [];
 
   // Fetch boleto settings
   const { data: settings } = useQuery({
@@ -153,16 +189,17 @@ export function useBoletoRecovery(transactions: Transaction[]) {
     },
   });
 
-  // Process boletos with recovery info (exclude paid, canceled, expired)
+  // Process boletos with recovery info
   const processedBoletos = useMemo(() => {
-    const unpaidBoletos = transactions.filter(
-      (t) => t.type === "boleto" && !["pago", "cancelado", "expirado"].includes(t.status)
-    );
+    // When using dedicated query, data is already filtered; when using prop, filter here
+    const filteredBoletos = transactionsFromProp
+      ? transactions.filter((t) => t.type === "boleto" && !["pago", "cancelado", "expirado"].includes(t.status))
+      : transactions;
 
       const expirationDays = settings?.default_expiration_days || 3;
       const today = getTodayStartInBrazil();
 
-      return unpaidBoletos.map((boleto): BoletoWithRecovery => {
+      return filteredBoletos.map((boleto): BoletoWithRecovery => {
         // Convert created_at to Brazil timezone for accurate day calculations
         const createdAt = new Date(boleto.created_at);
         const createdAtInBrazil = toZonedTime(createdAt, BRAZIL_TIMEZONE);
@@ -311,6 +348,7 @@ export function useBoletoRecovery(transactions: Transaction[]) {
     stats,
     updateSettings,
     addContact,
+    isLoading: isLoadingBoletos,
   };
 }
 
