@@ -57,8 +57,9 @@ export function useTransactionRealtime() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        console.log("[Realtime] Tab visible again - checking stale data");
-        queryClient.invalidateQueries({ queryKey: ["transactions"] });
+        console.log("[Realtime] Tab visible again - marking stale");
+        // Only mark stale, don't force immediate refetch (realtime covers live updates)
+        queryClient.invalidateQueries({ queryKey: ["transactions"], refetchType: "none" });
       }
     };
 
