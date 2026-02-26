@@ -20,18 +20,21 @@ export function useUnviewedAbandonedEvents(events: AbandonedEvent[]) {
 
   // Listen for localStorage changes
   useEffect(() => {
+    let lastRaw = localStorage.getItem(VIEWED_ABANDONED_KEY);
     const handleStorageChange = () => {
       try {
-        const stored = localStorage.getItem(VIEWED_ABANDONED_KEY);
-        if (stored) {
-          setViewedIds(JSON.parse(stored));
+        const raw = localStorage.getItem(VIEWED_ABANDONED_KEY);
+        if (raw === lastRaw) return; // skip redundant setState
+        lastRaw = raw;
+        if (raw) {
+          setViewedIds(JSON.parse(raw));
         }
       } catch {
         // ignore
       }
     };
 
-    const interval = setInterval(handleStorageChange, 500);
+    const interval = setInterval(handleStorageChange, 1000);
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
