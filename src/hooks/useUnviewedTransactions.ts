@@ -18,19 +18,21 @@ export function useUnviewedTransactions(transactions: Transaction[]) {
 
   // Listen for localStorage changes from other tabs/components
   useEffect(() => {
+    let lastRaw = localStorage.getItem(VIEWED_STORAGE_KEY);
     const handleStorageChange = () => {
       try {
-        const stored = localStorage.getItem(VIEWED_STORAGE_KEY);
-        if (stored) {
-          setViewedIds(JSON.parse(stored));
+        const raw = localStorage.getItem(VIEWED_STORAGE_KEY);
+        if (raw === lastRaw) return; // skip redundant setState
+        lastRaw = raw;
+        if (raw) {
+          setViewedIds(JSON.parse(raw));
         }
       } catch {
         // ignore
       }
     };
 
-    // Check storage periodically since storage event doesn't fire in same tab
-    const interval = setInterval(handleStorageChange, 500);
+    const interval = setInterval(handleStorageChange, 1000);
     window.addEventListener("storage", handleStorageChange);
 
     return () => {

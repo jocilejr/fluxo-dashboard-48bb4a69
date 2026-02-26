@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { startOfDay, endOfDay } from "date-fns";
 
 export interface Transaction {
   id: string;
@@ -40,10 +42,17 @@ interface UseTransactionsOptions {
   endDate?: Date;
 }
 
+function getBrazilToday() {
+  const brazilDateStr = new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' });
+  const brazilNow = new Date(brazilDateStr);
+  return { start: startOfDay(brazilNow), end: endOfDay(brazilNow) };
+}
+
 export function useTransactions(options?: UseTransactionsOptions) {
-  // Default: today only for fast initial load
-  const effectiveStart = options?.startDate || new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }).split(',')[0]);
-  const effectiveEnd = options?.endDate || new Date();
+  // Stable default: today in Brazil timezone, memoized to avoid queryKey churn
+  const stableToday = useMemo(() => getBrazilToday(), []);
+  const effectiveStart = options?.startDate || stableToday.start;
+  const effectiveEnd = options?.endDate || stableToday.end;
   const hasDateFilter = !!(options?.startDate || options?.endDate);
 
   const { data: transactions, refetch, isLoading } = useQuery({
