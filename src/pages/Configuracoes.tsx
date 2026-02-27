@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { WebhooksSection } from "@/components/dashboard/WebhooksSection";
 import { EvolutionApiSettings } from "@/components/settings/EvolutionApiSettings";
-import { Trash2, Plus, Loader2, Key, Save } from "lucide-react";
+import { Trash2, Plus, Loader2, Key, Save, Copy } from "lucide-react";
 
 interface UserWithPermissions {
   user_id: string;
@@ -1059,10 +1059,24 @@ const Configuracoes = () => {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        <span>Ad Account: {account.ad_account_id}</span>
-                        <span className="mx-2">•</span>
-                        <span>Token: {account.access_token.substring(0, 20)}...</span>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div>
+                          <span>Ad Account: {account.ad_account_id}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono break-all select-all">Token: {account.access_token}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs shrink-0"
+                            onClick={() => {
+                              navigator.clipboard.writeText(account.access_token);
+                              toast.success("Token copiado!");
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
