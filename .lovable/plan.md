@@ -2,23 +2,32 @@
 
 ## Problema
 
-A página de Recuperação chama `useTransactions()` sem parâmetros, que após a correção de estabilidade agora retorna apenas transações de **hoje**. Mas a recuperação precisa de **todos os boletos não pagos** independente da data de criação (boletos criados dias/semanas atrás que casam com regras de recuperação hoje).
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-## Correção
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-### `src/pages/Recuperacao.tsx`
-- Passar um range de datas amplo para `useTransactions()` (ex: últimos 90 dias) para cobrir todos os boletos pendentes que podem casar com regras de recuperação.
-- Alternativa melhor: criar uma query dedicada no `useBoletoRecovery` que busca boletos não pagos diretamente do banco, sem depender do `useTransactions` e seu filtro de data.
+## Solução
 
-### Abordagem escolhida: Query dedicada
-- Modificar `src/hooks/useBoletoRecovery.ts` para buscar boletos não pagos diretamente do banco (query própria com filtro `type=boleto` e `status NOT IN (pago, cancelado, expirado)`), eliminando a dependência de receber `transactions` como prop.
-- Atualizar `src/pages/Recuperacao.tsx` para não precisar mais passar transactions.
-- Atualizar `src/components/dashboard/BoletoRecoveryDashboard.tsx` para usar o hook diretamente.
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-Isso resolve o problema sem afetar a otimização de estabilidade do `useTransactions`.
+### Alteração em `src/hooks/useTransactions.ts`
 
-### Arquivos
-- `src/hooks/useBoletoRecovery.ts` — adicionar query própria de boletos não pagos
-- `src/pages/Recuperacao.tsx` — simplificar, remover useTransactions
-- `src/components/dashboard/BoletoRecoveryDashboard.tsx` — adaptar para não receber transactions como prop
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
+
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
