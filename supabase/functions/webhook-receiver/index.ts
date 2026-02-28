@@ -476,18 +476,43 @@ Deno.serve(async (req) => {
 
     // Check for existing transaction
     if (normalizedIncomingId) {
-      const { data: transactions, error: fetchError } = await supabase
+      // Search directly by exact external_id match first, then try normalized
+      const { data: exactMatch, error: exactError } = await supabase
         .from('transactions')
         .select('id, external_id')
-        .not('external_id', 'is', null)
-        .neq('external_id', '');
+        .eq('external_id', normalizedIncomingId)
+        .limit(1)
+        .maybeSingle();
 
-      if (fetchError) throw fetchError;
+      let existingTransaction = exactMatch;
 
-      const existingTransaction = transactions?.find(t => {
-        const normalizedDbId = normalizeExternalId(t.external_id);
-        return normalizedDbId === normalizedIncomingId;
-      });
+      // If no exact match, try original format
+      if (!existingTransaction && payload.external_id && payload.external_id !== normalizedIncomingId) {
+        const { data: originalMatch } = await supabase
+          .from('transactions')
+          .select('id, external_id')
+          .eq('external_id', payload.external_id)
+          .limit(1)
+          .maybeSingle();
+        existingTransaction = originalMatch;
+      }
+
+      // Fallback: search with ilike for partial matches (handles formatting differences)
+      if (!existingTransaction) {
+        const { data: fallbackMatches } = await supabase
+          .from('transactions')
+          .select('id, external_id')
+          .not('external_id', 'is', null)
+          .neq('external_id', '')
+          .limit(5000);
+
+        if (fallbackMatches) {
+          existingTransaction = fallbackMatches.find(t => {
+            const normalizedDbId = normalizeExternalId(t.external_id);
+            return normalizedDbId === normalizedIncomingId;
+          }) || null;
+        }
+      }
 
       if (existingTransaction) {
         const { data, error } = await supabase
