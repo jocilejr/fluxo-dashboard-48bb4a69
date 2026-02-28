@@ -64,12 +64,11 @@ export function useTransactions(options?: UseTransactionsOptions) {
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     queryFn: async () => {
-      let query = supabase
-        .from("transactions")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .gte("created_at", effectiveStart.toISOString())
-        .lte("created_at", effectiveEnd.toISOString());
+      const startISO = effectiveStart.toISOString();
+      const endISO = effectiveEnd.toISOString();
+
+      // Use OR filter: include transactions created in period OR paid in period
+      const dateFilter = `and(created_at.gte.${startISO},created_at.lte.${endISO}),and(paid_at.gte.${startISO},paid_at.lte.${endISO})`;
 
       // Only paginate when fetching large historical ranges
       if (hasDateFilter) {
@@ -82,9 +81,8 @@ export function useTransactions(options?: UseTransactionsOptions) {
           const { data, error } = await supabase
             .from("transactions")
             .select("*")
+            .or(dateFilter)
             .order("created_at", { ascending: false })
-            .gte("created_at", effectiveStart.toISOString())
-            .lte("created_at", effectiveEnd.toISOString())
             .range(from, from + pageSize - 1);
 
           if (error) throw error;
@@ -99,8 +97,13 @@ export function useTransactions(options?: UseTransactionsOptions) {
         return allTransactions;
       }
 
-      // Default path: single fast query (last 30 days, max 1000)
-      const { data, error } = await query.limit(1000);
+      // Default path: single fast query (max 1000)
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .or(dateFilter)
+        .order("created_at", { ascending: false })
+        .limit(1000);
       if (error) throw error;
       return (data as Transaction[]) || [];
     },
