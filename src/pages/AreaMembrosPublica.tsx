@@ -22,6 +22,7 @@ interface MemberProduct {
     redirect_url: string | null;
     page_logo: string | null;
     value: number | null;
+    member_cover_image: string | null;
   } | null;
 }
 
