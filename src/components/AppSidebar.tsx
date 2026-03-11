@@ -191,7 +191,7 @@ export function AppSidebar({ isAdmin, userId, unviewedTransactions = 0, isMobile
 
       {/* Members Area - Fixed above footer */}
       <div className="px-2 pb-1">
-        {hasPermission({ title: "Área de Membros", icon: Crown, path: "/area-membros", permissionKey: "area_membros", adminOnly: true }) && (
+        {hasPermission({ title: "Área de Membros", icon: Crown, path: "/area-membros", permissionKey: "area_membros" }) && (
           <button
             onClick={() => navigate("/area-membros")}
             className={cn(
