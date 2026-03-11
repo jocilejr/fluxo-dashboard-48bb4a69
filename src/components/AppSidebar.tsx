@@ -15,6 +15,7 @@ import {
   Link,
   Users,
   UsersRound,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -187,6 +188,32 @@ export function AppSidebar({ isAdmin, userId, unviewedTransactions = 0, isMobile
           );
         })}
       </nav>
+
+      {/* Members Area - Fixed above footer */}
+      <div className="px-2 pb-1">
+        {hasPermission({ title: "Área de Membros", icon: Crown, path: "/area-membros", permissionKey: "area_membros", adminOnly: true }) && (
+          <button
+            onClick={() => navigate("/area-membros")}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative",
+              "bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20",
+              location.pathname === "/area-membros"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "text-violet-400 hover:text-violet-300 hover:border-violet-400/40"
+            )}
+          >
+            <Crown className={cn("h-[18px] w-[18px] flex-shrink-0", collapsed && "mx-auto")} />
+            {!collapsed && (
+              <span className="text-[13px] font-semibold truncate">Área de Membros</span>
+            )}
+            {collapsed && (
+              <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-popover text-popover-foreground text-xs font-medium rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 whitespace-nowrap z-50 shadow-xl border border-border">
+                Área de Membros
+              </div>
+            )}
+          </button>
+        )}
+      </div>
 
       {/* Footer */}
       <div className="p-2 border-t border-sidebar-border/50 space-y-0.5">

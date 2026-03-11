@@ -17,6 +17,8 @@ const Recuperacao = lazy(() => import("./pages/Recuperacao"));
 const Projetos = lazy(() => import("./pages/Projetos"));
 const TypebotRanking = lazy(() => import("./pages/TypebotRanking"));
 const GerarBoleto = lazy(() => import("./pages/GerarBoleto"));
+const AreaMembros = lazy(() => import("./pages/AreaMembros"));
+const AreaMembrosPublica = lazy(() => import("./pages/AreaMembrosPublica"));
 const Configuracoes = lazy(() => import("./pages/Configuracoes"));
 const Entrega = lazy(() => import("./pages/Entrega"));
 const EntregaPublica = lazy(() => import("./pages/EntregaPublica"));
@@ -82,8 +84,12 @@ const App = () => {
             <Route path="links-uteis" element={<LinksUteis />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="grupos" element={<Grupos />} />
+            <Route path="area-membros" element={<AreaMembros />} />
             <Route path="perfil" element={<Dashboard />} />
           </Route>
+
+          {/* Public routes */}
+          <Route path="/membros/:phone" element={<Suspense fallback={<PageLoader />}><AreaMembrosPublica /></Suspense>} />
 
           {/* Public route */}
           <Route path="/e/:slug" element={<Suspense fallback={<PageLoader />}><EntregaPublica /></Suspense>} />
