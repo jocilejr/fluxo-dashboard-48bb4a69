@@ -1,27 +1,33 @@
 
 
-## Fix: Produtos não aparecem no iPhone - Problema de RLS
+## Problema
 
-### Causa raiz
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-A página `/membros/:phone` é **pública** (sem autenticação). Porém, a tabela `delivery_products` tem RLS que exige `auth.uid() IS NOT NULL` para SELECT. Quando o Supabase faz o join `member_products → delivery_products`, os dados do produto voltam `null` porque o usuário anônimo não tem permissão de leitura.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-O mesmo ocorre com `customers` (nome do cliente volta null).
+## Solução
 
-No desktop/preview funciona porque há uma sessão de auth ativa do admin. No iPhone, acessando diretamente o link público, não há sessão -- resultado: produtos aparecem mas sem dados (`delivery_products: null`), e `renderProductCard` retorna `null`.
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-### Solução
+### Alteração em `src/hooks/useTransactions.ts`
 
-Criar políticas RLS públicas de leitura para as tabelas usadas na página pública:
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-1. **`delivery_products`**: Adicionar policy `Public can read delivery_products` com `USING (true)` para SELECT
-2. **`customers`**: Adicionar policy `Public can read customers for member area` com `USING (true)` para SELECT (ou restringir a campos específicos via view, mas policy simples é suficiente dado que a query já filtra por phone)
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
 
-### Arquivos
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-| Mudança | Detalhe |
-|---|---|
-| Migration SQL | Adicionar 2 RLS policies públicas de leitura |
+A deduplicação acontece automaticamente pelo banco.
 
-Nenhuma mudança em código React é necessária -- o problema é 100% RLS no banco.
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
