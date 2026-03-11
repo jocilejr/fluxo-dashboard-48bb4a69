@@ -125,9 +125,9 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
     <>
       {/* Redesigned card — banner style */}
       <button
-        className="w-full rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 text-left active:scale-[0.98] group relative opacity-75 hover:opacity-90"
+        className="w-full rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 text-left active:scale-[0.98] group relative"
         style={{
-          border: `1.5px solid ${themeColor}20`,
+          border: `1.5px dashed ${themeColor}40`,
         }}
         onClick={handleOpen}
       >
@@ -139,6 +139,13 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
               alt={offer.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+            <div className="absolute top-2.5 right-2.5">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold text-white/90 bg-black/40 backdrop-blur-sm">
+                <Lock className="h-2.5 w-2.5" />
+                Exclusivo
+              </span>
+            </div>
             <div className="absolute bottom-0 left-0 right-0 p-3.5">
               <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white/90 mb-1.5"
@@ -159,10 +166,12 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
               background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)`,
             }}
           >
-            <Lock
-              className="absolute top-3 right-3 h-8 w-8 opacity-10"
-              style={{ color: themeColor }}
-            />
+            <div className="absolute top-3 right-3 flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">
+                <Lock className="h-2.5 w-2.5" />
+                Exclusivo
+              </span>
+            </div>
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white w-fit mb-1.5"
               style={{ backgroundColor: themeColor }}
@@ -177,7 +186,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
         )}
 
         {/* Bottom section */}
-        <div className="px-3 py-2 bg-white flex items-center justify-between gap-2">
+        <div className="px-3 py-2.5 bg-white flex items-center justify-between gap-2">
           {offer.description ? (
             <p className="text-[12px] text-gray-500 leading-snug truncate flex-1">
               {offer.description}
@@ -188,14 +197,14 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
             </p>
           )}
           <span
-            className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full text-white"
+            className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full text-white shadow-sm group-hover:shadow-md transition-shadow"
             style={{ backgroundColor: themeColor }}
           >
             Conhecer
           </span>
         </div>
 
-        {/* Animated border glow */}
+        {/* Hover glow */}
         <div
           className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
           style={{
