@@ -1,0 +1,1 @@
+ALTER TABLE public.member_area_offers ADD COLUMN display_type text NOT NULL DEFAULT 'card';

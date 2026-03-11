@@ -834,6 +834,7 @@ export type Database = {
           category_tag: string | null
           created_at: string
           description: string | null
+          display_type: string
           id: string
           image_url: string | null
           is_active: boolean
@@ -848,6 +849,7 @@ export type Database = {
           category_tag?: string | null
           created_at?: string
           description?: string | null
+          display_type?: string
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -862,6 +864,7 @@ export type Database = {
           category_tag?: string | null
           created_at?: string
           description?: string | null
+          display_type?: string
           id?: string
           image_url?: string | null
           is_active?: boolean
