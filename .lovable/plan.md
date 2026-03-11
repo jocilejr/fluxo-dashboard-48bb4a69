@@ -1,33 +1,50 @@
 
 
-## Problema
+## Adicionar tipo "Produto Físico" nas ofertas
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Resumo
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+Adicionar uma terceira opção de `display_type` chamada `showcase` (Produto Físico) no seletor de tipo de exibição do painel admin, e renderizar essa oferta como uma vitrine dedicada na página pública da área de membros.
 
-## Solução
+### Alterações
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+**1. Painel Admin (`src/pages/AreaMembros.tsx`)**
+- Adicionar `<SelectItem value="showcase">Produto Físico (Vitrine)</SelectItem>` no seletor de tipo de exibição (linha ~386)
+- Atualizar o Badge na listagem de ofertas (linha ~419) para mostrar "Produto Físico" quando `display_type === 'showcase'`
 
-### Alteração em `src/hooks/useTransactions.ts`
+**2. Novo componente `src/components/membros/PhysicalProductShowcase.tsx`**
+- Seção visual com GIF/imagem em destaque (aspect-ratio 16:9, bordas arredondadas)
+- Título da oferta estilizado
+- Descrição opcional
+- Botão CTA "Reservar o seu ✨" com animação pulse, abrindo `purchase_url`
+- Fundo com gradiente suave usando `themeColor`
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
+```text
+┌──────────────────────────────┐
+│  ┌────────────────────────┐  │
+│  │   GIF / Imagem         │  │
+│  │   (16:9, object-cover) │  │
+│  └────────────────────────┘  │
+│                              │
+│  ✨ Nome da oferta           │
+│  Descrição breve...          │
+│                              │
+│  ┌────────────────────────┐  │
+│  │   Reservar o seu →     │  │  ← pulse animation
+│  └────────────────────────┘  │
+└──────────────────────────────┘
 ```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+**3. Página pública (`src/pages/AreaMembrosPublica.tsx`)**
+- Filtrar ofertas `showcase` separadamente: `filteredOffers.filter(o => o.display_type === 'showcase')`
+- Excluir ofertas `showcase` do filtro de `cardOffers` (atualmente pega tudo que não é `bottom_page`)
+- Renderizar a seção de vitrine entre os produtos intercalados e o `<DailyVerse />`
+- Importar e usar `PhysicalProductShowcase`
 
-A deduplicação acontece automaticamente pelo banco.
+**Sem migração necessária** — o campo `display_type` é texto livre, basta usar o valor `'showcase'`.
 
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Arquivos
+- **Novo**: `src/components/membros/PhysicalProductShowcase.tsx`
+- **Editado**: `src/pages/AreaMembros.tsx` (seletor + badge)
+- **Editado**: `src/pages/AreaMembrosPublica.tsx` (filtro + renderização)
 
