@@ -86,11 +86,30 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const [matText, setMatText] = useState("");
   const [matButtonLabel, setMatButtonLabel] = useState("");
   const [matCategoryId, setMatCategoryId] = useState<string>("");
-  const [matCoverUrl, setMatCoverUrl] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [uploadingCover, setUploadingCover] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // Product-level settings
+  const [prodCoverUrl, setProdCoverUrl] = useState("");
+  const [prodDescription, setProdDescription] = useState("");
+  const [uploadingProdCover, setUploadingProdCover] = useState(false);
+  const [prodSettingsLoaded, setProdSettingsLoaded] = useState(false);
+  const prodCoverInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: productData } = useQuery({
+    queryKey: ["product-detail", productId],
+    queryFn: async () => {
+      const { data } = await supabase.from("delivery_products").select("member_cover_image, member_description").eq("id", productId).single();
+      return data;
+    },
+  });
+
+  // Sync product data to state once
+  if (productData && !prodSettingsLoaded) {
+    setProdCoverUrl(productData.member_cover_image || "");
+    setProdDescription(productData.member_description || "");
+    setProdSettingsLoaded(true);
+  }
 
   const { data: categories } = useQuery({
     queryKey: ["admin-categories", productId],
@@ -107,61 +126,6 @@ function ProductContentEditor({ productId }: { productId: string }) {
       return data || [];
     },
   });
-
-  const addCatMutation = useMutation({
-    mutationFn: async () => {
-      if (!catName) throw new Error("Nome é obrigatório");
-      const { error } = await supabase.from("member_product_categories").insert({ product_id: productId, name: catName, icon: catIcon || "📖", description: catDesc || null, sort_order: (categories?.length || 0) });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Categoria criada!"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); setCatName(""); setCatIcon("📖"); setCatDesc(""); setCatDialogOpen(false); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteCatMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_categories").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Categoria removida"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
-  });
-
-  const addMatMutation = useMutation({
-    mutationFn: async () => {
-      if (!matTitle) throw new Error("Título é obrigatório");
-      const insertData: any = {
-        product_id: productId,
-        category_id: matCategoryId && matCategoryId !== "none" ? matCategoryId : null,
-        title: matTitle,
-        description: matDesc || null,
-        content_type: matType,
-        content_url: matUrl || null,
-        content_text: matText || null,
-        cover_image_url: matCoverUrl || null,
-        sort_order: (materials?.length || 0),
-      };
-      if (matType === "text" && matButtonLabel) {
-        insertData.button_label = matButtonLabel;
-      }
-      const { error } = await supabase.from("member_product_materials").insert(insertData);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Material adicionado!");
-      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatCoverUrl(""); setMatDialogOpen(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteMatMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_materials").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Material removido"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
-  });
-
-  const contentTypes = [
-    { value: "text", label: "Texto (com botão opcional)" },
-    { value: "pdf", label: "PDF (upload)" },
-    { value: "video", label: "Vídeo (URL)" },
-    { value: "image", label: "Imagem (upload)" },
-  ];
 
   const uploadFile = async (file: File, setter: (url: string) => void, setLoading: (v: boolean) => void) => {
     const maxSize = 20 * 1024 * 1024;
@@ -190,10 +154,67 @@ function ProductContentEditor({ productId }: { productId: string }) {
     if (file) uploadFile(file, setMatUrl, setUploading);
   };
 
-  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) uploadFile(file, setMatCoverUrl, setUploadingCover);
-  };
+  const saveProdSettingsMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("delivery_products").update({
+        member_cover_image: prodCoverUrl || null,
+        member_description: prodDescription || null,
+      } as any).eq("id", productId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Personalização salva!");
+      queryClient.invalidateQueries({ queryKey: ["product-detail", productId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addCatMutation = useMutation({
+    mutationFn: async () => {
+      if (!catName) throw new Error("Nome é obrigatório");
+      const { error } = await supabase.from("member_product_categories").insert({ product_id: productId, name: catName, icon: catIcon || "📖", description: catDesc || null, sort_order: (categories?.length || 0) });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Categoria criada!"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); setCatName(""); setCatIcon("📖"); setCatDesc(""); setCatDialogOpen(false); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteCatMutation = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_categories").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Categoria removida"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
+  });
+
+  const addMatMutation = useMutation({
+    mutationFn: async () => {
+      if (!matTitle) throw new Error("Título é obrigatório");
+      const insertData: any = {
+        product_id: productId,
+        category_id: matCategoryId && matCategoryId !== "none" ? matCategoryId : null,
+        title: matTitle,
+        description: matDesc || null,
+        content_type: matType,
+        content_url: matUrl || null,
+        content_text: matText || null,
+        sort_order: (materials?.length || 0),
+      };
+      if (matType === "text" && matButtonLabel) {
+        insertData.button_label = matButtonLabel;
+      }
+      const { error } = await supabase.from("member_product_materials").insert(insertData);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Material adicionado!");
+      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
+      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatDialogOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMatMutation = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_materials").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Material removido"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
+  });
 
   return (
     <div className="space-y-8">
