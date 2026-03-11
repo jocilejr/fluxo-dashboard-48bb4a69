@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { toast } from "sonner";
-import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Layout, Eye, Check, ShoppingBag, RefreshCw, ExternalLink } from "lucide-react";
+import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Layout, Eye, Check, ShoppingBag, RefreshCw, ExternalLink, Lock } from "lucide-react";
 import meirePhoto from "@/assets/meire-rosana.png";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
