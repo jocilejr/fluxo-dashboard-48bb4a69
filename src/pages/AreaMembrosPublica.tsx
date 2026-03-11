@@ -190,6 +190,17 @@ export default function AreaMembrosPublica() {
         if (Date.now() - parsed.cachedAt < AI_CACHE_TTL) {
           setAiContext(parsed.data);
           setAiLoading(false);
+          // Sequential reveal for cached too
+          setTimeout(() => {
+            setVisibleMessages(1);
+            if (parsed.data.tip) {
+              setShowTypingAfterFirst(true);
+              setTimeout(() => {
+                setShowTypingAfterFirst(false);
+                setVisibleMessages(2);
+              }, 1200);
+            }
+          }, 600);
           return;
         }
       }
