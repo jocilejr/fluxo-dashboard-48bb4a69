@@ -34,9 +34,12 @@ export default function LayoutEditor() {
   useEffect(() => {
     if (settings && (settings as any).layout_order) {
       try {
-        const parsed = (settings as any).layout_order as LayoutSection[];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setOrder(parsed);
+        const raw = (settings as any).layout_order as string[];
+        if (Array.isArray(raw) && raw.length > 0) {
+          const validKeys = Object.keys(sectionMeta) as LayoutSection[];
+          const filtered = raw.filter((s): s is LayoutSection => validKeys.includes(s as LayoutSection));
+          const missing = DEFAULT_ORDER.filter(k => !filtered.includes(k));
+          setOrder([...filtered, ...missing]);
         }
       } catch {}
     }

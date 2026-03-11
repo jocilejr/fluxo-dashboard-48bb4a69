@@ -1,16 +1,33 @@
 
 
-## Correção dos 2 erros na Área de Membros
+## Problema
 
-### Erro 1: `Select.Item` com valor vazio (ContentManagement.tsx, linha 224)
-- `<SelectItem value="">Sem categoria</SelectItem>` — Radix proíbe `value=""`.
-- **Fix**: Trocar para `<SelectItem value="none">Sem categoria</SelectItem>` e tratar `"none"` como nulo ao salvar.
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-### Erro 2: `sectionMeta[section]` undefined (LayoutEditor.tsx, linha ~83)
-- O banco pode conter valores antigos no `layout_order` (ex: `"content"`) que não existem no `sectionMeta`.
-- **Fix**: Filtrar o array `order` para incluir apenas seções válidas presentes no `sectionMeta`, e adicionar seções faltantes do `DEFAULT_ORDER`.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-### Arquivos
-- `src/components/membros/ContentManagement.tsx` (linha 224)
-- `src/components/membros/LayoutEditor.tsx` (useEffect, linhas 34-43)
+## Solução
+
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+
+### Alteração em `src/hooks/useTransactions.ts`
+
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
+
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
