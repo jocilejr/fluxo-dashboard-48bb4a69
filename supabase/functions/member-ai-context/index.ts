@@ -200,10 +200,10 @@ CATEGORIA OBRIGATÓRIA para a segunda mensagem: ${chosen.id.toUpperCase()} - ${c
     // Strip any dashes that might have slipped through
     const cleanDashes = (text: string) => text.replace(/[—–]/g, ",");
     
-    // Map followup back to tip for backward compatibility with frontend
+    // Single message mapped to greeting for frontend compatibility
     const finalResult = {
-      greeting: cleanDashes(result.greeting || ""),
-      tip: cleanDashes(result.followup || result.tip || ""),
+      greeting: cleanDashes(result.message || ""),
+      tip: "",
     };
 
     return new Response(JSON.stringify(finalResult), {
