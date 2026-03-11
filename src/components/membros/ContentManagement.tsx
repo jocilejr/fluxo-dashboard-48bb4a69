@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Image, Download } from "lucide-react";
+import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Image, Download, Upload, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -86,6 +86,8 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const [matText, setMatText] = useState("");
   const [matButtonLabel, setMatButtonLabel] = useState("");
   const [matCategoryId, setMatCategoryId] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: categories } = useQuery({
     queryKey: ["admin-categories", productId],
@@ -152,10 +154,37 @@ function ProductContentEditor({ productId }: { productId: string }) {
 
   const contentTypes = [
     { value: "text", label: "Texto (com botão opcional)" },
-    { value: "pdf", label: "PDF" },
-    { value: "video", label: "Vídeo" },
-    { value: "image", label: "Imagem" },
+    { value: "pdf", label: "PDF (upload)" },
+    { value: "video", label: "Vídeo (URL)" },
+    { value: "image", label: "Imagem (upload)" },
   ];
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error("Arquivo muito grande (máx 20MB)");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const filePath = `${productId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from("member-files").upload(filePath, file);
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from("member-files").getPublicUrl(filePath);
+      setMatUrl(urlData.publicUrl);
+      toast.success("Arquivo enviado!");
+    } catch (err: any) {
+      toast.error("Erro ao enviar: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -243,8 +272,29 @@ function ProductContentEditor({ productId }: { productId: string }) {
                       <div><Label>Texto do botão</Label><Input value={matButtonLabel} onChange={(e) => setMatButtonLabel(e.target.value)} placeholder="Acessar" /></div>
                     )}
                   </>
+                ) : matType === "video" ? (
+                  <div><Label>URL do vídeo</Label><Input value={matUrl} onChange={(e) => setMatUrl(e.target.value)} placeholder="https://youtube.com/..." /></div>
                 ) : (
-                  <div><Label>URL do conteúdo</Label><Input value={matUrl} onChange={(e) => setMatUrl(e.target.value)} placeholder="https://..." /></div>
+                  <div className="space-y-2">
+                    <Label>{matType === "pdf" ? "Arquivo PDF" : "Arquivo de Imagem"}</Label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={matType === "pdf" ? ".pdf" : "image/*"}
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    {matUrl ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground truncate flex-1">{matUrl.split("/").pop()}</p>
+                        <Button type="button" size="sm" variant="outline" onClick={() => { setMatUrl(""); if (fileInputRef.current) fileInputRef.current.value = ""; }}>Trocar</Button>
+                      </div>
+                    ) : (
+                      <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                        {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</> : <><Upload className="h-4 w-4 mr-2" /> Selecionar arquivo</>}
+                      </Button>
+                    )}
+                  </div>
                 )}
                 <Button className="w-full" onClick={() => addMatMutation.mutate()} disabled={addMatMutation.isPending}>Adicionar Material</Button>
               </div>
