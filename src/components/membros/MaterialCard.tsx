@@ -30,6 +30,7 @@ const typeConfig: Record<string, { icon: typeof FileText; label: string; accent:
   pdf: { icon: Download, label: "PDF", accent: "#ef4444" },
   video: { icon: Video, label: "Vídeo", accent: "#8b5cf6" },
   image: { icon: Image, label: "Imagem", accent: "#10b981" },
+  audio: { icon: Music, label: "Áudio", accent: "#f59e0b" },
 };
 
 export default function MaterialCard({ material, themeColor, preloadedPdf, phone }: Props) {
