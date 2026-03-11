@@ -163,31 +163,36 @@ function ProductContentEditor({ productId }: { productId: string }) {
     { value: "image", label: "Imagem (upload)" },
   ];
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const uploadFile = async (file: File, setter: (url: string) => void, setLoading: (v: boolean) => void) => {
     const maxSize = 20 * 1024 * 1024;
     if (file.size > maxSize) {
       toast.error("Arquivo muito grande (máx 20MB)");
       return;
     }
-
-    setUploading(true);
+    setLoading(true);
     try {
       const ext = file.name.split(".").pop();
       const filePath = `${productId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error } = await supabase.storage.from("member-files").upload(filePath, file);
       if (error) throw error;
-
       const { data: urlData } = supabase.storage.from("member-files").getPublicUrl(filePath);
-      setMatUrl(urlData.publicUrl);
+      setter(urlData.publicUrl);
       toast.success("Arquivo enviado!");
     } catch (err: any) {
       toast.error("Erro ao enviar: " + err.message);
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file, setMatUrl, setUploading);
+  };
+
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file, setMatCoverUrl, setUploadingCover);
   };
 
   return (
