@@ -852,6 +852,7 @@ export type Database = {
       }
       member_area_offers: {
         Row: {
+          card_payment_url: string | null
           category_tag: string | null
           created_at: string
           description: string | null
@@ -860,6 +861,7 @@ export type Database = {
           image_url: string | null
           is_active: boolean
           name: string
+          pix_key: string | null
           price: number | null
           product_id: string | null
           purchase_url: string | null
@@ -867,6 +869,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          card_payment_url?: string | null
           category_tag?: string | null
           created_at?: string
           description?: string | null
@@ -875,6 +878,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean
           name: string
+          pix_key?: string | null
           price?: number | null
           product_id?: string | null
           purchase_url?: string | null
@@ -882,6 +886,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          card_payment_url?: string | null
           category_tag?: string | null
           created_at?: string
           description?: string | null
@@ -890,6 +895,7 @@ export type Database = {
           image_url?: string | null
           is_active?: boolean
           name?: string
+          pix_key?: string | null
           price?: number | null
           product_id?: string | null
           purchase_url?: string | null
