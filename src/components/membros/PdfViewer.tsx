@@ -11,7 +11,7 @@ interface Props {
   preloadedPdf?: pdfjsLib.PDFDocumentProxy | null;
 }
 
-export default function PdfViewer({ url, themeColor }: Props) {
+export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
   const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
