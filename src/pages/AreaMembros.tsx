@@ -112,7 +112,7 @@ function MemberProductsTab() {
   const handleAddForPhone = (phone: string) => { setNewPhone(phone); setDialogOpen(true); };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -141,18 +141,18 @@ function MemberProductsTab() {
 
       {/* Stats summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="bg-primary/10 rounded-xl px-4 py-3 border border-primary/20">
-          <p className="text-2xl font-extrabold text-primary">{groupedByPhone.length}</p>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Membros</p>
-        </div>
-        <div className="bg-accent/10 rounded-xl px-4 py-3 border border-accent/20">
-          <p className="text-2xl font-extrabold text-accent-foreground">{memberProducts?.filter((p: any) => p.is_active).length || 0}</p>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Acessos Ativos</p>
-        </div>
-        <div className="bg-muted rounded-xl px-4 py-3 border border-border hidden sm:block">
-          <p className="text-2xl font-extrabold text-foreground">{memberProducts?.length || 0}</p>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Liberados</p>
-        </div>
+        <Card className="px-4 py-3">
+          <p className="text-2xl font-semibold text-primary">{groupedByPhone.length}</p>
+          <p className="text-xs text-muted-foreground">Membros</p>
+        </Card>
+        <Card className="px-4 py-3">
+          <p className="text-2xl font-semibold text-foreground">{memberProducts?.filter((p: any) => p.is_active).length || 0}</p>
+          <p className="text-xs text-muted-foreground">Acessos Ativos</p>
+        </Card>
+        <Card className="px-4 py-3 hidden sm:block">
+          <p className="text-2xl font-semibold text-foreground">{memberProducts?.length || 0}</p>
+          <p className="text-xs text-muted-foreground">Total Liberados</p>
+        </Card>
       </div>
 
       {isLoading ? (
@@ -311,33 +311,30 @@ function MemberOffersTab() {
 // ---- Main Page ----
 export default function AreaMembros() {
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Premium header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 px-6 py-5">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-bl from-primary/5 to-transparent rounded-bl-full" />
-        <div className="relative flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-primary/15 flex items-center justify-center">
-            <Crown className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-foreground">Área de Membros</h1>
-            <p className="text-sm text-muted-foreground">Gerencie produtos, conteúdos e ofertas exclusivas</p>
-          </div>
+    <div className="max-w-5xl mx-auto py-8 px-4 md:px-6 space-y-8 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Crown className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Área de Membros</h1>
+          <p className="text-sm text-muted-foreground">Gerencie produtos, conteúdos e ofertas exclusivas</p>
         </div>
       </div>
 
-      <Tabs defaultValue="products" className="space-y-4">
-        <TabsList className="flex-wrap bg-muted p-1 rounded-xl">
-          <TabsTrigger value="products" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+      <Tabs defaultValue="products" className="space-y-6">
+        <TabsList className="bg-muted p-1 rounded-lg">
+          <TabsTrigger value="products" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Users className="h-4 w-4" /> Membros
           </TabsTrigger>
-          <TabsTrigger value="content" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+          <TabsTrigger value="content" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <BookOpen className="h-4 w-4" /> Conteúdo
           </TabsTrigger>
-          <TabsTrigger value="offers" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+          <TabsTrigger value="offers" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Gift className="h-4 w-4" /> Ofertas
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+          <TabsTrigger value="settings" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Settings className="h-4 w-4" /> Configurações
           </TabsTrigger>
         </TabsList>
