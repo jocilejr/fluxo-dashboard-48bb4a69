@@ -27,6 +27,7 @@ interface MemberSettings {
   logo_url: string | null;
   welcome_message: string | null;
   theme_color: string;
+  layout_order?: string[];
 }
 
 const GREETING_CACHE_KEY = "member_ai_greeting";
