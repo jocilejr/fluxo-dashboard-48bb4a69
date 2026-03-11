@@ -114,16 +114,8 @@ REGRAS ABSOLUTAS:
 - Use 1 emoji por mensagem no máximo
 - As mensagens devem fluir como uma conversa, NÃO como blocos independentes
 
-EXEMPLO DE CONVERSA BOA:
-- greeting: "Oi Maria! Que bom te ver por aqui 😊"
-- tip: "Vi que você começou o Pergaminho de Santo Antônio, tá gostando? Se precisar de algo é só me chamar!"
-
-EXEMPLO RUIM (NÃO faça assim):
-- greeting: "Olá, Maria! Bem-vinda à sua área exclusiva — esperamos que aproveite!"
-- tip: "Você possui os seguintes materiais disponíveis — confira seu progresso."
-
-1. SAUDAÇÃO (greeting): Cumprimento pessoal usando o nome, como se estivesse mandando uma mensagem no WhatsApp pra uma amiga. Máx 2 frases curtas.
-2. CONTINUAÇÃO (tip): Continue a conversa naturalmente. Pode ser sobre o progresso, um incentivo, ou um comentário carinhoso sobre algo específico. Máx 2 frases.`;
+1. SAUDAÇÃO (greeting): Cumprimento pessoal usando o nome, como se estivesse mandando uma mensagem no WhatsApp pra uma amiga. Máx 2 frases curtas. Seja criativa e original a cada vez.
+2. CONTINUAÇÃO (tip): Continue a conversa naturalmente. Pode ser sobre o progresso, um incentivo, ou um comentário carinhoso sobre algo específico. Máx 2 frases. Nunca repita padrões.`;
 
     const userPrompt = `Nome: ${firstName || "Querido(a)"}
 
