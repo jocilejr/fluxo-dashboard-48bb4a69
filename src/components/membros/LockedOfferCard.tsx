@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Lock, ExternalLink, Sparkles } from "lucide-react";
+import { Lock, Sparkles } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import PaymentFlow from "./PaymentFlow";
 import meirePhoto from "@/assets/meire-rosana.png";
 
 interface Offer {
