@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, lazy, Suspense } from "react";
-import { FileText, Video, Image, Download, ExternalLink, ArrowLeft, Loader2 } from "lucide-react";
+import { FileText, Video, Image, Download, ExternalLink, ArrowLeft, Loader2, Music } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type * as pdfjsLib from "pdfjs-dist";
 import { supabase } from "@/integrations/supabase/client";
