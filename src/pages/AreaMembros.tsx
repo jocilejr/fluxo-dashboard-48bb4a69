@@ -544,29 +544,27 @@ function MemberPreviewTab() {
             )}
             <div className="min-w-0 flex-1">
               <h1 className="text-xl font-bold text-gray-800 tracking-tight">Olá, Maria</h1>
-              <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">
-                {settings?.welcome_message || "Bem-vinda à sua área exclusiva! 🎉"}
-              </p>
             </div>
           </div>
 
           {/* Content */}
           <div className="px-4 py-4 space-y-3">
-            {/* AI Progress Message Mock */}
-            <div
-              className="rounded-2xl p-4 border shadow-sm"
-              style={{ backgroundColor: `${themeColor}08`, borderColor: `${themeColor}20` }}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                  style={{ backgroundColor: `${themeColor}15` }}
-                >
-                  <BookOpen className="h-4 w-4" style={{ color: themeColor }} />
+            {/* Meire Rosana Chat Bubble Mock */}
+            <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2.5 px-4 py-2.5 border-b border-gray-50">
+                <img src={meirePhoto} alt="Meire Rosana" className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-100" />
+                <p className="text-sm font-semibold text-gray-800 leading-tight">Meire Rosana</p>
+              </div>
+              <div className="px-4 py-3 space-y-2">
+                <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%]">
+                  Maria, que bom te ver de volta! 😊
                 </div>
-                <p className="text-sm text-gray-700 leading-relaxed flex-1">
-                  📖 Maria, você parou na página 12 de 30 do "Água que Cura". Continue de onde parou — faltam apenas 18 páginas! 💪
-                </p>
+                <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%]">
+                  📖 Você parou na página 12 de 30 do "Água que Cura". Continue de onde parou — faltam apenas 18 páginas! 💪
+                </div>
+                <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%] italic">
+                  Está conseguindo aplicar o passo a passo? 🙏
+                </div>
               </div>
             </div>
 
