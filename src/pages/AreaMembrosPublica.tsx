@@ -347,70 +347,88 @@ export default function AreaMembrosPublica() {
       ? Math.round((progress.materialsAccessed / progress.totalMaterials) * 100)
       : 0;
 
+    const hasCover = !!(product.member_cover_image || product.page_logo);
+    const coverSrc = product.member_cover_image || product.page_logo;
+
     return (
       <button
         key={mp.id}
-        className="w-full flex items-center gap-4 rounded-2xl p-4 border shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
-        style={{
-          background: `linear-gradient(135deg, white 85%, ${themeColor}08)`,
-          borderColor: `${themeColor}15`,
-        }}
+        className="w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 text-left active:scale-[0.98] group border"
+        style={{ borderColor: `${themeColor}20` }}
         onClick={() => setOpenProductId(mp.id)}
       >
-        {(product.member_cover_image || product.page_logo) ? (
-          <div className="relative shrink-0">
+        {/* Cover image banner */}
+        {hasCover ? (
+          <div className="relative h-[72px] w-full overflow-hidden">
             <img
-              src={product.member_cover_image || product.page_logo!}
+              src={coverSrc!}
               alt={product.name}
-              className="h-16 w-16 rounded-xl object-cover shadow-sm"
-              style={{ border: `2px solid ${themeColor}25` }}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
-            {progressPct > 0 && (
-              <div
-                className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full flex items-center justify-center shadow-sm text-[9px] font-bold text-white"
-                style={{ backgroundColor: themeColor }}
-              >
-                {progressPct}%
-              </div>
-            )}
-            {progressPct === 0 && (
-              <div
-                className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm"
-                style={{ backgroundColor: "#10b981" }}
-              >
-                <Check className="h-3 w-3 text-white" strokeWidth={3} />
-              </div>
-            )}
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(180deg, transparent 20%, rgba(0,0,0,0.45) 100%)` }}
+            />
+            {/* Badge on cover */}
+            <div className="absolute top-2.5 left-3">
+              {recent ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-emerald-500/90 backdrop-blur-sm">
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                  Liberado recentemente
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white/90 backdrop-blur-sm" style={{ backgroundColor: `${themeColor}90` }}>
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                  Liberado
+                </span>
+              )}
+            </div>
+            {/* Title on cover */}
+            <div className="absolute bottom-2.5 left-3 right-3">
+              <h3 className="font-extrabold text-white text-[15px] leading-tight drop-shadow-sm truncate">
+                {product.name}
+              </h3>
+            </div>
           </div>
         ) : (
           <div
-            className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
-            style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
+            className="relative h-[72px] w-full flex flex-col justify-end p-3"
+            style={{
+              background: `linear-gradient(135deg, ${themeColor}20 0%, ${themeColor}08 50%, ${themeColor}18 100%)`,
+            }}
           >
-            {mats.length > 0 && mats[0]?.content_type === "video" ? (
-              <Play className="h-7 w-7" style={{ color: themeColor }} />
-            ) : mats.length > 0 && mats[0]?.content_type === "pdf" ? (
-              <BookOpen className="h-7 w-7" style={{ color: themeColor }} />
-            ) : (
-              <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
-            )}
+            <div className="absolute top-3 right-3 opacity-15">
+              {mats.length > 0 && mats[0]?.content_type === "video" ? (
+                <Play className="h-8 w-8" style={{ color: themeColor }} />
+              ) : mats.length > 0 && mats[0]?.content_type === "pdf" ? (
+                <BookOpen className="h-8 w-8" style={{ color: themeColor }} />
+              ) : (
+                <ShoppingBag className="h-8 w-8" style={{ color: themeColor }} />
+              )}
+            </div>
+            <div className="absolute top-2.5 left-3">
+              {recent ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-emerald-500">
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                  Liberado recentemente
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: themeColor }}>
+                  <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                  Liberado
+                </span>
+              )}
+            </div>
+            <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">
+              {product.name}
+            </h3>
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{product.name}</h3>
-          {recent ? (
-            <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-              ✓ Liberado recentemente
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-gray-500">
-              ✓ Liberado
-            </span>
-          )}
 
-          {/* Progress bar */}
-          {progress.totalMaterials > 0 && (
-            <div className="mt-2 space-y-1">
+        {/* Bottom section with progress */}
+        <div className="px-3.5 py-2.5 bg-white">
+          {progress.totalMaterials > 0 ? (
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
@@ -428,6 +446,10 @@ export default function AreaMembrosPublica() {
                 </p>
               )}
             </div>
+          ) : (
+            <p className="text-[12px] text-gray-400">
+              Toque para acessar seu conteúdo
+            </p>
           )}
         </div>
       </button>
