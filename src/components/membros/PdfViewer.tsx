@@ -21,6 +21,14 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (preloadedPdf) {
+      setPdf(preloadedPdf);
+      setTotalPages(preloadedPdf.numPages);
+      setCurrentPage(1);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -41,7 +49,7 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
       });
 
     return () => { cancelled = true; };
-  }, [url]);
+  }, [url, preloadedPdf]);
 
   const renderPage = useCallback(async (pageNum: number) => {
     if (!pdf || !canvasRef.current || !containerRef.current) return;
