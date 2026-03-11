@@ -216,8 +216,72 @@ function ProductContentEditor({ productId }: { productId: string }) {
     onSuccess: () => { toast.success("Material removido"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
   });
 
+  const contentTypes = [
+    { value: "text", label: "Texto (com botão opcional)" },
+    { value: "pdf", label: "PDF (upload)" },
+    { value: "video", label: "Vídeo (URL)" },
+    { value: "image", label: "Imagem (upload)" },
+  ];
+
   return (
     <div className="space-y-8">
+      {/* Product-level customization */}
+      <div className="bg-muted/50 rounded-xl border border-border p-5 space-y-4">
+        <h4 className="font-bold text-foreground flex items-center gap-2">
+          <Image className="h-4 w-4 text-primary" /> Personalização do Produto
+        </h4>
+        <p className="text-xs text-muted-foreground -mt-2">Imagem de capa e descrição exibidos no popup do membro ao acessar este produto.</p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Cover image */}
+          <div className="space-y-2">
+            <Label>Imagem de capa</Label>
+            <input
+              ref={prodCoverInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadFile(file, setProdCoverUrl, setUploadingProdCover);
+              }}
+              className="hidden"
+            />
+            {prodCoverUrl ? (
+              <div className="space-y-2">
+                <img src={prodCoverUrl} alt="Capa" className="w-full h-32 rounded-lg object-cover border border-border" />
+                <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => { setProdCoverUrl(""); if (prodCoverInputRef.current) prodCoverInputRef.current.value = ""; }}>
+                  Remover imagem
+                </Button>
+              </div>
+            ) : (
+              <Button type="button" variant="outline" className="w-full h-24 flex-col gap-1" onClick={() => prodCoverInputRef.current?.click()} disabled={uploadingProdCover}>
+                {uploadingProdCover ? <><Loader2 className="h-5 w-5 animate-spin" /> <span className="text-xs">Enviando...</span></> : <><Upload className="h-5 w-5" /> <span className="text-xs">Selecionar imagem</span></>}
+              </Button>
+            )}
+          </div>
+
+          {/* Mini text */}
+          <div className="space-y-2">
+            <Label>Mini texto / Descrição</Label>
+            <Textarea
+              value={prodDescription}
+              onChange={(e) => setProdDescription(e.target.value)}
+              placeholder="Ex: Material de orações preparado com muito carinho..."
+              rows={4}
+            />
+          </div>
+        </div>
+
+        <Button
+          size="sm"
+          onClick={() => saveProdSettingsMutation.mutate()}
+          disabled={saveProdSettingsMutation.isPending}
+        >
+          {saveProdSettingsMutation.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
+          Salvar personalização
+        </Button>
+      </div>
+
       {/* Categories */}
       <div>
         <div className="flex items-center justify-between mb-4">
