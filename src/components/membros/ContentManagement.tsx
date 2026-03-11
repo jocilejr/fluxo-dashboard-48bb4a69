@@ -222,6 +222,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
     { value: "pdf", label: "PDF (upload)" },
     { value: "video", label: "Vídeo (URL)" },
     { value: "image", label: "Imagem (upload)" },
+    { value: "audio", label: "Áudio (upload)" },
   ];
 
   return (
