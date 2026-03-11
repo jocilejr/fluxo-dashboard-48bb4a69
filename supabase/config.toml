@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.member-ai-context]
 verify_jwt = false
+
+[functions.member-offer-pitch]
+verify_jwt = false

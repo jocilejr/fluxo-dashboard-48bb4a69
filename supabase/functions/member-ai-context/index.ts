@@ -125,16 +125,13 @@ REGRAS ABSOLUTAS:
 
 ${profileContext}
 
-Produtos que a pessoa já contribuiu e possui acesso:
+Produtos que a pessoa já possui acesso:
 - ${productList || "Nenhum produto específico"}
 
 Nomes dos produtos adquiridos: ${ownedNames}
 
 PROGRESSO NOS MATERIAIS (onde a pessoa parou):
 - ${progressContext}
-
-Ofertas disponíveis para sugestão (a pessoa NÃO tem acesso a estes — são oportunidades de venda):
-- ${offerList || "Nenhuma oferta disponível"}
 
 IMPORTANTE: Use o PERFIL COMPLETO + PROGRESSO para personalizar TODOS os blocos. A pessoa deve sentir que você a conhece de verdade.`;
 
@@ -155,7 +152,7 @@ IMPORTANTE: Use o PERFIL COMPLETO + PROGRESSO para personalizar TODOS os blocos.
             type: "function",
             function: {
               name: "generate_member_context",
-              description: "Generate 4 personalized AI content blocks for the member area.",
+              description: "Generate 3 personalized AI content blocks for the member area.",
               parameters: {
                 type: "object",
                 properties: {
@@ -170,23 +167,9 @@ IMPORTANTE: Use o PERFIL COMPLETO + PROGRESSO para personalizar TODOS os blocos.
                   progressMessage: {
                     type: "string",
                     description: "Personalized progress message citing exactly where the person stopped and suggesting the next concrete step. 2-3 sentences."
-                  },
-                  offerSuggestion: {
-                    type: "object",
-                    properties: {
-                      offerId: {
-                        type: "string",
-                        description: "The ID of the suggested offer, or empty string if none."
-                      },
-                      message: {
-                        type: "string",
-                        description: "Persuasive sales copy. 2-3 sentences."
-                      }
-                    },
-                    required: ["offerId", "message"]
                   }
                 },
-                required: ["greeting", "tip", "progressMessage", "offerSuggestion"]
+                required: ["greeting", "tip", "progressMessage"]
               }
             }
           }
