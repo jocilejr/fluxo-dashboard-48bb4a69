@@ -8,6 +8,7 @@ import ProductContentViewer from "@/components/membros/ProductContentViewer";
 import LockedOfferCard from "@/components/membros/LockedOfferCard";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import meirePhoto from "@/assets/meire-rosana.png";
 
 interface MemberProduct {
   id: string;
