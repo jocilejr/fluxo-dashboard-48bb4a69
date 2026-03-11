@@ -464,9 +464,12 @@ export default function AreaMembros() {
       </div>
 
       <Tabs defaultValue="products" className="space-y-4">
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="products" className="gap-2">
             <Users className="h-4 w-4" /> Membros
+          </TabsTrigger>
+          <TabsTrigger value="content" className="gap-2">
+            <BookOpen className="h-4 w-4" /> Conteúdo
           </TabsTrigger>
           <TabsTrigger value="offers" className="gap-2">
             <Gift className="h-4 w-4" /> Ofertas
@@ -478,6 +481,9 @@ export default function AreaMembros() {
 
         <TabsContent value="products">
           <MemberProductsTab />
+        </TabsContent>
+        <TabsContent value="content">
+          <ContentManagement />
         </TabsContent>
         <TabsContent value="offers">
           <MemberOffersTab />
