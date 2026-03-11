@@ -133,7 +133,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
       >
         {/* Image or gradient banner */}
         {offer.image_url ? (
-          <div className="relative h-[120px] w-full overflow-hidden">
+          <div className="relative h-[90px] w-full overflow-hidden">
             <img
               src={offer.image_url}
               alt={offer.name}
@@ -160,7 +160,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
           </div>
         ) : (
           <div
-            className="relative h-[100px] w-full flex flex-col justify-end p-3.5"
+            className="relative h-[80px] w-full flex flex-col justify-end p-3"
             style={{
               background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)`,
             }}
@@ -183,7 +183,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
         )}
 
         {/* Bottom section */}
-        <div className="px-3.5 py-3 bg-white flex items-center justify-between gap-2">
+        <div className="px-3 py-2 bg-white flex items-center justify-between gap-2">
           {offer.description ? (
             <p className="text-[12px] text-gray-500 leading-snug truncate flex-1">
               {offer.description}

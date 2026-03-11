@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { toast } from "sonner";
-import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Check, ShoppingBag } from "lucide-react";
+import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Check, ShoppingBag, Edit } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -244,8 +244,10 @@ function MemberOffersTab() {
   const [description, setDescription] = useState("");
   const [purchaseUrl, setPurchaseUrl] = useState("");
   const [price, setPrice] = useState("");
+  const [categoryTag, setCategoryTag] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [editingOffer, setEditingOffer] = useState<any>(null);
 
   const { data: products } = useQuery({
     queryKey: ["delivery-products-for-offers"],
@@ -269,31 +271,59 @@ function MemberOffersTab() {
     return urlData.publicUrl;
   };
 
-  const addMutation = useMutation({
+  const resetForm = () => {
+    setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setCategoryTag(""); setImageFile(null); setEditingOffer(null); setUploading(false);
+  };
+
+  const openEdit = (offer: any) => {
+    setEditingOffer(offer);
+    setSelectedProductId(offer.product_id || "");
+    setDescription(offer.description || "");
+    setPurchaseUrl(offer.purchase_url || "");
+    setPrice(offer.price ? String(offer.price) : "");
+    setCategoryTag(offer.category_tag || "");
+    setImageFile(null);
+    setDialogOpen(true);
+  };
+
+  const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedProductId) throw new Error("Selecione um produto");
+      if (!editingOffer && !selectedProductId) throw new Error("Selecione um produto");
       setUploading(true);
       const product = products?.find(p => p.id === selectedProductId);
-      let imageUrl: string | null = null;
+      let imageUrl: string | null = editingOffer?.image_url || null;
       if (imageFile) {
         imageUrl = await uploadImage(imageFile);
-      } else if (product?.page_logo) {
+      } else if (!editingOffer && product?.page_logo) {
         imageUrl = product.page_logo;
       }
-      const { error } = await supabase.from("member_area_offers").insert({
-        name: product?.name || "Oferta",
-        product_id: selectedProductId,
-        description: description || null,
-        image_url: imageUrl,
-        purchase_url: purchaseUrl || "",
-        price: price ? parseFloat(price) : (product?.value || null),
-      });
-      if (error) throw error;
+
+      if (editingOffer) {
+        const { error } = await supabase.from("member_area_offers").update({
+          description: description || null,
+          image_url: imageUrl,
+          purchase_url: purchaseUrl || "",
+          price: price ? parseFloat(price) : null,
+          category_tag: categoryTag || null,
+        }).eq("id", editingOffer.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("member_area_offers").insert({
+          name: product?.name || "Oferta",
+          product_id: selectedProductId,
+          description: description || null,
+          image_url: imageUrl,
+          purchase_url: purchaseUrl || "",
+          price: price ? parseFloat(price) : (product?.value || null),
+          category_tag: categoryTag || null,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Oferta adicionada!");
+      toast.success(editingOffer ? "Oferta atualizada!" : "Oferta adicionada!");
       queryClient.invalidateQueries({ queryKey: ["member-area-offers"] });
-      setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setImageFile(null); setDialogOpen(false); setUploading(false);
+      resetForm(); setDialogOpen(false);
     },
     onError: (err: Error) => { toast.error(err.message); setUploading(false); },
   });
@@ -313,36 +343,40 @@ function MemberOffersTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setDialogOpen(open); }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Nova Oferta</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nova Oferta (baseada em produto)</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingOffer ? "Editar Oferta" : "Nova Oferta (baseada em produto)"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label>Produto</Label>
-                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
-                  <SelectContent>{products?.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
-                </Select>
-              </div>
-              {selectedProduct && (
+              {!editingOffer && (
+                <div>
+                  <Label>Produto</Label>
+                  <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
+                    <SelectContent>{products?.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
+                  </Select>
+                </div>
+              )}
+              {(selectedProduct || editingOffer) && (
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
-                  {selectedProduct.page_logo && <img src={selectedProduct.page_logo} alt="" className="h-10 w-10 rounded-lg object-cover" />}
+                  {(selectedProduct?.page_logo || editingOffer?.image_url) && <img src={editingOffer?.image_url || selectedProduct?.page_logo} alt="" className="h-10 w-10 rounded-lg object-cover" />}
                   <div>
-                    <p className="font-medium text-sm">{selectedProduct.name}</p>
-                    {selectedProduct.value && <p className="text-xs text-muted-foreground">R$ {Number(selectedProduct.value).toFixed(2).replace(".", ",")}</p>}
+                    <p className="font-medium text-sm">{editingOffer?.name || selectedProduct?.name}</p>
+                    {(selectedProduct?.value || editingOffer?.price) && <p className="text-xs text-muted-foreground">R$ {Number(editingOffer?.price || selectedProduct?.value).toFixed(2).replace(".", ",")}</p>}
                   </div>
                 </div>
               )}
               <div><Label>Descrição (opcional)</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Por que esse produto é especial..." /></div>
               <div>
-                <Label>Imagem (opcional — usa logo do produto se vazio)</Label>
+                <Label>Imagem {editingOffer ? "(envie para substituir)" : "(opcional — usa logo do produto se vazio)"}</Label>
                 <Input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
+                <p className="text-xs text-muted-foreground mt-1">Tamanho recomendado: 600×200px (formato banner horizontal)</p>
               </div>
+              <div><Label>Tag de categoria (opcional)</Label><Input value={categoryTag} onChange={(e) => setCategoryTag(e.target.value)} placeholder="Ex: Material complementar" /></div>
               <div><Label>URL de Compra (opcional)</Label><Input value={purchaseUrl} onChange={(e) => setPurchaseUrl(e.target.value)} placeholder="https://..." /></div>
-              <div><Label>Preço (R$) — usa o valor do produto se vazio</Label><Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={selectedProduct?.value ? String(selectedProduct.value) : "0.00"} /></div>
-              <Button className="w-full" onClick={() => addMutation.mutate()} disabled={addMutation.isPending || uploading || !selectedProductId}>
-                {addMutation.isPending || uploading ? "Adicionando..." : "Adicionar Oferta"}
+              <div><Label>Preço (R$) {editingOffer ? "" : "— usa o valor do produto se vazio"}</Label><Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={selectedProduct?.value ? String(selectedProduct.value) : "0.00"} /></div>
+              <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || uploading || (!editingOffer && !selectedProductId)}>
+                {saveMutation.isPending || uploading ? "Salvando..." : editingOffer ? "Salvar Alterações" : "Adicionar Oferta"}
               </Button>
             </div>
           </DialogContent>
@@ -373,6 +407,7 @@ function MemberOffersTab() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={offer.is_active} onCheckedChange={(checked) => toggleMutation.mutate({ id: offer.id, active: checked })} />
+                  <Button variant="ghost" size="icon" onClick={() => openEdit(offer)}><Edit className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(offer.id)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
