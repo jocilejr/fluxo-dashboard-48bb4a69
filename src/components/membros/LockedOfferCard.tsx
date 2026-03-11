@@ -160,7 +160,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
           </div>
         ) : (
           <div
-            className="relative h-[100px] w-full flex flex-col justify-end p-3.5"
+            className="relative h-[80px] w-full flex flex-col justify-end p-3"
             style={{
               background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)`,
             }}
