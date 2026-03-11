@@ -1,33 +1,27 @@
 
 
-## Problema
+## Plano: Redesign do chat inicial e popup de oferta
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Problemas identificados
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+1. **Chat da oferta (LockedOfferCard)**: Fundo escuro `#0b141a` destoa completamente da área de membros que é clara (`bg-gray-50`, cards brancos). O botão de fechar do Dialog fica sobreposto à imagem do produto no header.
 
-## Solução
+2. **Chat inicial (AreaMembrosPublica)**: O conteúdo das mensagens AI não agrada — isso é questão do prompt, mas o layout também pode melhorar.
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+### Mudanças propostas
 
-### Alteração em `src/hooks/useTransactions.ts`
+**1. LockedOfferCard — Popup da oferta (tema claro)**
+- Trocar fundo escuro `#0b141a` por `bg-white`
+- Header: manter gradient do themeColor mas remover a imagem do produto do canto direito (conflita com botão fechar do Dialog)
+- Balões de mensagem: fundo `${themeColor}10` com texto `text-gray-700` (como o chat inicial)
+- Typing dots: mesma cor clara
+- Botão CTA: manter gradient do themeColor
+- Timestamp: `text-gray-400` em vez de `text-white/30`
+- Fundo do chat body: branco limpo, sem pattern SVG escuro
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+**2. Chat inicial (AreaMembrosPublica)**
+- Sem mudanças de layout (o problema relatado é sobre o popup da oferta e o conteúdo AI)
 
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
-
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Arquivo modificado
+- `src/components/membros/LockedOfferCard.tsx`
 
