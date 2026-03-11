@@ -43,22 +43,19 @@ export default function DailyVerse() {
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 border border-amber-200/60 shadow-sm">
-      {/* Decorative elements */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-amber-200/20 to-transparent rounded-bl-full" />
-      <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-orange-200/15 to-transparent rounded-tr-full" />
+    <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 border border-amber-200/60 shadow-sm">
+      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-200/20 to-transparent rounded-bl-full" />
       
-      <div className="relative px-6 py-5">
-        {/* Quote mark */}
-        <div className="absolute top-3 left-4 text-amber-300/40 text-5xl font-serif leading-none select-none">"</div>
+      <div className="relative px-4 py-3.5">
+        <div className="absolute top-1 left-3 text-amber-300/40 text-4xl font-serif leading-none select-none">"</div>
         
-        <div className="pl-6">
-          <p className="text-base text-amber-950 leading-relaxed font-medium" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+        <div className="pl-5">
+          <p className="text-sm text-amber-950 leading-relaxed font-medium" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
             {verse.text}
           </p>
-          <div className="mt-3 flex items-center gap-2">
-            <div className="h-px flex-1 max-w-[40px] bg-gradient-to-r from-amber-400/60 to-transparent" />
-            <p className="text-xs font-semibold text-amber-700 tracking-wide uppercase">{verse.ref}</p>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="h-px flex-1 max-w-[30px] bg-gradient-to-r from-amber-400/60 to-transparent" />
+            <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">{verse.ref}</p>
           </div>
         </div>
       </div>
