@@ -163,26 +163,22 @@ CATEGORIA OBRIGATÓRIA para a segunda mensagem: ${chosen.id.toUpperCase()} - ${c
           {
             type: "function",
             function: {
-              name: "generate_member_context",
-              description: "Generate 2 personalized WhatsApp-style chat messages for the member area.",
+              name: "generate_member_message",
+              description: "Generate 1 single personalized WhatsApp-style message for the member area.",
               parameters: {
                 type: "object",
                 properties: {
-                  greeting: {
+                  message: {
                     type: "string",
-                    description: "Personalized greeting message, max 2 sentences. No dashes."
-                  },
-                  followup: {
-                    type: "string",
-                    description: `Follow-up message following the category "${chosen.id}": ${chosen.instruction}. Max 2 sentences. No dashes.`
+                    description: `Uma única mensagem curta e pessoal seguindo a categoria "${chosen.id}". Máx 3 frases. Sem travessões.`
                   }
                 },
-                required: ["greeting", "followup"]
+                required: ["message"]
               }
             }
           }
         ],
-        tool_choice: { type: "function", function: { name: "generate_member_context" } },
+        tool_choice: { type: "function", function: { name: "generate_member_message" } },
       }),
     });
 
