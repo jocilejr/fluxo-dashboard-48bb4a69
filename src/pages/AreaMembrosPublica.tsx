@@ -388,7 +388,7 @@ export default function AreaMembrosPublica() {
         </h1>
 
         {/* Meire Rosana Chat Bubble */}
-        <div className="rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden" style={{ backgroundColor: "#fafbfc" }}>
+        <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: `${themeColor}06`, borderColor: `${themeColor}18` }}>
           <div className="flex items-center gap-2.5 px-4 py-3">
             <img src={meirePhoto} alt="Meire Rosana" className="h-9 w-9 rounded-full object-cover shadow-sm" style={{ border: `2px solid ${themeColor}40` }} />
             <div className="flex-1 min-w-0">
