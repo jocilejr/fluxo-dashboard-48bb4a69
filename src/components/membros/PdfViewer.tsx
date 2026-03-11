@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
-const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 3;
+const ZOOM_STEP = 0.25;
 
 interface Props {
   url: string;
@@ -19,10 +21,10 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [zoomIndex, setZoomIndex] = useState(2); // index 2 = 1x (fit)
+  const [zoom, setZoom] = useState(1); // 1 = fit to width
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const baseFitScaleRef = useRef(1);
+  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
 
   useEffect(() => {
     if (preloadedPdf) {
@@ -69,7 +71,6 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
 
     const baseViewport = page.getViewport({ scale: 1 });
     const fitScale = containerWidth / baseViewport.width;
-    baseFitScaleRef.current = fitScale;
 
     const userScale = fitScale * zoomMultiplier;
     const dpr = window.devicePixelRatio || 1;
@@ -91,15 +92,53 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
     await page.render({ canvasContext: ctx, viewport }).promise;
   }, [pdf]);
 
-  const zoomMultiplier = ZOOM_LEVELS[zoomIndex];
-
   useEffect(() => {
-    if (pdf && currentPage) renderPage(currentPage, zoomMultiplier);
-  }, [pdf, currentPage, zoomMultiplier, renderPage]);
+    if (pdf && currentPage) renderPage(currentPage, zoom);
+  }, [pdf, currentPage, zoom, renderPage]);
 
-  const zoomIn = () => setZoomIndex((i) => Math.min(i + 1, ZOOM_LEVELS.length - 1));
-  const zoomOut = () => setZoomIndex((i) => Math.max(i - 1, 0));
-  const resetZoom = () => setZoomIndex(2);
+  // Pinch-to-zoom handlers
+  const getTouchDistance = (t1: React.Touch, t2: React.Touch) => {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dist = getTouchDistance(e.touches[0], e.touches[1]);
+      pinchRef.current = { startDist: dist, startZoom: zoom };
+    }
+  }, [zoom]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchRef.current) {
+      e.preventDefault();
+      const dist = getTouchDistance(e.touches[0], e.touches[1]);
+      const scale = dist / pinchRef.current.startDist;
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchRef.current.startZoom * scale));
+      setZoom(Math.round(newZoom * 100) / 100);
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchRef.current = null;
+  }, []);
+
+  // Wheel zoom (Ctrl+scroll or trackpad pinch)
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setZoom((z) => {
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        return Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)) * 100) / 100;
+      });
+    }
+  }, []);
+
+  const zoomIn = () => setZoom((z) => Math.min(MAX_ZOOM, Math.round((z + ZOOM_STEP) * 100) / 100));
+  const zoomOut = () => setZoom((z) => Math.max(MIN_ZOOM, Math.round((z - ZOOM_STEP) * 100) / 100));
+  const resetZoom = () => setZoom(1);
 
   if (loading) {
     return (
@@ -118,13 +157,12 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
     );
   }
 
-  const zoomPercent = Math.round(zoomMultiplier * 100);
+  const zoomPercent = Math.round(zoom * 100);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Toolbar */}
       <div className="flex items-center justify-center gap-2 sm:gap-4 py-2 px-3 border-b border-border bg-muted/30 shrink-0 flex-wrap">
-        {/* Page navigation */}
         {totalPages > 1 && (
           <>
             <Button
@@ -153,17 +191,15 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
           </>
         )}
 
-        {/* Divider */}
         {totalPages > 1 && (
           <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
         )}
 
-        {/* Zoom controls */}
         <div className="flex items-center gap-1.5">
           <Button
             variant="outline"
             size="sm"
-            disabled={zoomIndex <= 0}
+            disabled={zoom <= MIN_ZOOM}
             onClick={zoomOut}
             className="h-10 w-10 p-0"
             title="Diminuir zoom"
@@ -181,14 +217,14 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
           <Button
             variant="outline"
             size="sm"
-            disabled={zoomIndex >= ZOOM_LEVELS.length - 1}
+            disabled={zoom >= MAX_ZOOM}
             onClick={zoomIn}
             className="h-10 w-10 p-0"
             title="Aumentar zoom"
           >
             <ZoomIn className="h-4 w-4" />
           </Button>
-          {zoomIndex !== 2 && (
+          {zoom !== 1 && (
             <Button
               variant="ghost"
               size="sm"
@@ -203,7 +239,14 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
       </div>
 
       {/* PDF canvas */}
-      <div ref={containerRef} className="flex-1 overflow-auto flex justify-center items-start p-4 bg-muted/20">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto flex justify-center items-start p-4 bg-muted/20 touch-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+      >
         <canvas ref={canvasRef} className="shadow-lg rounded-lg" />
       </div>
     </div>
