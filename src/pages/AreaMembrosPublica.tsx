@@ -78,7 +78,6 @@ export default function AreaMembrosPublica() {
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
   const [visibleMessages, setVisibleMessages] = useState(0);
-  const [showTypingAfterFirst, setShowTypingAfterFirst] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<string, ContentProgress[]>>({});
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
@@ -190,17 +189,7 @@ export default function AreaMembrosPublica() {
         if (Date.now() - parsed.cachedAt < AI_CACHE_TTL) {
           setAiContext(parsed.data);
           setAiLoading(false);
-          // Sequential reveal for cached too
-          setTimeout(() => {
-            setVisibleMessages(1);
-            if (parsed.data.tip) {
-              setShowTypingAfterFirst(true);
-              setTimeout(() => {
-                setShowTypingAfterFirst(false);
-                setVisibleMessages(2);
-              }, 1200);
-            }
-          }, 600);
+          setTimeout(() => setVisibleMessages(1), 600);
           return;
         }
       }
@@ -272,17 +261,7 @@ export default function AreaMembrosPublica() {
         };
         setAiContext(ctx);
         setVisibleMessages(0);
-        // Start sequential reveal
-        setTimeout(() => {
-          setVisibleMessages(1);
-          if (ctx.tip) {
-            setShowTypingAfterFirst(true);
-            setTimeout(() => {
-              setShowTypingAfterFirst(false);
-              setVisibleMessages(2);
-            }, 1200);
-          }
-        }, 600);
+        setTimeout(() => setVisibleMessages(1), 600);
         try {
           localStorage.setItem(cacheKey, JSON.stringify({ data: ctx, cachedAt: Date.now() }));
         } catch {}
@@ -448,7 +427,7 @@ export default function AreaMembrosPublica() {
             <img src={meirePhoto} alt="Meire Rosana" className="h-9 w-9 rounded-full object-cover shadow-sm" style={{ border: `2px solid ${themeColor}40` }} />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-gray-800 leading-tight">Meire Rosana</p>
-              {(aiLoading || showTypingAfterFirst) && (
+              {aiLoading && (
                 <p className="text-[11px] font-medium" style={{ color: themeColor }}>digitando...</p>
               )}
             </div>
@@ -468,21 +447,6 @@ export default function AreaMembrosPublica() {
                     style={{ backgroundColor: `${themeColor}10` }}
                   >
                     {aiContext.greeting}
-                  </div>
-                )}
-                {showTypingAfterFirst && (
-                  <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl rounded-tl-md w-fit" style={{ backgroundColor: `${themeColor}10` }}>
-                    <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "0ms" }} />
-                    <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "150ms" }} />
-                    <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "300ms" }} />
-                  </div>
-                )}
-                {visibleMessages >= 2 && aiContext?.tip && (
-                  <div
-                    className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%] animate-fade-in"
-                    style={{ backgroundColor: `${themeColor}10` }}
-                  >
-                    {aiContext.tip}
                   </div>
                 )}
               </>

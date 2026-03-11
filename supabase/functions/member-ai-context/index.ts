@@ -107,9 +107,9 @@ serve(async (req) => {
       ? `\nSUA PERSONALIDADE:\n${personaPrompt}\n` 
       : `\nVocê é uma mulher cristã de 57 anos, líder de uma comunidade de orações. Fala com carinho, como uma amiga próxima. Nunca usa termos de marketing.\n`;
 
-    const systemPrompt = `Você é uma amiga conversando por WhatsApp. Gere EXATAMENTE 2 mensagens curtas como se fossem balões de WhatsApp enviados em sequência pela mesma pessoa.
+    const systemPrompt = `Você é uma amiga mandando UMA ÚNICA mensagem curta no WhatsApp.
 ${personaBlock}
-CATEGORIA SORTEADA PARA A SEGUNDA MENSAGEM: ${chosen.id.toUpperCase()}
+CATEGORIA OBRIGATÓRIA: ${chosen.id.toUpperCase()}
 ${chosen.instruction}
 
 ADAPTE O TOM ao perfil:
@@ -119,21 +119,18 @@ ${profileCategory === "fiel" ? `MEMBRO FIEL: Reconheça a dedicação e fidelida
 ${profileCategory === "regular" ? `MEMBRO REGULAR: Tom amigável e encorajador.` : ""}
 
 REGRAS ABSOLUTAS:
-- PROIBIDO usar travessão (—) em qualquer lugar da mensagem
-- PROIBIDO usar travessão curto (–) em qualquer lugar da mensagem
+- Gere APENAS 1 mensagem. UMA. Não duas.
+- PROIBIDO usar travessão (—) ou travessão curto (–) em qualquer lugar
+- A mensagem DEVE incluir o nome da pessoa de forma natural
 - NUNCA use termos genéricos como "este material", "este conteúdo"
 - SEMPRE cite nomes EXATOS dos produtos e materiais quando mencionar
 - Tom: amiga próxima mandando mensagem no WhatsApp, informal e carinhosa
 - NUNCA use termos de marketing como "insights", "mindset", "jornada transformadora", "exclusivo"
 - NUNCA mencione valores ou preços
-- Máximo 2 frases por mensagem
-- Use 1 emoji por mensagem no máximo
-- As mensagens devem fluir como uma conversa natural
+- Máximo 3 frases curtas no total
+- Use 1 emoji no máximo
 - Seja CRIATIVA e ORIGINAL. Nunca repita padrões. Cada interação deve ser única.
-
-ESTRUTURA:
-1. SAUDAÇÃO (greeting): Cumprimento pessoal usando o nome. Como se estivesse mandando uma mensagem no WhatsApp pra uma amiga. Máx 2 frases curtas. Seja criativa e varie sempre.
-2. CONTINUAÇÃO (followup): Siga OBRIGATORIAMENTE a categoria sorteada "${chosen.id}". ${chosen.instruction} Máx 2 frases. A mensagem deve fluir naturalmente após a saudação.`;
+- A mensagem deve ser uma coisa só, fluida, que começa cumprimentando e naturalmente entra na categoria sorteada.`;
 
     const userPrompt = `Nome: ${firstName || "Querido(a)"}
 
@@ -166,26 +163,22 @@ CATEGORIA OBRIGATÓRIA para a segunda mensagem: ${chosen.id.toUpperCase()} - ${c
           {
             type: "function",
             function: {
-              name: "generate_member_context",
-              description: "Generate 2 personalized WhatsApp-style chat messages for the member area.",
+              name: "generate_member_message",
+              description: "Generate 1 single personalized WhatsApp-style message for the member area.",
               parameters: {
                 type: "object",
                 properties: {
-                  greeting: {
+                  message: {
                     type: "string",
-                    description: "Personalized greeting message, max 2 sentences. No dashes."
-                  },
-                  followup: {
-                    type: "string",
-                    description: `Follow-up message following the category "${chosen.id}": ${chosen.instruction}. Max 2 sentences. No dashes.`
+                    description: `Uma única mensagem curta e pessoal seguindo a categoria "${chosen.id}". Máx 3 frases. Sem travessões.`
                   }
                 },
-                required: ["greeting", "followup"]
+                required: ["message"]
               }
             }
           }
         ],
-        tool_choice: { type: "function", function: { name: "generate_member_context" } },
+        tool_choice: { type: "function", function: { name: "generate_member_message" } },
       }),
     });
 
@@ -207,10 +200,10 @@ CATEGORIA OBRIGATÓRIA para a segunda mensagem: ${chosen.id.toUpperCase()} - ${c
     // Strip any dashes that might have slipped through
     const cleanDashes = (text: string) => text.replace(/[—–]/g, ",");
     
-    // Map followup back to tip for backward compatibility with frontend
+    // Single message mapped to greeting for frontend compatibility
     const finalResult = {
-      greeting: cleanDashes(result.greeting || ""),
-      tip: cleanDashes(result.followup || result.tip || ""),
+      greeting: cleanDashes(result.message || ""),
+      tip: "",
     };
 
     return new Response(JSON.stringify(finalResult), {
