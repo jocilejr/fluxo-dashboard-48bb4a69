@@ -8,6 +8,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 interface Props {
   url: string;
   themeColor: string;
+  preloadedPdf?: pdfjsLib.PDFDocumentProxy | null;
 }
 
 export default function PdfViewer({ url, themeColor }: Props) {
