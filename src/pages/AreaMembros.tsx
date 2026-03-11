@@ -319,7 +319,8 @@ function MemberOffersTab() {
           purchase_url: purchaseUrl || "",
           price: price ? parseFloat(price) : (product?.value || null),
           category_tag: categoryTag || null,
-        });
+          display_type: displayType,
+        } as any);
         if (error) throw error;
       }
     },
