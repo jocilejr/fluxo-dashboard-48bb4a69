@@ -123,7 +123,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
       if (!matTitle) throw new Error("Título é obrigatório");
       const insertData: any = {
         product_id: productId,
-        category_id: matCategoryId || null,
+        category_id: matCategoryId && matCategoryId !== "none" ? matCategoryId : null,
         title: matTitle,
         description: matDesc || null,
         content_type: matType,
