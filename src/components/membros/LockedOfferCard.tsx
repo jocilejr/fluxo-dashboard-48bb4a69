@@ -32,6 +32,7 @@ interface Props {
   ownedProductNames?: string[];
   firstName?: string;
   memberProfile?: MemberProfile | null;
+  memberPhone?: string;
 }
 
 const CONTEXTUAL_LABELS = [
