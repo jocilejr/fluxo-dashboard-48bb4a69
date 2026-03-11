@@ -1,33 +1,53 @@
+## Plano: Tornar mensagens da Meire Rosana dinâmicas e variadas
+
+### Problema
+
+O prompt atual sempre gera o mesmo padrão: saudação + dica genérica. Sem variação real, as mensagens ficam repetitivas e com travessão  
+  
+A imagem de capa não aparece no card do produto. Resolva isso.
+
+### Solução
+
+Adicionar um **sistema de categorias aleatórias** no backend. A cada chamada, o servidor sorteia uma categoria diferente para a segunda mensagem, forçando a IA a variar radicalmente o conteúdo.  
+  
+Elimine completamente o travessão da mensagem. Foco total na mensagem com personalidade.   
+  
 
 
-## Problema
+### Categorias (sorteadas aleatoriamente)
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+1. **Salmo/Versículo** - Compartilhar um salmo ou versículo bíblico relacionado ao momento da pessoa
+2. **Progresso** - Comentar especificamente sobre o progresso nos materiais (só quando há progresso real)
+3. **Reflexão do dia** - Uma reflexão pessoal curta, como se fosse algo que a Meire pensou naquele momento
+4. **Curiosidade bíblica** - Um fato interessante ou história bíblica pouco conhecida
+5. **Oração curta** - Uma oração breve e pessoal dedicada à pessoa
+6. **Incentivo pessoal** - Palavras de encorajamento contextualizadas
+7. **Pergunta carinhosa** - Fazer uma pergunta genuína sobre como a pessoa está
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+### Mudanças no `member-ai-context/index.ts`
 
-## Solução
+- Criar array de categorias e sortear uma com `Math.random()`
+- Reescrever o prompt para instruir a IA a seguir a categoria sorteada
+- Incluir a categoria no prompt do usuário para que a IA saiba o que gerar
+- Adicionar `temperature: 1.1` para maximizar criatividade
+- Reforçar regra: NUNCA usar travessão (—)
+- Renomear o campo `tip` para `followup` na tool call com descrição dinâmica baseada na categoria
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+### Exemplo de lógica
 
-### Alteração em `src/hooks/useTransactions.ts`
-
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
+```typescript
+const categories = [
+  { id: "salmo", instruction: "Compartilhe um salmo ou versículo que combina com o momento dessa pessoa. Cite o livro e versículo." },
+  { id: "progresso", instruction: "Comente sobre o progresso dela nos materiais, citando nomes." },
+  { id: "reflexao", instruction: "Compartilhe uma reflexão pessoal sua, algo que você pensou hoje de manhã." },
+  { id: "curiosidade", instruction: "Conte uma curiosidade bíblica interessante ou história pouco conhecida." },
+  { id: "oracao", instruction: "Faça uma oração curta e pessoal dedicada a essa pessoa pelo nome." },
+  { id: "incentivo", instruction: "Dê palavras de encorajamento baseadas na situação atual dela." },
+  { id: "pergunta", instruction: "Faça uma pergunta carinhosa e genuína sobre como ela está." },
+];
+const chosen = categories[Math.floor(Math.random() * categories.length)];
 ```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+### Arquivo modificado
 
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
-
+- `supabase/functions/member-ai-context/index.ts`
