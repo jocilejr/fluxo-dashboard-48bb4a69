@@ -1,33 +1,56 @@
 
 
-## Problema
+## Fluxo de Pagamento Interno com PIX, Cartão e Boleto
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Resumo
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+Adicionar campos configuráveis por oferta (chave PIX e link do cartão) no admin, e criar um fluxo de pagamento interno na área de membros com 3 opções: PIX (mostra chave), Cartão (redireciona para link configurado) e Boleto (formulário com nome e CPF, igual ao GerarBoleto).
 
-## Solução
+### Alterações no banco
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+**Migração SQL** — adicionar 2 colunas na tabela `member_area_offers`:
+- `pix_key` (text, nullable) — chave PIX configurável por oferta
+- `card_payment_url` (text, nullable) — link de redirecionamento para pagamento com cartão
 
-### Alteração em `src/hooks/useTransactions.ts`
+### Alterações no admin (`src/pages/AreaMembros.tsx`)
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+- Adicionar campo "Chave PIX" (input text) no formulário de oferta
+- Adicionar campo "Link pagamento cartão" (input text) no formulário
+- Salvar/carregar esses campos no `saveMutation` e `openEdit`
 
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
+### Novo componente `src/components/membros/PaymentFlow.tsx`
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+Modal com 3 etapas:
 
-A deduplicação acontece automaticamente pelo banco.
+**Etapa 1 — Seleção do método:**
+- 3 cards visuais: PIX, Cartão de Crédito, Boleto
+- Cada card com ícone e descrição curta
 
-### Impacto
+**Etapa 2 — Depende da escolha:**
+- **PIX**: Exibe a chave PIX (copiável), preço, e mensagem "Ao efetuar o PIX, todo o material será liberado no seu WhatsApp". Insere transação pendente via edge function `member-purchase` com o telefone do membro (já disponível na URL `/membros/:phone`)
+- **Cartão**: Redireciona para `card_payment_url` configurada na oferta (abre em nova aba)
+- **Boleto**: Formulário inline com Nome Completo e CPF (igual ao GerarBoleto), sem telefone pois já está no sistema. Ao submeter, chama o mesmo webhook do `manual_boleto_settings` passando os dados + telefone do membro automaticamente
 
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Edge function `supabase/functions/member-purchase/index.ts`
+
+- Recebe `{ phone, offer_name, payment_method, amount }`
+- Insere na tabela `transactions` com `type: 'pix'`, `status: 'pendente'`, `customer_phone: phone`, `amount`, `description: offer_name`
+- Usa service role (acesso anon na página pública)
+- Isso faz aparecer automaticamente na aba de transações via realtime
+
+### Integração nos componentes existentes
+
+- **`PhysicalProductShowcase.tsx`**: Substituir botão "Reservar o seu" por abertura do `PaymentFlow`
+- **`LockedOfferCard.tsx`**: Substituir botão "Quero conhecer" por abertura do `PaymentFlow`
+- **`AreaMembrosPublica.tsx`**: Passar `normalizedPhone` para os componentes de oferta (já disponível)
+
+### Arquivos
+
+- **Migração SQL**: `pix_key` e `card_payment_url` em `member_area_offers`
+- **Novo**: `src/components/membros/PaymentFlow.tsx`
+- **Nova edge function**: `supabase/functions/member-purchase/index.ts`
+- **Editado**: `src/pages/AreaMembros.tsx` (campos pix_key e card_payment_url)
+- **Editado**: `src/components/membros/PhysicalProductShowcase.tsx`
+- **Editado**: `src/components/membros/LockedOfferCard.tsx`
+- **Editado**: `src/pages/AreaMembrosPublica.tsx` (passar phone)
 
