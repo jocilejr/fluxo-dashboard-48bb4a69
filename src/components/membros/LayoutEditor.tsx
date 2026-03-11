@@ -2,20 +2,21 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { GripVertical, Sparkles, BookOpen, Cross, Gift } from "lucide-react";
+import { GripVertical, Sparkles, Star, BookOpen, Cross, Gift } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-type LayoutSection = "greeting" | "content" | "verse" | "offers";
+type LayoutSection = "greeting" | "recent_product" | "other_products" | "verse" | "offers";
 
 const sectionMeta: Record<LayoutSection, { label: string; description: string; icon: typeof Sparkles }> = {
   greeting: { label: "Mensagem I.A.", description: "Saudação personalizada gerada por inteligência artificial", icon: Sparkles },
-  content: { label: "Conteúdo", description: "Produtos e materiais liberados para o membro", icon: BookOpen },
+  recent_product: { label: "Produto Recente", description: "O produto mais recente liberado para o membro", icon: Star },
+  other_products: { label: "Demais Produtos", description: "Os outros produtos liberados para o membro", icon: BookOpen },
   verse: { label: "Salmo / Versículo", description: "Versículo do dia exibido entre os conteúdos", icon: Cross },
   offers: { label: "Ofertas Exclusivas", description: "Cards de produtos bloqueados para upsell", icon: Gift },
 };
 
-const DEFAULT_ORDER: LayoutSection[] = ["greeting", "content", "verse", "offers"];
+const DEFAULT_ORDER: LayoutSection[] = ["greeting", "recent_product", "verse", "other_products", "offers"];
 
 export default function LayoutEditor() {
   const queryClient = useQueryClient();
