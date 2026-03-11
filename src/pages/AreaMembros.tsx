@@ -390,7 +390,7 @@ export default function AreaMembros() {
       </div>
 
       <Tabs defaultValue="products" className="space-y-6">
-        <TabsList className="bg-muted p-1 rounded-lg">
+        <TabsList className="bg-muted p-1 rounded-lg flex-wrap">
           <TabsTrigger value="products" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Users className="h-4 w-4" /> Membros
           </TabsTrigger>
@@ -406,6 +406,9 @@ export default function AreaMembros() {
           <TabsTrigger value="settings" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Settings className="h-4 w-4" /> Configurações
           </TabsTrigger>
+          <TabsTrigger value="preview" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
+            <Eye className="h-4 w-4" /> Preview
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products"><MemberProductsTab /></TabsContent>
@@ -413,6 +416,7 @@ export default function AreaMembros() {
         <TabsContent value="offers"><MemberOffersTab /></TabsContent>
         <TabsContent value="layout"><LayoutEditor /></TabsContent>
         <TabsContent value="settings"><MemberSettingsTab /></TabsContent>
+        <TabsContent value="preview"><MemberPreviewTab /></TabsContent>
       </Tabs>
     </div>
   );
