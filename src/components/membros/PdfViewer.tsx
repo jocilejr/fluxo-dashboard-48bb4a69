@@ -66,8 +66,7 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
     const canvas = canvasRef.current;
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    canvas.style.width = `${viewport.width / (window.devicePixelRatio > 1 ? scale / (containerWidth / baseViewport.width) : 1)}px`;
-    canvas.style.maxWidth = "100%";
+    canvas.style.width = "100%";
     canvas.style.height = "auto";
 
     const ctx = canvas.getContext("2d");
