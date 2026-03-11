@@ -125,9 +125,9 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
     <>
       {/* Redesigned card — banner style */}
       <button
-        className="w-full rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 text-left active:scale-[0.98] group relative"
+        className="w-full rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 text-left active:scale-[0.98] group relative opacity-75 hover:opacity-90"
         style={{
-          border: `1.5px solid ${themeColor}25`,
+          border: `1.5px solid ${themeColor}20`,
         }}
         onClick={handleOpen}
       >
