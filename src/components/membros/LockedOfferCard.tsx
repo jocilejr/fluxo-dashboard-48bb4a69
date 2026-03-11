@@ -1,7 +1,6 @@
 import { Lock, ShoppingBag } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 interface Offer {
   id: string;
@@ -20,43 +19,48 @@ interface Props {
 
 export default function LockedOfferCard({ offer, themeColor }: Props) {
   return (
-    <Card className="overflow-hidden border-gray-200 hover:shadow-lg transition-all duration-300 group relative">
-      {/* Locked badge */}
+    <Card className="overflow-hidden border-gray-100 hover:shadow-xl transition-all duration-500 group relative rounded-2xl">
+      {/* Locked overlay badge */}
       <div className="absolute top-3 right-3 z-10">
-        <Badge className="bg-gray-800/80 text-white backdrop-blur-sm gap-1">
+        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-lg">
           <Lock className="h-3 w-3" /> Bloqueado
-        </Badge>
+        </div>
       </div>
 
       {offer.image_url && (
-        <div className="aspect-video overflow-hidden relative">
+        <div className="aspect-[16/10] overflow-hidden relative">
           <img
             src={offer.image_url}
             alt={offer.name}
-            className="w-full h-full object-cover filter blur-[2px] group-hover:blur-[1px] transition-all duration-500 scale-105"
+            className="w-full h-full object-cover filter blur-[3px] group-hover:blur-[1px] transition-all duration-700 scale-110 group-hover:scale-105"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
         </div>
       )}
 
       <CardContent className="p-5 space-y-3">
         {offer.category_tag && (
-          <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">
+          <span
+            className="inline-block text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
+            style={{ backgroundColor: `${themeColor}12`, color: themeColor }}
+          >
             {offer.category_tag}
-          </Badge>
+          </span>
         )}
-        <h3 className="font-semibold text-gray-800">{offer.name}</h3>
+        <h3 className="font-bold text-gray-900 text-base leading-snug">{offer.name}</h3>
         {offer.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{offer.description}</p>
+          <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed">{offer.description}</p>
         )}
         {offer.price && (
-          <p className="text-lg font-bold" style={{ color: themeColor }}>
+          <p className="text-xl font-extrabold" style={{ color: themeColor }}>
             R$ {offer.price.toFixed(2).replace(".", ",")}
           </p>
         )}
         <Button
-          className="w-full text-white shadow-md"
-          style={{ backgroundColor: themeColor }}
+          className="w-full text-white font-semibold shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-[1.02] rounded-xl h-11"
+          style={{ 
+            background: `linear-gradient(135deg, ${themeColor}, ${themeColor}cc)`,
+          }}
           onClick={() => window.open(offer.purchase_url, "_blank")}
         >
           <ShoppingBag className="h-4 w-4 mr-2" />
