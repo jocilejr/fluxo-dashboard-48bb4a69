@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { firstName, products, offers, ownedProductNames, progress } = await req.json();
+    const { firstName, products, offers, ownedProductNames, progress, profile } = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -66,38 +66,66 @@ serve(async (req) => {
       }).join("\n- ");
     }
 
+    // Build profile context
+    const prof = profile || {};
+    let memberSinceStr = "desconhecido";
+    let memberDays = 0;
+    if (prof.memberSince) {
+      const sinceDate = new Date(prof.memberSince);
+      memberDays = Math.floor((Date.now() - sinceDate.getTime()) / (1000 * 60 * 60 * 24));
+      memberSinceStr = `${memberDays} dias atrás`;
+    }
+    const totalPaid = prof.totalPaid || 0;
+    const totalTransactions = prof.totalTransactions || 0;
+    const totalProducts = prof.totalProducts || 0;
+    const daysSinceLastAccess = prof.daysSinceLastAccess;
+
+    let profileCategory = "regular";
+    if (memberDays <= 7) profileCategory = "novo";
+    else if (daysSinceLastAccess !== null && daysSinceLastAccess > 7) profileCategory = "inativo";
+    else if (totalPaid > 200 || totalProducts >= 3) profileCategory = "fiel";
+
+    const profileContext = `PERFIL DO MEMBRO:
+- Membro há: ${memberSinceStr}${memberDays <= 7 ? " (MEMBRO NOVA!)" : ""}
+- Total contribuído: R$ ${totalPaid.toFixed(2)}
+- Número de transações: ${totalTransactions}
+- Produtos que possui: ${totalProducts}
+- Dias sem acessar materiais: ${daysSinceLastAccess !== null ? daysSinceLastAccess : "nunca acessou"}${daysSinceLastAccess !== null && daysSinceLastAccess > 3 ? " (ESTÁ SUMIDA!)" : ""}
+- Categoria: ${profileCategory === "novo" ? "NOVA — precisa de acolhimento" : profileCategory === "inativo" ? "INATIVA — precisa de re-engajamento" : profileCategory === "fiel" ? "FIEL — merece reconhecimento" : "REGULAR"}`;
+
     const systemPrompt = `Você é um copywriter especialista em conversão e vendas para uma área de membros cristã. Sua missão é gerar textos que pareçam escritos por um amigo próximo que conhece profundamente a pessoa. Gere 4 blocos usando a função fornecida.
+
+PASSO 1 — ANALISE O PERFIL COMPLETO DA PESSOA antes de escrever qualquer coisa:
+- Quanto tempo ela é membro? (nova vs veterana)
+- Quanto já contribuiu financeiramente? (reconheça se foi bastante)
+- Está ativa ou sumiu? (quantos dias sem acessar?)
+- Quantos produtos possui? (comprometimento)
+- Onde parou nos materiais? (progresso)
+
+PASSO 2 — ADAPTE O TOM baseado no perfil:
+${profileCategory === "novo" ? `🌟 MEMBRO NOVA: Dê boas-vindas CALOROSAS. Mostre que ela fez a escolha certa. Guie os primeiros passos. Não pressione com ofertas — foque em acolher. Use frases como "Que alegria ter você aqui!", "Você tomou uma decisão linda!".` : ""}
+${profileCategory === "inativo" ? `💜 MEMBRO INATIVA: Mostre que sentiu falta dela. NÃO critique a ausência. Use saudade genuína. Frases como "Que bom te ver de volta!", "Sentimos sua falta!". Lembre-a do que ela já conquistou e do que a espera.` : ""}
+${profileCategory === "fiel" ? `👑 MEMBRO FIEL: Reconheça a dedicação e fidelidade. Valorize o comprometimento. Frases como "Você é uma das nossas membros mais dedicadas!", "Sua jornada é inspiradora!". Ela merece tratamento especial.` : ""}
+${profileCategory === "regular" ? `😊 MEMBRO REGULAR: Tom amigável e encorajador. Incentive a continuar e explore o que ela ainda não viu.` : ""}
 
 REGRAS ABSOLUTAS:
 - NUNCA use termos genéricos como "este material", "este conteúdo", "este produto"
 - SEMPRE cite nomes EXATOS dos produtos e ofertas
 - Tom: amigo próximo, íntimo, direto — NUNCA robótico ou formal
 - Máximo 2 frases por bloco (greeting e tip)
+- PERSONALIZE com base no perfil — não dê respostas genéricas que serviriam para qualquer pessoa
 
-1. SAUDAÇÃO (greeting): Cumprimento pessoal usando o nome. Mencione UM material específico que a pessoa possui e sugira retomar. Use 1 emoji. Máx 2 frases curtas.
+1. SAUDAÇÃO (greeting): Cumprimento pessoal usando o nome. Adapte ao perfil da pessoa (nova? sumida? fiel?). Use 1 emoji. Máx 2 frases curtas. Se é nova, dê boas-vindas. Se sumiu, mostre saudade. Se é fiel, reconheça.
 
-2. MENSAGEM PESSOAL (tip): Fale DIRETAMENTE com a pessoa pelo nome. Mencione os materiais específicos que ela pratica. Faça uma pergunta ou comentário pessoal como se fosse um amigo. Exemplo: "${firstName}, você tem dois materiais poderosos em mãos — está conseguindo aplicar o passo a passo?" Máx 2 frases. NUNCA pareça uma "dica do dia".
+2. MENSAGEM PESSOAL (tip): Fale DIRETAMENTE com a pessoa pelo nome. Baseie-se no PERFIL COMPLETO (não só progresso). Faça uma pergunta ou comentário pessoal como se fosse um amigo. Máx 2 frases. NUNCA pareça uma "dica do dia".
 
-3. MENSAGEM DE PROGRESSO (progressMessage): ESTA É FUNDAMENTAL. Analise o progresso da pessoa nos materiais e gere uma mensagem personalizada que:
-   - Cite EXATAMENTE onde a pessoa parou (página, % do vídeo)
-   - Sugira o próximo passo concreto (ex: "Continue da página 12", "Termine o vídeo que faltam só 3 minutos")
-   - Se não há progresso, incentive a começar por um material específico
-   - Tom de amigo encorajador, não de professor
-   - 2-3 frases no máximo
-   - Use emoji relevante (📖, ▶️, 💪, 🔥)
+3. MENSAGEM DE PROGRESSO (progressMessage): Analise o progresso E o perfil. Se não há progresso, sugira por onde começar baseado no perfil. Se há progresso, cite onde parou. Se está inativa, relembre o que já conquistou. 2-3 frases. Use emoji relevante.
 
-4. SUGESTÃO DE OFERTA (offerSuggestion): Esta é a mais importante para CONVERSÃO.
-   - Analise TODAS as ofertas disponíveis e escolha a que melhor complementa os produtos que a pessoa JÁ TEM
-   - A mensagem DEVE:
-     a) Citar os nomes EXATOS dos produtos que a pessoa já contribuiu (${ownedNames})
-     b) Citar o NOME EXATO da oferta sugerida
-     c) Usar a DESCRIÇÃO da oferta para explicar o que ela oferece de concreto
-     d) Explicar POR QUE esta oferta complementa especificamente o que a pessoa já tem
-     e) Criar desejo genuíno, não pressão
-   - Se nenhuma oferta fizer sentido, retorne offerId e message vazios.
-   - A mensagem deve ter 2-3 frases, persuasiva mas genuína.`;
+4. SUGESTÃO DE OFERTA (offerSuggestion): Para membros novas (< 7 dias), seja SUTIL — apenas mencione que existe mais conteúdo. Para inativas, foque em reativar antes de vender. Para fiéis, sugira como complemento natural. Cite nomes exatos. 2-3 frases. Se nenhuma oferta fizer sentido, retorne offerId e message vazios.`;
 
     const userPrompt = `Nome: ${firstName || "Querido(a)"}
+
+${profileContext}
 
 Produtos que a pessoa já contribuiu e possui acesso:
 - ${productList || "Nenhum produto específico"}
@@ -110,7 +138,7 @@ PROGRESSO NOS MATERIAIS (onde a pessoa parou):
 Ofertas disponíveis para sugestão (a pessoa NÃO tem acesso a estes — são oportunidades de venda):
 - ${offerList || "Nenhuma oferta disponível"}
 
-IMPORTANTE: Use o progresso para gerar a progressMessage. Se a pessoa está na página 12 de 30, diga "Continue da página 12, faltam apenas 18!". Se assistiu 45% de um vídeo, encoraje a terminar.`;
+IMPORTANTE: Use o PERFIL COMPLETO + PROGRESSO para personalizar TODOS os blocos. A pessoa deve sentir que você a conhece de verdade.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",

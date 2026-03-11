@@ -92,7 +92,7 @@ export default function AreaMembrosPublica() {
       supabase.from("member_products").select("*, delivery_products(name, slug, redirect_url, page_logo, value)").in("normalized_phone", variations).eq("is_active", true),
       supabase.from("member_area_settings").select("*").limit(1).maybeSingle(),
       supabase.from("member_area_offers").select("*").eq("is_active", true).order("sort_order"),
-      supabase.from("customers").select("name, display_phone").in("normalized_phone", variations).limit(1).maybeSingle(),
+      supabase.from("customers").select("name, display_phone, first_seen_at, total_paid, total_transactions, pix_payment_count").in("normalized_phone", variations).limit(1).maybeSingle(),
     ]);
 
     if (!productsRes.data || productsRes.data.length === 0) { setNotFound(true); setLoading(false); return; }
@@ -107,6 +107,7 @@ export default function AreaMembrosPublica() {
         : { title: "Área de Membros", logo_url: null, welcome_message: "Bem-vinda à sua área exclusiva! 🎉", theme_color: "#8B5CF6" }
     );
     const name = customerRes.data?.name || null;
+    const customerProfile = customerRes.data || null;
     setCustomerName(name);
 
     // Load materials and progress
@@ -138,7 +139,7 @@ export default function AreaMembrosPublica() {
     setProgressMap(progByProd);
 
     setLoading(false);
-    loadAiContext(name, memberProds, memberOffers, matsByProd, progressData);
+    loadAiContext(name, memberProds, memberOffers, matsByProd, progressData, customerProfile);
   };
 
   const getProductProgress = (productId: string): ProductProgress => {
@@ -170,7 +171,7 @@ export default function AreaMembrosPublica() {
     return `Último acesso: "${matName}"`;
   };
 
-  const loadAiContext = async (name: string | null, prods: MemberProduct[], memberOffers: any[], matsByProd: Record<string, any[]>, progressData: ContentProgress[]) => {
+  const loadAiContext = async (name: string | null, prods: MemberProduct[], memberOffers: any[], matsByProd: Record<string, any[]>, progressData: ContentProgress[], customerProfile: any) => {
     const cacheKey = `${AI_CACHE_KEY}_${phone}`;
     try {
       const cached = localStorage.getItem(cacheKey);
@@ -222,8 +223,34 @@ export default function AreaMembrosPublica() {
         };
       });
 
+      // Calculate profile metrics
+      const memberSince = customerProfile?.first_seen_at || prods[0]?.granted_at || null;
+      const totalPaid = customerProfile?.total_paid || 0;
+      const totalTransactions = customerProfile?.total_transactions || 0;
+      const totalProducts = prods.length;
+      
+      // Calculate days since last access from progress data
+      let daysSinceLastAccess: number | null = null;
+      if (progressData.length > 0) {
+        const latestAccess = progressData.reduce((latest, p) => {
+          const d = new Date(p.last_accessed_at).getTime();
+          return d > latest ? d : latest;
+        }, 0);
+        if (latestAccess > 0) {
+          daysSinceLastAccess = Math.floor((Date.now() - latestAccess) / (1000 * 60 * 60 * 24));
+        }
+      }
+
+      const profileData = {
+        memberSince,
+        totalPaid: Number(totalPaid),
+        totalTransactions: Number(totalTransactions),
+        totalProducts,
+        daysSinceLastAccess,
+      };
+
       const { data, error } = await supabase.functions.invoke("member-ai-context", {
-        body: { firstName, products: productsPayload, offers: offersPayload, ownedProductNames, progress: progressPayload },
+        body: { firstName, products: productsPayload, offers: offersPayload, ownedProductNames, progress: progressPayload, profile: profileData },
       });
 
       if (!error && data?.greeting) {
