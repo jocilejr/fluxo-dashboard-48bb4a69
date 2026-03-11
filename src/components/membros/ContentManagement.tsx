@@ -221,7 +221,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
                   <Select value={matCategoryId} onValueChange={setMatCategoryId}>
                     <SelectTrigger><SelectValue placeholder="Sem categoria" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sem categoria</SelectItem>
+                      <SelectItem value="none">Sem categoria</SelectItem>
                       {categories?.map((c: any) => (<SelectItem key={c.id} value={c.id}>{c.icon} {c.name}</SelectItem>))}
                     </SelectContent>
                   </Select>
