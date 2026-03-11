@@ -35,31 +35,46 @@ serve(async (req) => {
 
     const offerList = (offers || [])
       .map((o: { id: string; name: string; description: string | null; categoryTag: string | null }) => 
-        `[ID: ${o.id}] "${o.name}"${o.description ? ` - ${o.description}` : ""}${o.categoryTag ? ` (categoria: ${o.categoryTag})` : ""}`)
+        `[ID: ${o.id}] Nome: "${o.name}" — Descrição: "${o.description || 'Sem descrição'}"${o.categoryTag ? ` (categoria: ${o.categoryTag})` : ""}`)
       .join("\n- ");
 
     const ownedNames = (ownedProductNames || []).join(", ") || "nenhum produto identificado";
 
-    const systemPrompt = `Você é um assistente espiritual personalizado para uma área de membros cristã. Você deve gerar 3 blocos de conteúdo em uma única resposta usando a função fornecida.
+    const systemPrompt = `Você é um copywriter especialista em conversão e vendas para uma área de membros cristã. Sua missão é gerar textos que pareçam escritos por um amigo próximo que conhece profundamente a pessoa. Gere 3 blocos usando a função fornecida.
 
-REGRAS IMPORTANTES:
-1. SAUDAÇÃO (greeting): Máximo 2 frases. Pessoal, acolhedora. Mencione um produto/material específico que a pessoa possui e sugira retomar de onde parou. Tom religioso sutil. Use 1-2 emojis.
+REGRAS ABSOLUTAS:
+- NUNCA use termos genéricos como "este material", "este conteúdo", "este produto"
+- SEMPRE cite nomes EXATOS dos produtos e ofertas
+- Tom: amigo próximo, íntimo, direto — NUNCA robótico ou formal
+- Máximo 2 frases por bloco (greeting e tip)
 
-2. MENSAGEM PESSOAL (tip): Uma mensagem CONVERSACIONAL e DIRETA, como se fosse de um amigo próximo. NÃO pareça uma dica genérica. Fale diretamente com a pessoa pelo nome, mencione os materiais específicos que ela está praticando e faça uma pergunta ou comentário pessoal. Exemplo: "${firstName}, você está praticando dois materiais incríveis, está conseguindo seguir o passo a passo certinho?" Máximo 2 frases. Tom íntimo e pessoal.
+1. SAUDAÇÃO (greeting): Cumprimento pessoal usando o nome. Mencione UM material específico que a pessoa possui e sugira retomar. Use 1 emoji. Máx 2 frases curtas.
 
-3. SUGESTÃO DE OFERTA (offerSuggestion): Analise os produtos que a pessoa JÁ TEM e sugira UMA oferta que COMPLEMENTE a jornada dela. A mensagem DEVE mencionar explicitamente os nomes dos produtos que a pessoa já contribuiu (${ownedNames}) e explicar que este novo material é especial mas ela ainda não contribuiu para recebê-lo. Exemplo: "Você já contribuiu com [Produto A] e [Produto B], que são incríveis! Este material complementa perfeitamente sua jornada..." Se não houver ofertas ou nenhuma fizer sentido, retorne offerId vazio e message vazia.
+2. MENSAGEM PESSOAL (tip): Fale DIRETAMENTE com a pessoa pelo nome. Mencione os materiais específicos que ela pratica. Faça uma pergunta ou comentário pessoal como se fosse um amigo. Exemplo: "${firstName}, você tem dois materiais poderosos em mãos — está conseguindo aplicar o passo a passo?" Máx 2 frases. NUNCA pareça uma "dica do dia".
 
-NUNCA seja genérico. Cada resposta deve parecer que foi escrita por alguém que conhece a pessoa.`;
+3. SUGESTÃO DE OFERTA (offerSuggestion): Esta é a mais importante para CONVERSÃO.
+   - Analise TODAS as ofertas disponíveis e escolha a que melhor complementa os produtos que a pessoa JÁ TEM
+   - A mensagem DEVE:
+     a) Citar os nomes EXATOS dos produtos que a pessoa já contribuiu (${ownedNames})
+     b) Citar o NOME EXATO da oferta sugerida
+     c) Usar a DESCRIÇÃO da oferta para explicar o que ela oferece de concreto
+     d) Explicar POR QUE esta oferta complementa especificamente o que a pessoa já tem
+     e) Criar desejo genuíno, não pressão
+   - Exemplo: "Você já está praticando 'Oração dos 21 Dias' e 'Jejum Guiado', que são transformadores! O '${offers?.[0]?.name || "Devocional Profundo"}' complementa perfeitamente porque [usar descrição da oferta]. É como adicionar uma nova camada à sua prática."
+   - Se nenhuma oferta fizer sentido, retorne offerId e message vazios.
+   - A mensagem deve ter 2-3 frases, persuasiva mas genuína.`;
 
     const userPrompt = `Nome: ${firstName || "Querido(a)"}
 
-Produtos que a pessoa já contribuiu e possui:
+Produtos que a pessoa já contribuiu e possui acesso:
 - ${productList || "Nenhum produto específico"}
 
 Nomes dos produtos adquiridos: ${ownedNames}
 
-Ofertas disponíveis para sugestão (produtos que ela AINDA NÃO tem):
-- ${offerList || "Nenhuma oferta disponível"}`;
+Ofertas disponíveis para sugestão (a pessoa NÃO tem acesso a estes — são oportunidades de venda):
+- ${offerList || "Nenhuma oferta disponível"}
+
+IMPORTANTE: Use o nome e a descrição de cada oferta ao criar a mensagem de sugestão. A mensagem deve citar explicitamente o nome da oferta escolhida e usar sua descrição para justificar a recomendação.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -88,7 +103,7 @@ Ofertas disponíveis para sugestão (produtos que ela AINDA NÃO tem):
                   },
                   tip: {
                     type: "string",
-                    description: "Conversational personal message (NOT a generic tip), mentioning the person by name and their specific materials."
+                    description: "Conversational personal message mentioning the person by name and their specific materials. NOT a generic tip."
                   },
                   offerSuggestion: {
                     type: "object",
@@ -99,7 +114,7 @@ Ofertas disponíveis para sugestão (produtos que ela AINDA NÃO tem):
                       },
                       message: {
                         type: "string",
-                        description: "Personalized message mentioning the products they already own and explaining why this new offer complements their journey."
+                        description: "Persuasive sales copy that mentions: (1) the exact names of products the user already owns, (2) the exact name of the suggested offer, (3) details from the offer's description to justify the recommendation. 2-3 sentences."
                       }
                     },
                     required: ["offerId", "message"]
