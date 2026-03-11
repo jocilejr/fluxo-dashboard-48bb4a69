@@ -878,6 +878,7 @@ export type Database = {
       }
       member_area_settings: {
         Row: {
+          ai_persona_prompt: string | null
           created_at: string
           id: string
           layout_order: Json | null
@@ -888,6 +889,7 @@ export type Database = {
           welcome_message: string | null
         }
         Insert: {
+          ai_persona_prompt?: string | null
           created_at?: string
           id?: string
           layout_order?: Json | null
@@ -898,6 +900,7 @@ export type Database = {
           welcome_message?: string | null
         }
         Update: {
+          ai_persona_prompt?: string | null
           created_at?: string
           id?: string
           layout_order?: Json | null

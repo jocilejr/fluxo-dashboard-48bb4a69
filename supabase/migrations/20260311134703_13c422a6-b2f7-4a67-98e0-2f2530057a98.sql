@@ -1,0 +1,1 @@
+ALTER TABLE public.member_area_settings ADD COLUMN ai_persona_prompt text NULL;
