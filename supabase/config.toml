@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.member-offer-pitch]
 verify_jwt = false
+
+[functions.member-purchase]
+verify_jwt = false
