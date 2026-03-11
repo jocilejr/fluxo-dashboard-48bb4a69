@@ -327,7 +327,11 @@ export default function AreaMembrosPublica() {
     return (
       <button
         key={mp.id}
-        className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
+        className="w-full flex items-center gap-4 rounded-2xl p-4 border shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
+        style={{
+          background: `linear-gradient(135deg, white 85%, ${themeColor}08)`,
+          borderColor: `${themeColor}15`,
+        }}
         onClick={() => setOpenProductId(mp.id)}
       >
         {product.page_logo ? (
@@ -335,8 +339,8 @@ export default function AreaMembrosPublica() {
             <img
               src={product.page_logo}
               alt={product.name}
-              className="h-16 w-16 rounded-xl object-cover"
-              style={{ border: `2px solid ${themeColor}20` }}
+              className="h-16 w-16 rounded-xl object-cover shadow-sm"
+              style={{ border: `2px solid ${themeColor}25` }}
             />
             {progressPct > 0 && (
               <div
@@ -357,14 +361,20 @@ export default function AreaMembrosPublica() {
           </div>
         ) : (
           <div
-            className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}
+            className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+            style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
           >
-            <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
+            {mats.length > 0 && mats[0]?.content_type === "video" ? (
+              <Play className="h-7 w-7" style={{ color: themeColor }} />
+            ) : mats.length > 0 && mats[0]?.content_type === "pdf" ? (
+              <BookOpen className="h-7 w-7" style={{ color: themeColor }} />
+            ) : (
+              <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
+            )}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{product.name}</h3>
+          <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{product.name}</h3>
           {recent ? (
             <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
               ✓ Liberado recentemente
