@@ -413,14 +413,8 @@ export default function AreaMembros() {
           <TabsTrigger value="offers" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Gift className="h-4 w-4" /> Ofertas
           </TabsTrigger>
-          <TabsTrigger value="layout" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
-            <Layout className="h-4 w-4" /> Layout
-          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Settings className="h-4 w-4" /> Configurações
-          </TabsTrigger>
-          <TabsTrigger value="preview" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
-            <Eye className="h-4 w-4" /> Preview
           </TabsTrigger>
         </TabsList>
 
