@@ -23,7 +23,7 @@ export default function ProductContentViewer({ productId, productName, themeColo
     queryFn: async () => {
       const { data } = await supabase
         .from("delivery_products")
-        .select("member_cover_image, member_description")
+        .select("member_description")
         .eq("id", productId)
         .single();
       return data as any;
