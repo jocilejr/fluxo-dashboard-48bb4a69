@@ -343,36 +343,40 @@ function MemberOffersTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setDialogOpen(open); }}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Nova Oferta</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nova Oferta (baseada em produto)</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingOffer ? "Editar Oferta" : "Nova Oferta (baseada em produto)"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label>Produto</Label>
-                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
-                  <SelectContent>{products?.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
-                </Select>
-              </div>
-              {selectedProduct && (
+              {!editingOffer && (
+                <div>
+                  <Label>Produto</Label>
+                  <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
+                    <SelectContent>{products?.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
+                  </Select>
+                </div>
+              )}
+              {(selectedProduct || editingOffer) && (
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
-                  {selectedProduct.page_logo && <img src={selectedProduct.page_logo} alt="" className="h-10 w-10 rounded-lg object-cover" />}
+                  {(selectedProduct?.page_logo || editingOffer?.image_url) && <img src={editingOffer?.image_url || selectedProduct?.page_logo} alt="" className="h-10 w-10 rounded-lg object-cover" />}
                   <div>
-                    <p className="font-medium text-sm">{selectedProduct.name}</p>
-                    {selectedProduct.value && <p className="text-xs text-muted-foreground">R$ {Number(selectedProduct.value).toFixed(2).replace(".", ",")}</p>}
+                    <p className="font-medium text-sm">{editingOffer?.name || selectedProduct?.name}</p>
+                    {(selectedProduct?.value || editingOffer?.price) && <p className="text-xs text-muted-foreground">R$ {Number(editingOffer?.price || selectedProduct?.value).toFixed(2).replace(".", ",")}</p>}
                   </div>
                 </div>
               )}
               <div><Label>Descrição (opcional)</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Por que esse produto é especial..." /></div>
               <div>
-                <Label>Imagem (opcional — usa logo do produto se vazio)</Label>
+                <Label>Imagem {editingOffer ? "(envie para substituir)" : "(opcional — usa logo do produto se vazio)"}</Label>
                 <Input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
+                <p className="text-xs text-muted-foreground mt-1">Tamanho recomendado: 600×200px (formato banner horizontal)</p>
               </div>
+              <div><Label>Tag de categoria (opcional)</Label><Input value={categoryTag} onChange={(e) => setCategoryTag(e.target.value)} placeholder="Ex: Material complementar" /></div>
               <div><Label>URL de Compra (opcional)</Label><Input value={purchaseUrl} onChange={(e) => setPurchaseUrl(e.target.value)} placeholder="https://..." /></div>
-              <div><Label>Preço (R$) — usa o valor do produto se vazio</Label><Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={selectedProduct?.value ? String(selectedProduct.value) : "0.00"} /></div>
-              <Button className="w-full" onClick={() => addMutation.mutate()} disabled={addMutation.isPending || uploading || !selectedProductId}>
-                {addMutation.isPending || uploading ? "Adicionando..." : "Adicionar Oferta"}
+              <div><Label>Preço (R$) {editingOffer ? "" : "— usa o valor do produto se vazio"}</Label><Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={selectedProduct?.value ? String(selectedProduct.value) : "0.00"} /></div>
+              <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || uploading || (!editingOffer && !selectedProductId)}>
+                {saveMutation.isPending || uploading ? "Salvando..." : editingOffer ? "Salvar Alterações" : "Adicionar Oferta"}
               </Button>
             </div>
           </DialogContent>
