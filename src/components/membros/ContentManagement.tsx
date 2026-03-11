@@ -86,11 +86,30 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const [matText, setMatText] = useState("");
   const [matButtonLabel, setMatButtonLabel] = useState("");
   const [matCategoryId, setMatCategoryId] = useState<string>("");
-  const [matCoverUrl, setMatCoverUrl] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [uploadingCover, setUploadingCover] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // Product-level settings
+  const [prodCoverUrl, setProdCoverUrl] = useState("");
+  const [prodDescription, setProdDescription] = useState("");
+  const [uploadingProdCover, setUploadingProdCover] = useState(false);
+  const [prodSettingsLoaded, setProdSettingsLoaded] = useState(false);
+  const prodCoverInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: productData } = useQuery({
+    queryKey: ["product-detail", productId],
+    queryFn: async () => {
+      const { data } = await supabase.from("delivery_products").select("member_cover_image, member_description").eq("id", productId).single();
+      return data;
+    },
+  });
+
+  // Sync product data to state once
+  if (productData && !prodSettingsLoaded) {
+    setProdCoverUrl(productData.member_cover_image || "");
+    setProdDescription(productData.member_description || "");
+    setProdSettingsLoaded(true);
+  }
 
   const { data: categories } = useQuery({
     queryKey: ["admin-categories", productId],
@@ -107,61 +126,6 @@ function ProductContentEditor({ productId }: { productId: string }) {
       return data || [];
     },
   });
-
-  const addCatMutation = useMutation({
-    mutationFn: async () => {
-      if (!catName) throw new Error("Nome é obrigatório");
-      const { error } = await supabase.from("member_product_categories").insert({ product_id: productId, name: catName, icon: catIcon || "📖", description: catDesc || null, sort_order: (categories?.length || 0) });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Categoria criada!"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); setCatName(""); setCatIcon("📖"); setCatDesc(""); setCatDialogOpen(false); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteCatMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_categories").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Categoria removida"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
-  });
-
-  const addMatMutation = useMutation({
-    mutationFn: async () => {
-      if (!matTitle) throw new Error("Título é obrigatório");
-      const insertData: any = {
-        product_id: productId,
-        category_id: matCategoryId && matCategoryId !== "none" ? matCategoryId : null,
-        title: matTitle,
-        description: matDesc || null,
-        content_type: matType,
-        content_url: matUrl || null,
-        content_text: matText || null,
-        cover_image_url: matCoverUrl || null,
-        sort_order: (materials?.length || 0),
-      };
-      if (matType === "text" && matButtonLabel) {
-        insertData.button_label = matButtonLabel;
-      }
-      const { error } = await supabase.from("member_product_materials").insert(insertData);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Material adicionado!");
-      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatCoverUrl(""); setMatDialogOpen(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteMatMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_materials").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Material removido"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
-  });
-
-  const contentTypes = [
-    { value: "text", label: "Texto (com botão opcional)" },
-    { value: "pdf", label: "PDF (upload)" },
-    { value: "video", label: "Vídeo (URL)" },
-    { value: "image", label: "Imagem (upload)" },
-  ];
 
   const uploadFile = async (file: File, setter: (url: string) => void, setLoading: (v: boolean) => void) => {
     const maxSize = 20 * 1024 * 1024;
@@ -190,13 +154,134 @@ function ProductContentEditor({ productId }: { productId: string }) {
     if (file) uploadFile(file, setMatUrl, setUploading);
   };
 
-  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) uploadFile(file, setMatCoverUrl, setUploadingCover);
-  };
+  const saveProdSettingsMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("delivery_products").update({
+        member_cover_image: prodCoverUrl || null,
+        member_description: prodDescription || null,
+      } as any).eq("id", productId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Personalização salva!");
+      queryClient.invalidateQueries({ queryKey: ["product-detail", productId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const addCatMutation = useMutation({
+    mutationFn: async () => {
+      if (!catName) throw new Error("Nome é obrigatório");
+      const { error } = await supabase.from("member_product_categories").insert({ product_id: productId, name: catName, icon: catIcon || "📖", description: catDesc || null, sort_order: (categories?.length || 0) });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Categoria criada!"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); setCatName(""); setCatIcon("📖"); setCatDesc(""); setCatDialogOpen(false); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteCatMutation = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_categories").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Categoria removida"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
+  });
+
+  const addMatMutation = useMutation({
+    mutationFn: async () => {
+      if (!matTitle) throw new Error("Título é obrigatório");
+      const insertData: any = {
+        product_id: productId,
+        category_id: matCategoryId && matCategoryId !== "none" ? matCategoryId : null,
+        title: matTitle,
+        description: matDesc || null,
+        content_type: matType,
+        content_url: matUrl || null,
+        content_text: matText || null,
+        sort_order: (materials?.length || 0),
+      };
+      if (matType === "text" && matButtonLabel) {
+        insertData.button_label = matButtonLabel;
+      }
+      const { error } = await supabase.from("member_product_materials").insert(insertData);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Material adicionado!");
+      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
+      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatDialogOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMatMutation = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_materials").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Material removido"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
+  });
+
+  const contentTypes = [
+    { value: "text", label: "Texto (com botão opcional)" },
+    { value: "pdf", label: "PDF (upload)" },
+    { value: "video", label: "Vídeo (URL)" },
+    { value: "image", label: "Imagem (upload)" },
+  ];
 
   return (
     <div className="space-y-8">
+      {/* Product-level customization */}
+      <div className="bg-muted/50 rounded-xl border border-border p-5 space-y-4">
+        <h4 className="font-bold text-foreground flex items-center gap-2">
+          <Image className="h-4 w-4 text-primary" /> Personalização do Produto
+        </h4>
+        <p className="text-xs text-muted-foreground -mt-2">Imagem de capa e descrição exibidos no popup do membro ao acessar este produto.</p>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Cover image */}
+          <div className="space-y-2">
+            <Label>Imagem de capa</Label>
+            <input
+              ref={prodCoverInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadFile(file, setProdCoverUrl, setUploadingProdCover);
+              }}
+              className="hidden"
+            />
+            {prodCoverUrl ? (
+              <div className="space-y-2">
+                <img src={prodCoverUrl} alt="Capa" className="w-full h-32 rounded-lg object-cover border border-border" />
+                <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => { setProdCoverUrl(""); if (prodCoverInputRef.current) prodCoverInputRef.current.value = ""; }}>
+                  Remover imagem
+                </Button>
+              </div>
+            ) : (
+              <Button type="button" variant="outline" className="w-full h-24 flex-col gap-1" onClick={() => prodCoverInputRef.current?.click()} disabled={uploadingProdCover}>
+                {uploadingProdCover ? <><Loader2 className="h-5 w-5 animate-spin" /> <span className="text-xs">Enviando...</span></> : <><Upload className="h-5 w-5" /> <span className="text-xs">Selecionar imagem</span></>}
+              </Button>
+            )}
+          </div>
+
+          {/* Mini text */}
+          <div className="space-y-2">
+            <Label>Mini texto / Descrição</Label>
+            <Textarea
+              value={prodDescription}
+              onChange={(e) => setProdDescription(e.target.value)}
+              placeholder="Ex: Material de orações preparado com muito carinho..."
+              rows={4}
+            />
+          </div>
+        </div>
+
+        <Button
+          size="sm"
+          onClick={() => saveProdSettingsMutation.mutate()}
+          disabled={saveProdSettingsMutation.isPending}
+        >
+          {saveProdSettingsMutation.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
+          Salvar personalização
+        </Button>
+      </div>
+
       {/* Categories */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -253,28 +338,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
               <DialogHeader><DialogTitle>Novo Material</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div><Label>Título</Label><Input value={matTitle} onChange={(e) => setMatTitle(e.target.value)} placeholder="Ex: Oração da Manhã" /></div>
-                <div><Label>Mini texto / Descrição (opcional)</Label><Textarea value={matDesc} onChange={(e) => setMatDesc(e.target.value)} placeholder="Um breve resumo do material..." rows={3} /></div>
-                {/* Cover image upload */}
-                <div className="space-y-2">
-                  <Label>Imagem de capa (opcional)</Label>
-                  <input
-                    ref={coverInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleCoverUpload}
-                    className="hidden"
-                  />
-                  {matCoverUrl ? (
-                    <div className="flex items-center gap-3">
-                      <img src={matCoverUrl} alt="Capa" className="h-16 w-24 rounded-lg object-cover border border-border" />
-                      <Button type="button" size="sm" variant="outline" onClick={() => { setMatCoverUrl(""); if (coverInputRef.current) coverInputRef.current.value = ""; }}>Trocar</Button>
-                    </div>
-                  ) : (
-                    <Button type="button" variant="outline" className="w-full" onClick={() => coverInputRef.current?.click()} disabled={uploadingCover}>
-                      {uploadingCover ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</> : <><Image className="h-4 w-4 mr-2" /> Selecionar imagem de capa</>}
-                    </Button>
-                  )}
-                </div>
+                <div><Label>Descrição (opcional)</Label><Input value={matDesc} onChange={(e) => setMatDesc(e.target.value)} /></div>
                 <div>
                   <Label>Categoria</Label>
                   <Select value={matCategoryId} onValueChange={setMatCategoryId}>
