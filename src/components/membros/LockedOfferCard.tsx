@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Lock, ExternalLink, Sparkles } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Offer {
   id: string;
@@ -13,24 +14,63 @@ interface Offer {
   category_tag: string | null;
 }
 
+interface MemberProfile {
+  memberSince: string | null;
+  totalPaid: number;
+  totalTransactions: number;
+  totalProducts: number;
+  daysSinceLastAccess: number | null;
+}
+
 interface Props {
   offer: Offer;
   themeColor: string;
-  aiMessage?: string;
   ownedProductNames?: string[];
+  firstName?: string;
+  memberProfile?: MemberProfile | null;
 }
 
-export default function LockedOfferCard({ offer, themeColor, aiMessage, ownedProductNames }: Props) {
+export default function LockedOfferCard({ offer, themeColor, ownedProductNames, firstName, memberProfile }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [aiMessage, setAiMessage] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const pitchCache = useRef<Record<string, string>>({});
+
+  const handleOpen = async () => {
+    setDialogOpen(true);
+
+    // Check cache
+    if (pitchCache.current[offer.id]) {
+      setAiMessage(pitchCache.current[offer.id]);
+      return;
+    }
+
+    setAiLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("member-offer-pitch", {
+        body: {
+          firstName: firstName || "Querido(a)",
+          offerName: offer.name,
+          offerDescription: offer.description,
+          ownedProductNames,
+          profile: memberProfile,
+        },
+      });
+
+      if (!error && data?.message) {
+        setAiMessage(data.message);
+        pitchCache.current[offer.id] = data.message;
+      }
+    } catch {}
+    setAiLoading(false);
+  };
 
   return (
     <>
-      {/* Horizontal card — same structure as product cards but locked style */}
       <button
         className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
-        onClick={() => setDialogOpen(true)}
+        onClick={handleOpen}
       >
-        {/* Square image with lock overlay */}
         <div className="relative shrink-0">
           {offer.image_url ? (
             <img
@@ -68,10 +108,8 @@ export default function LockedOfferCard({ offer, themeColor, aiMessage, ownedPro
         </div>
       </button>
 
-      {/* Clean light popup */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl border border-gray-100 p-0 overflow-hidden bg-white shadow-xl">
-          {/* Offer image */}
           {offer.image_url && (
             <div className="h-48 overflow-hidden">
               <img
@@ -83,7 +121,6 @@ export default function LockedOfferCard({ offer, themeColor, aiMessage, ownedPro
           )}
 
           <div className="px-6 pb-6 space-y-4" style={{ paddingTop: offer.image_url ? "16px" : "24px" }}>
-            {/* Title */}
             <div>
               <h2 className="text-lg font-bold text-gray-800">{offer.name}</h2>
               {offer.category_tag && (
@@ -96,44 +133,19 @@ export default function LockedOfferCard({ offer, themeColor, aiMessage, ownedPro
               )}
             </div>
 
-            {/* AI personalized message or description */}
-            {aiMessage ? (
+            {/* AI pitch or loading */}
+            {aiLoading ? (
+              <div className="flex items-center gap-2 py-2">
+                <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "0ms" }} />
+                <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "150ms" }} />
+                <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "300ms" }} />
+                <span className="text-xs font-medium ml-1" style={{ color: themeColor }}>preparando algo especial...</span>
+              </div>
+            ) : aiMessage ? (
               <p className="text-sm text-gray-600 leading-relaxed">{aiMessage}</p>
             ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  {offer.description || `${offer.name} é um conteúdo exclusivo preparado para complementar sua jornada.`}
-                </p>
-                {ownedProductNames && ownedProductNames.length > 0 && (
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    Você já desbloqueou{" "}
-                    <span className="font-semibold text-gray-700">
-                      {ownedProductNames.join(" e ")}
-                    </span>
-                    . Este material complementa perfeitamente o que você já está praticando.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Owned products badges */}
-            {ownedProductNames && ownedProductNames.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {ownedProductNames.map((name) => (
-                  <span
-                    key={name}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-50 text-gray-500 border border-gray-100"
-                  >
-                    ✓ {name}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Price */}
-            {offer.price && (
-              <p className="text-lg font-bold text-gray-800">
-                R$ {offer.price.toFixed(2).replace(".", ",")}
+              <p className="text-sm text-gray-600 leading-relaxed">
+                {offer.description || `${offer.name} é um conteúdo exclusivo preparado para complementar sua jornada.`}
               </p>
             )}
 

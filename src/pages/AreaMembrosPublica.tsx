@@ -37,7 +37,14 @@ interface AiContext {
   greeting: string;
   tip: string;
   progressMessage: string;
-  offerSuggestion: { offerId: string; message: string };
+}
+
+interface MemberProfile {
+  memberSince: string | null;
+  totalPaid: number;
+  totalTransactions: number;
+  totalProducts: number;
+  daysSinceLastAccess: number | null;
 }
 
 interface ContentProgress {
@@ -71,6 +78,7 @@ export default function AreaMembrosPublica() {
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
   const [progressMap, setProgressMap] = useState<Record<string, ContentProgress[]>>({});
+  const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
 
   const normalizedPhone = useMemo(() => phone?.replace(/\D/g, "") || "", [phone]);
@@ -195,18 +203,10 @@ export default function AreaMembrosPublica() {
           materials: (matsByProd[p.product_id] || []).map(m => m.title),
         }));
 
-      const ownedProductNames = prods
+      const ownedProductNamesPayload = prods
         .filter(p => p.delivery_products)
         .map(p => p.delivery_products!.name);
 
-      const offersPayload = memberOffers.map(o => ({
-        id: o.id,
-        name: o.name,
-        description: o.description,
-        categoryTag: o.category_tag,
-      }));
-
-      // Build progress payload for AI
       const progressPayload = progressData.map(p => {
         let matName = "material";
         for (const mats of Object.values(matsByProd)) {
@@ -223,13 +223,11 @@ export default function AreaMembrosPublica() {
         };
       });
 
-      // Calculate profile metrics
       const memberSince = customerProfile?.first_seen_at || prods[0]?.granted_at || null;
       const totalPaid = customerProfile?.total_paid || 0;
       const totalTransactions = customerProfile?.total_transactions || 0;
       const totalProducts = prods.length;
       
-      // Calculate days since last access from progress data
       let daysSinceLastAccess: number | null = null;
       if (progressData.length > 0) {
         const latestAccess = progressData.reduce((latest, p) => {
@@ -241,16 +239,17 @@ export default function AreaMembrosPublica() {
         }
       }
 
-      const profileData = {
+      const profileData: MemberProfile = {
         memberSince,
         totalPaid: Number(totalPaid),
         totalTransactions: Number(totalTransactions),
         totalProducts,
         daysSinceLastAccess,
       };
+      setMemberProfile(profileData);
 
       const { data, error } = await supabase.functions.invoke("member-ai-context", {
-        body: { firstName, products: productsPayload, offers: offersPayload, ownedProductNames, progress: progressPayload, profile: profileData },
+        body: { firstName, products: productsPayload, ownedProductNames: ownedProductNamesPayload, progress: progressPayload, profile: profileData },
       });
 
       if (!error && data?.greeting) {
@@ -258,7 +257,6 @@ export default function AreaMembrosPublica() {
           greeting: data.greeting,
           tip: data.tip || "",
           progressMessage: data.progressMessage || "",
-          offerSuggestion: data.offerSuggestion || { offerId: "", message: "" },
         };
         setAiContext(ctx);
         try {
@@ -457,48 +455,29 @@ export default function AreaMembrosPublica() {
         {/* Products */}
         {sortedProducts.length > 0 && renderProductCard(sortedProducts[0])}
 
-        {/* AI suggested offer */}
-        {aiContext?.offerSuggestion?.offerId && aiContext.offerSuggestion.message ? (
-          (() => {
-            const suggestedOffer = offers.find((o: any) => o.id === aiContext.offerSuggestion.offerId);
-            return suggestedOffer ? (
-              <LockedOfferCard
-                offer={suggestedOffer}
-                themeColor={themeColor}
-                aiMessage={aiContext.offerSuggestion.message}
-                ownedProductNames={ownedProductNames}
-              />
-            ) : null;
-          })()
-        ) : null}
-
-
         {/* Remaining products */}
         {sortedProducts.slice(1).map((mp) => renderProductCard(mp))}
 
         <DailyVerse />
 
-        {/* Remaining offers */}
-        {(() => {
-          const filteredOffers = aiContext?.offerSuggestion?.offerId
-            ? offers.filter((o: any) => o.id !== aiContext.offerSuggestion.offerId)
-            : offers;
-          return filteredOffers.length > 0 ? (
-            <div className="space-y-3 pt-2">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
-                Descubra mais
-              </p>
-              {filteredOffers.map((offer: any) => (
-                <LockedOfferCard
-                  key={offer.id}
-                  offer={offer}
-                  themeColor={themeColor}
-                  ownedProductNames={ownedProductNames}
-                />
-              ))}
-            </div>
-          ) : null;
-        })()}
+        {/* Offers */}
+        {offers.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+              Descubra mais
+            </p>
+            {offers.map((offer: any) => (
+              <LockedOfferCard
+                key={offer.id}
+                offer={offer}
+                themeColor={themeColor}
+                ownedProductNames={ownedProductNames}
+                firstName={firstName}
+                memberProfile={memberProfile}
+              />
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Product content popup */}
