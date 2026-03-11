@@ -131,7 +131,8 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="sm:max-w-md rounded-2xl border-0 p-0 overflow-hidden shadow-2xl bg-white">
+      <DialogContent className="sm:max-w-md rounded-2xl border-0 p-0 gap-0 overflow-hidden shadow-2xl bg-white [&>button]:hidden">
+        <DialogTitle className="sr-only">Pagamento</DialogTitle>
         {/* Header */}
         <div
           className="px-5 py-4 flex items-center gap-3"
