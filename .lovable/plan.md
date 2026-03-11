@@ -1,33 +1,36 @@
 
 
-## Problema
+## Refinamento Visual da Área de Membros Admin
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Problemas Identificados
+1. Layout colado nas extremidades — sem padding/max-width adequado
+2. URL do membro exposta diretamente no card — poluição visual, deve abrir apenas sob demanda (popover)
+3. Visual genérico/"de IA" — falta refinamento tipográfico, hierarquia sutil, espaçamento respirável
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+### Mudanças
 
-## Solução
+**1. `src/pages/AreaMembros.tsx`**
+- Adicionar `max-w-5xl mx-auto` no container principal para centralizar e dar respiro
+- Aumentar `space-y` e padding geral
+- Stats cards: tipografia mais contida (não `font-extrabold`), tamanhos proporcionais
+- Header: simplificar — remover gradientes exagerados, usar estilo limpo com apenas texto e ícone discreto
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+**2. `src/components/membros/MemberClientCard.tsx`**
+- Remover a seção de URL visível do card completamente
+- Adicionar um botão discreto "Copiar link" que abre um `Popover` com a URL + botão copiar
+- Card com padding mais generoso (`p-6`), border-left mais sutil (2px ao invés de 4px)
+- Produtos como pills mais discretos, sem fundo colored demais
+- Tipografia: `font-semibold` ao invés de `font-bold`, tamanhos mais proporcionais
+- Seção "Histórico" com melhor espaçamento
 
-### Alteração em `src/hooks/useTransactions.ts`
+**3. Geral**
+- Substituir `font-extrabold` por `font-semibold` em labels
+- Usar `text-[10px]` → `text-xs` para legibilidade
+- Remover decorações desnecessárias (gradientes circulares no header)
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+### Arquivos
+- `src/pages/AreaMembros.tsx`
+- `src/components/membros/MemberClientCard.tsx`
 
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
-
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+Sem mudanças de banco.
 
