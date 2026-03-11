@@ -825,6 +825,7 @@ export type Database = {
       }
       member_area_offers: {
         Row: {
+          category_tag: string | null
           created_at: string
           description: string | null
           id: string
@@ -837,6 +838,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category_tag?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -849,6 +851,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category_tag?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -891,6 +894,101 @@ export type Database = {
           welcome_message?: string | null
         }
         Relationships: []
+      }
+      member_product_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          product_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          product_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          product_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_product_categories_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_product_materials: {
+        Row: {
+          category_id: string | null
+          content_text: string | null
+          content_type: string
+          content_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_preview: boolean
+          product_id: string
+          sort_order: number
+          title: string
+        }
+        Insert: {
+          category_id?: string | null
+          content_text?: string | null
+          content_type?: string
+          content_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_preview?: boolean
+          product_id: string
+          sort_order?: number
+          title: string
+        }
+        Update: {
+          category_id?: string | null
+          content_text?: string | null
+          content_type?: string
+          content_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_preview?: boolean
+          product_id?: string
+          sort_order?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_product_materials_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "member_product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_product_materials_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       member_products: {
         Row: {
