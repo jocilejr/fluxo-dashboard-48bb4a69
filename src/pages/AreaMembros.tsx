@@ -566,10 +566,7 @@ function MemberPreviewTab() {
                   Maria, que bom te ver de volta! 😊
                 </div>
                 <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
-                  📖 Você parou na página 12 de 30 do "Água que Cura". Continue de onde parou — faltam apenas 18 páginas! 💪
-                </div>
-                <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-600 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}08` }}>
-                  Está conseguindo aplicar o passo a passo? 🙏
+                  📖 Você parou na página 12 de 30 do "Água que Cura". Continue de onde parou! 💪
                 </div>
               </div>
             </div>
