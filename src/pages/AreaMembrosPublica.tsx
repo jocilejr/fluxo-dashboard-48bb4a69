@@ -455,48 +455,29 @@ export default function AreaMembrosPublica() {
         {/* Products */}
         {sortedProducts.length > 0 && renderProductCard(sortedProducts[0])}
 
-        {/* AI suggested offer */}
-        {aiContext?.offerSuggestion?.offerId && aiContext.offerSuggestion.message ? (
-          (() => {
-            const suggestedOffer = offers.find((o: any) => o.id === aiContext.offerSuggestion.offerId);
-            return suggestedOffer ? (
-              <LockedOfferCard
-                offer={suggestedOffer}
-                themeColor={themeColor}
-                aiMessage={aiContext.offerSuggestion.message}
-                ownedProductNames={ownedProductNames}
-              />
-            ) : null;
-          })()
-        ) : null}
-
-
         {/* Remaining products */}
         {sortedProducts.slice(1).map((mp) => renderProductCard(mp))}
 
         <DailyVerse />
 
-        {/* Remaining offers */}
-        {(() => {
-          const filteredOffers = aiContext?.offerSuggestion?.offerId
-            ? offers.filter((o: any) => o.id !== aiContext.offerSuggestion.offerId)
-            : offers;
-          return filteredOffers.length > 0 ? (
-            <div className="space-y-3 pt-2">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
-                Descubra mais
-              </p>
-              {filteredOffers.map((offer: any) => (
-                <LockedOfferCard
-                  key={offer.id}
-                  offer={offer}
-                  themeColor={themeColor}
-                  ownedProductNames={ownedProductNames}
-                />
-              ))}
-            </div>
-          ) : null;
-        })()}
+        {/* Offers */}
+        {offers.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
+              Descubra mais
+            </p>
+            {offers.map((offer: any) => (
+              <LockedOfferCard
+                key={offer.id}
+                offer={offer}
+                themeColor={themeColor}
+                ownedProductNames={ownedProductNames}
+                firstName={firstName}
+                memberProfile={memberProfile}
+              />
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Product content popup */}
