@@ -428,39 +428,38 @@ function MemberOffersTab() {
 // ---- Main Page ----
 export default function AreaMembros() {
   return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center gap-3">
-          <Crown className="h-6 w-6 text-violet-600" />
-          <div>
-            <h1 className="text-2xl font-bold">Área de Membros</h1>
-            <p className="text-sm text-muted-foreground">Gerencie os produtos e ofertas da sua área de membros</p>
-          </div>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center gap-3">
+        <Crown className="h-6 w-6 text-primary" />
+        <div>
+          <h1 className="text-2xl font-bold">Área de Membros</h1>
+          <p className="text-sm text-muted-foreground">Gerencie os produtos e ofertas da sua área de membros</p>
         </div>
-
-        <Tabs defaultValue="products" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="products" className="gap-2">
-              <Users className="h-4 w-4" /> Membros
-            </TabsTrigger>
-            <TabsTrigger value="offers" className="gap-2">
-              <Gift className="h-4 w-4" /> Ofertas
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
-              <Settings className="h-4 w-4" /> Aparência
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="products">
-            <MemberProductsTab />
-          </TabsContent>
-          <TabsContent value="offers">
-            <MemberOffersTab />
-          </TabsContent>
-          <TabsContent value="settings">
-            <MemberSettingsTab />
-          </TabsContent>
-        </Tabs>
       </div>
+
+      <Tabs defaultValue="products" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="products" className="gap-2">
+            <Users className="h-4 w-4" /> Membros
+          </TabsTrigger>
+          <TabsTrigger value="offers" className="gap-2">
+            <Gift className="h-4 w-4" /> Ofertas
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-2">
+            <Settings className="h-4 w-4" /> Aparência
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="products">
+          <MemberProductsTab />
+        </TabsContent>
+        <TabsContent value="offers">
+          <MemberOffersTab />
+        </TabsContent>
+        <TabsContent value="settings">
+          <MemberSettingsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
