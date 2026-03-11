@@ -494,7 +494,23 @@ export default function AreaMembrosPublica() {
         <DailyVerse />
       </main>
 
-      {/* Product content popup */}
+      {/* Floating offer bar for secondary offer */}
+      {offers.length > 1 && (() => {
+        const floatingOffer = offers[offers.length - 1];
+        return (
+          <FloatingOfferBar
+            offer={floatingOffer}
+            themeColor={themeColor}
+            onOpenChat={() => {
+              // Programmatically open the LockedOfferCard dialog by finding/creating a hidden trigger
+              // For simplicity, open the purchase URL directly
+              if (floatingOffer.purchase_url) {
+                window.open(floatingOffer.purchase_url, "_blank");
+              }
+            }}
+          />
+        );
+      })()}
       <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl bg-white">
           {openProduct?.delivery_products && (
