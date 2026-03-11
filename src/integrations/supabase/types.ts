@@ -326,6 +326,27 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_prayers: {
+        Row: {
+          created_at: string
+          day_number: number
+          id: string
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          day_number: number
+          id?: string
+          text: string
+        }
+        Update: {
+          created_at?: string
+          day_number?: number
+          id?: string
+          text?: string
+        }
+        Relationships: []
+      }
       delivery_accesses: {
         Row: {
           accessed_at: string
