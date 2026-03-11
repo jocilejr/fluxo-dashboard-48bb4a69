@@ -154,10 +154,37 @@ function ProductContentEditor({ productId }: { productId: string }) {
 
   const contentTypes = [
     { value: "text", label: "Texto (com botão opcional)" },
-    { value: "pdf", label: "PDF" },
-    { value: "video", label: "Vídeo" },
-    { value: "image", label: "Imagem" },
+    { value: "pdf", label: "PDF (upload)" },
+    { value: "video", label: "Vídeo (URL)" },
+    { value: "image", label: "Imagem (upload)" },
   ];
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 20 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error("Arquivo muito grande (máx 20MB)");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const filePath = `${productId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from("member-files").upload(filePath, file);
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from("member-files").getPublicUrl(filePath);
+      setMatUrl(urlData.publicUrl);
+      toast.success("Arquivo enviado!");
+    } catch (err: any) {
+      toast.error("Erro ao enviar: " + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
