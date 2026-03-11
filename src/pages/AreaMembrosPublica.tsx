@@ -318,6 +318,7 @@ export default function AreaMembrosPublica() {
     if (!product) return null;
     const recent = isRecent(mp.granted_at);
     const progress = getProductProgress(mp.product_id);
+    const mats = materialsByProduct[mp.product_id] || [];
     const progressLabel = getProgressLabel(progress.latestProgress, mp.product_id);
     const progressPct = progress.totalMaterials > 0
       ? Math.round((progress.materialsAccessed / progress.totalMaterials) * 100)
