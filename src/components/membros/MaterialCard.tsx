@@ -74,7 +74,7 @@ export default function MaterialCard({ material, themeColor }: Props) {
 
       {/* PDF fullscreen dialog */}
       <Dialog open={pdfOpen} onOpenChange={setPdfOpen}>
-        <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 overflow-hidden gap-0">
+        <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 overflow-hidden gap-0 [&>button:last-child]:hidden">
           <div className="px-4 py-3 border-b border-border flex items-center gap-4 shrink-0 bg-card">
             <Button
               variant="ghost"
