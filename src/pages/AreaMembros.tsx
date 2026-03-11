@@ -230,25 +230,62 @@ function MemberSettingsTab() {
 function MemberOffersTab() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [name, setName] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState("");
   const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
   const [purchaseUrl, setPurchaseUrl] = useState("");
   const [price, setPrice] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { data: products } = useQuery({
+    queryKey: ["delivery-products-for-offers"],
+    queryFn: async () => {
+      const { data } = await supabase.from("delivery_products").select("id, name, page_logo, value").eq("is_active", true);
+      return data || [];
+    },
+  });
 
   const { data: offers, isLoading } = useQuery({
     queryKey: ["member-area-offers"],
-    queryFn: async () => { const { data } = await supabase.from("member_area_offers").select("*").order("sort_order"); return data || []; },
+    queryFn: async () => { const { data } = await supabase.from("member_area_offers").select("*, delivery_products(name, page_logo)").order("sort_order"); return data || []; },
   });
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `offers/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("member-files").upload(path, file, { contentType: file.type });
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from("member-files").getPublicUrl(path);
+    return urlData.publicUrl;
+  };
 
   const addMutation = useMutation({
     mutationFn: async () => {
-      if (!name || !purchaseUrl) throw new Error("Nome e URL de compra são obrigatórios");
-      const { error } = await supabase.from("member_area_offers").insert({ name, description: description || null, image_url: imageUrl || null, purchase_url: purchaseUrl, price: price ? parseFloat(price) : null });
+      if (!selectedProductId) throw new Error("Selecione um produto");
+      setUploading(true);
+      const product = products?.find(p => p.id === selectedProductId);
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      } else if (product?.page_logo) {
+        imageUrl = product.page_logo;
+      }
+      const { error } = await supabase.from("member_area_offers").insert({
+        name: product?.name || "Oferta",
+        product_id: selectedProductId,
+        description: description || null,
+        image_url: imageUrl,
+        purchase_url: purchaseUrl || "",
+        price: price ? parseFloat(price) : (product?.value || null),
+      });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Oferta adicionada!"); queryClient.invalidateQueries({ queryKey: ["member-area-offers"] }); setName(""); setDescription(""); setImageUrl(""); setPurchaseUrl(""); setPrice(""); setDialogOpen(false); },
-    onError: (err: Error) => toast.error(err.message),
+    onSuccess: () => {
+      toast.success("Oferta adicionada!");
+      queryClient.invalidateQueries({ queryKey: ["member-area-offers"] });
+      setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setImageFile(null); setDialogOpen(false); setUploading(false);
+    },
+    onError: (err: Error) => { toast.error(err.message); setUploading(false); },
   });
 
   const deleteMutation = useMutation({
@@ -261,20 +298,42 @@ function MemberOffersTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["member-area-offers"] }),
   });
 
+  const selectedProduct = products?.find(p => p.id === selectedProductId);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Nova Oferta</Button></DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nova Oferta Exclusiva</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Nova Oferta (baseada em produto)</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Nome</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome da oferta" /></div>
-              <div><Label>Descrição</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição..." /></div>
-              <div><Label>URL da Imagem</Label><Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." /></div>
-              <div><Label>URL de Compra</Label><Input value={purchaseUrl} onChange={(e) => setPurchaseUrl(e.target.value)} placeholder="https://..." /></div>
-              <div><Label>Preço (R$)</Label><Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" /></div>
-              <Button className="w-full" onClick={() => addMutation.mutate()} disabled={addMutation.isPending}>{addMutation.isPending ? "Adicionando..." : "Adicionar Oferta"}</Button>
+              <div>
+                <Label>Produto</Label>
+                <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
+                  <SelectContent>{products?.map((p) => (<SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>))}</SelectContent>
+                </Select>
+              </div>
+              {selectedProduct && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border">
+                  {selectedProduct.page_logo && <img src={selectedProduct.page_logo} alt="" className="h-10 w-10 rounded-lg object-cover" />}
+                  <div>
+                    <p className="font-medium text-sm">{selectedProduct.name}</p>
+                    {selectedProduct.value && <p className="text-xs text-muted-foreground">R$ {Number(selectedProduct.value).toFixed(2).replace(".", ",")}</p>}
+                  </div>
+                </div>
+              )}
+              <div><Label>Descrição (opcional)</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Por que esse produto é especial..." /></div>
+              <div>
+                <Label>Imagem (opcional — usa logo do produto se vazio)</Label>
+                <Input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} />
+              </div>
+              <div><Label>URL de Compra (opcional)</Label><Input value={purchaseUrl} onChange={(e) => setPurchaseUrl(e.target.value)} placeholder="https://..." /></div>
+              <div><Label>Preço (R$) — usa o valor do produto se vazio</Label><Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={selectedProduct?.value ? String(selectedProduct.value) : "0.00"} /></div>
+              <Button className="w-full" onClick={() => addMutation.mutate()} disabled={addMutation.isPending || uploading || !selectedProductId}>
+                {addMutation.isPending || uploading ? "Adicionando..." : "Adicionar Oferta"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -292,9 +351,15 @@ function MemberOffersTab() {
           {offers.map((offer: any) => (
             <Card key={offer.id} className="p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium">{offer.name}</p>
-                  {offer.price && <p className="text-sm text-muted-foreground">R$ {Number(offer.price).toFixed(2).replace(".", ",")}</p>}
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {offer.image_url && <img src={offer.image_url} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />}
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{offer.name}</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      {offer.price && <span>R$ {Number(offer.price).toFixed(2).replace(".", ",")}</span>}
+                      {offer.delivery_products?.name && <Badge variant="secondary" className="text-[10px]">{offer.delivery_products.name}</Badge>}
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch checked={offer.is_active} onCheckedChange={(checked) => toggleMutation.mutate({ id: offer.id, active: checked })} />
