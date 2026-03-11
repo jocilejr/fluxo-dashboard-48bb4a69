@@ -3,8 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { toast } from "sonner";
-import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Layout, Eye, Check, ShoppingBag, RefreshCw, ExternalLink, Lock } from "lucide-react";
-import meirePhoto from "@/assets/meire-rosana.png";
+import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Check, ShoppingBag } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,8 +17,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
 import MemberClientCard from "@/components/membros/MemberClientCard";
 import ContentManagement from "@/components/membros/ContentManagement";
-import LayoutEditor from "@/components/membros/LayoutEditor";
-import ProductContentViewer from "@/components/membros/ProductContentViewer";
 
 // ---- Member Products Tab ----
 function MemberProductsTab() {
@@ -387,336 +384,6 @@ function MemberOffersTab() {
   );
 }
 
-// ---- Preview Tab (Full Replica) ----
-function MemberPreviewTab() {
-  const [previewPhone, setPreviewPhone] = useState("");
-  const [activePhone, setActivePhone] = useState("");
-  const [openProductId, setOpenProductId] = useState<string | null>(null);
-  const [iframeKey, setIframeKey] = useState(0);
-
-  const { data: settings } = useQuery({
-    queryKey: ["member-area-settings"],
-    queryFn: async () => {
-      const { data } = await supabase.from("member_area_settings").select("*").limit(1).maybeSingle();
-      return data;
-    },
-  });
-
-  const { data: offers } = useQuery({
-    queryKey: ["member-area-offers-preview"],
-    queryFn: async () => {
-      const { data } = await supabase.from("member_area_offers").select("*").eq("is_active", true).order("sort_order").limit(5);
-      return data || [];
-    },
-  });
-
-  const { data: products } = useQuery({
-    queryKey: ["delivery-products-preview"],
-    queryFn: async () => {
-      const { data } = await supabase.from("delivery_products").select("id, name, page_logo").eq("is_active", true).limit(6);
-      return data || [];
-    },
-  });
-
-  // Fetch materials count per product
-  const productIds = (products || []).map(p => p.id);
-  const { data: materialCounts } = useQuery({
-    queryKey: ["materials-count-preview", productIds],
-    queryFn: async () => {
-      if (!productIds.length) return {};
-      const { data } = await supabase
-        .from("member_product_materials")
-        .select("product_id")
-        .in("product_id", productIds);
-      const counts: Record<string, number> = {};
-      (data || []).forEach(m => {
-        counts[m.product_id] = (counts[m.product_id] || 0) + 1;
-      });
-      return counts;
-    },
-    enabled: productIds.length > 0,
-  });
-
-  // Recent members for quick access
-  const { data: recentMembers } = useQuery({
-    queryKey: ["recent-members-preview"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("member_products")
-        .select("normalized_phone")
-        .order("granted_at", { ascending: false })
-        .limit(5);
-      const phones = [...new Set((data || []).map(d => d.normalized_phone))];
-      if (!phones.length) return [];
-      const allVars = phones.flatMap(p => generatePhoneVariations(p));
-      const { data: customers } = await supabase.from("customers").select("normalized_phone, name").in("normalized_phone", [...new Set(allVars)]);
-      return phones.map(p => {
-        const vars = new Set(generatePhoneVariations(p));
-        const c = (customers || []).find(c => vars.has(c.normalized_phone));
-        return { phone: p, name: c?.name || p };
-      });
-    },
-  });
-
-  const themeColor = settings?.theme_color || "#8B5CF6";
-  const logoUrl = settings?.logo_url || null;
-
-  // Mock progress data for preview
-  const mockProgressData = [
-    { pct: 65, label: "📖 Parou na pág. 12 de 30" },
-    { pct: 30, label: "▶️ Assistiu 30% do vídeo" },
-    { pct: 0, label: null },
-    { pct: 100, label: "✅ Concluído" },
-  ];
-
-  const handleLoadPhone = () => {
-    if (previewPhone.trim()) {
-      setActivePhone(previewPhone.replace(/\D/g, ""));
-    }
-  };
-
-  // If a phone is active, render the real public page in an iframe
-  if (activePhone) {
-    const previewUrl = `${window.location.origin}/membro/${activePhone}`;
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => setActivePhone("")}>
-            ← Voltar ao preview estático
-          </Button>
-          <span className="text-sm text-muted-foreground">Visualizando membro: <strong>{activePhone}</strong></span>
-          <Button variant="ghost" size="icon" onClick={() => setIframeKey(k => k + 1)} title="Recarregar">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => window.open(previewUrl, "_blank")} title="Abrir em nova aba">
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="flex justify-center">
-          <div className="w-full max-w-[430px] rounded-2xl border border-border shadow-lg overflow-hidden">
-            <iframe
-              key={iframeKey}
-              src={previewUrl}
-              className="w-full bg-white"
-              style={{ height: "80vh" }}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Quick access to real member */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Ver membro real</Label>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Telefone do membro..."
-              value={previewPhone}
-              onChange={e => setPreviewPhone(e.target.value)}
-              className="w-48"
-              onKeyDown={e => e.key === "Enter" && handleLoadPhone()}
-            />
-            <Button size="sm" onClick={handleLoadPhone} disabled={!previewPhone.trim()}>Carregar</Button>
-          </div>
-        </div>
-        {recentMembers && recentMembers.length > 0 && (
-          <div className="flex gap-2 flex-wrap">
-            {recentMembers.map(m => (
-              <Button
-                key={m.phone}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-                onClick={() => setActivePhone(m.phone)}
-              >
-                {m.name?.split(" ")[0] || m.phone}
-              </Button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <p className="text-sm text-muted-foreground">Preview estático com dados reais e progresso simulado. Clique nos produtos para ver os materiais.</p>
-
-      {/* Phone-sized frame */}
-      <div className="flex justify-center">
-        <div className="w-full max-w-[430px] rounded-2xl border border-border shadow-lg overflow-hidden bg-gray-50">
-          {/* Theme bar */}
-          <div className="h-1" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}90, ${themeColor})` }} />
-
-          {/* Greeting */}
-          <div className="px-5 pt-5">
-            <h1 className="text-xl font-bold text-gray-800 tracking-tight">Olá, Maria</h1>
-          </div>
-
-          {/* Content */}
-          <div className="px-4 py-4 space-y-3">
-            {/* Meire Rosana Chat Bubble Mock */}
-            <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: `${themeColor}0d`, borderColor: `${themeColor}22` }}>
-              <div className="flex items-center gap-2.5 px-4 py-3">
-                <img src={meirePhoto} alt="Meire Rosana" className="h-9 w-9 rounded-full object-cover shadow-sm" style={{ border: `2px solid ${themeColor}40` }} />
-                <p className="text-[13px] font-semibold text-gray-800 leading-tight">Meire Rosana</p>
-              </div>
-              <div className="px-4 pb-3.5 pt-0.5 space-y-1.5">
-                <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
-                  Maria, que bom te ver de volta! 😊
-                </div>
-                <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
-                  📖 Você parou na página 12 de 30 do "Água que Cura". Continue de onde parou! 💪
-                </div>
-              </div>
-            </div>
-
-            {/* Interleaved product cards and offer cards */}
-            {(() => {
-              const prodList = products && products.length > 0 ? products : [
-                { id: "mock1", name: "Água que Cura", page_logo: null },
-                { id: "mock2", name: "Guia de Orações", page_logo: null },
-              ];
-              const offerList = offers && offers.length > 0 ? offers : [{ id: "mock", name: "Curso Completo de Meditação", image_url: null, purchase_url: "#" }];
-
-              const interleaved: { type: "product" | "offer"; data: any; idx: number }[] = [];
-              if (prodList.length > 0) interleaved.push({ type: "product", data: prodList[0], idx: 0 });
-              if (offerList.length > 0) interleaved.push({ type: "offer", data: offerList[0], idx: 0 });
-              for (let i = 1; i < prodList.length; i++) interleaved.push({ type: "product", data: prodList[i], idx: i });
-              for (let i = 1; i < offerList.length; i++) interleaved.push({ type: "offer", data: offerList[i], idx: i });
-
-              return interleaved.map((item) => {
-                if (item.type === "product") {
-                  const prod = item.data;
-                  const i = item.idx;
-                  const mock = mockProgressData[i % mockProgressData.length];
-                  const totalMats = (materialCounts && materialCounts[prod.id]) || (i === 0 ? 5 : 3);
-                  const accessed = Math.round((mock.pct / 100) * totalMats);
-
-                  return (
-                    <button
-                      key={prod.id}
-                      className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
-                      style={{ borderColor: `${themeColor}15` }}
-                      onClick={() => setOpenProductId(prod.id)}
-                    >
-                      {prod.page_logo ? (
-                        <div className="relative shrink-0">
-                          <img src={prod.page_logo} alt={prod.name} className="h-16 w-16 rounded-xl object-cover" style={{ border: `2px solid ${themeColor}20` }} />
-                          {mock.pct > 0 && mock.pct < 100 && (
-                            <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full flex items-center justify-center shadow-sm text-[9px] font-bold text-white" style={{ backgroundColor: themeColor }}>
-                              {mock.pct}%
-                            </div>
-                          )}
-                          {mock.pct === 0 && (
-                            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: "#10b981" }}>
-                              <Check className="h-3 w-3 text-white" strokeWidth={3} />
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}>
-                          <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{prod.name}</h3>
-                        {i === 0 ? (
-                          <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Liberado recentemente</span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-gray-500">✓ Liberado</span>
-                        )}
-                        <div className="mt-2 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${mock.pct}%`, backgroundColor: themeColor }} />
-                            </div>
-                            <span className="text-[10px] font-semibold text-gray-400 shrink-0">{accessed}/{totalMats}</span>
-                          </div>
-                          {mock.label && <p className="text-[11px] text-gray-500 leading-tight truncate">{mock.label}</p>}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                } else {
-                  const offer = item.data;
-                  return (
-                    <div key={offer.id} className="flex items-center gap-4 bg-white rounded-2xl p-4 border shadow-sm" style={{ borderColor: `${themeColor}15` }}>
-                      <div className="relative shrink-0">
-                        {offer.image_url ? (
-                          <img src={offer.image_url} alt={offer.name} className="h-16 w-16 rounded-xl object-cover opacity-80 grayscale-[20%]" style={{ border: `2px solid ${themeColor}20` }} />
-                        ) : (
-                          <div className="h-16 w-16 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${themeColor}12, ${themeColor}06)` }}>
-                            <Lock className="h-6 w-6" style={{ color: `${themeColor}80` }} />
-                          </div>
-                        )}
-                        <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: themeColor }}>
-                          <Lock className="h-2.5 w-2.5 text-white" strokeWidth={3} />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
-                        <span className="flex items-center gap-1 mt-1.5 text-[12px] font-semibold" style={{ color: themeColor }}>
-                          🔒 Toque para saber mais
-                        </span>
-                      </div>
-                    </div>
-                  );
-                }
-              });
-            })()}
-
-            {/* Daily verse mock */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
-              <div className="relative">
-                <span className="absolute -top-1 -left-1 text-gray-100 text-3xl font-serif select-none">"</span>
-                <p className="text-sm text-gray-700 leading-relaxed font-medium pl-4" style={{ fontFamily: "'Georgia', serif" }}>
-                  O Senhor é o meu pastor, nada me faltará.
-                </p>
-                <p className="text-[10px] font-semibold text-gray-400 tracking-wide uppercase mt-2 pl-4">Salmos 23:1</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center py-4 border-t border-gray-100 bg-white">
-            <p className="text-[11px] text-gray-400">Área exclusiva para membros ✝️</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Product content popup — real data */}
-      {openProductId && (
-        <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl bg-white">
-            {(() => {
-              const prod = (products || []).find(p => p.id === openProductId);
-              if (!prod) return <div className="p-8 text-center text-gray-400">Produto não encontrado</div>;
-              // ProductContentViewer already imported at top
-              return (
-                <>
-                  <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3">
-                    {prod.page_logo && (
-                      <img src={prod.page_logo} alt="" className="h-10 w-10 rounded-lg object-cover" />
-                    )}
-                    <h2 className="font-bold text-gray-800 text-lg truncate">{prod.name}</h2>
-                  </div>
-                  <div className="p-5">
-                    <ProductContentViewer
-                      productId={prod.id}
-                      productName={prod.name}
-                      themeColor={themeColor}
-                    />
-                  </div>
-                </>
-              );
-            })()}
-          </DialogContent>
-        </Dialog>
-      )}
-    </div>
-  );
-}
 // ---- Main Page ----
 export default function AreaMembros() {
   return (
@@ -743,23 +410,15 @@ export default function AreaMembros() {
           <TabsTrigger value="offers" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Gift className="h-4 w-4" /> Ofertas
           </TabsTrigger>
-          <TabsTrigger value="layout" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
-            <Layout className="h-4 w-4" /> Layout
-          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Settings className="h-4 w-4" /> Configurações
-          </TabsTrigger>
-          <TabsTrigger value="preview" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
-            <Eye className="h-4 w-4" /> Preview
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="products"><MemberProductsTab /></TabsContent>
         <TabsContent value="content"><ContentManagement /></TabsContent>
         <TabsContent value="offers"><MemberOffersTab /></TabsContent>
-        <TabsContent value="layout"><LayoutEditor /></TabsContent>
         <TabsContent value="settings"><MemberSettingsTab /></TabsContent>
-        <TabsContent value="preview"><MemberPreviewTab /></TabsContent>
       </Tabs>
     </div>
   );
