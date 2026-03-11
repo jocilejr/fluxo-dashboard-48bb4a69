@@ -6,6 +6,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const categories = [
+  { id: "salmo", instruction: "Compartilhe um salmo ou versículo bíblico que combina com o momento dessa pessoa. Cite o livro, capítulo e versículo. Conecte o versículo com algo pessoal dela." },
+  { id: "progresso", instruction: "Comente especificamente sobre o progresso dela nos materiais, citando nomes exatos e porcentagens. Se não houver progresso, incentive a começar um material específico pelo nome." },
+  { id: "reflexao", instruction: "Compartilhe uma reflexão pessoal sua, algo que você pensou hoje de manhã ou que Deus colocou no seu coração. Seja genuína e específica." },
+  { id: "curiosidade", instruction: "Conte uma curiosidade bíblica interessante, uma história pouco conhecida da Bíblia, ou um fato surpreendente sobre um personagem bíblico. Seja específica e educativa." },
+  { id: "oracao", instruction: "Faça uma oração curta, pessoal e carinhosa dedicada a essa pessoa pelo nome. A oração deve ser como se você estivesse orando ali na hora, de coração." },
+  { id: "incentivo", instruction: "Dê palavras de encorajamento baseadas na situação atual dela. Pode ser sobre persistência, fé, ou algo que você percebeu sobre ela." },
+  { id: "pergunta", instruction: "Faça uma pergunta carinhosa e genuína sobre como ela está, como está o dia dela, ou algo sobre a vida dela que demonstre interesse real." },
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -28,7 +38,6 @@ serve(async (req) => {
 
     const OPENAI_API_KEY = settings.api_key;
 
-    // Load persona prompt
     const { data: memberSettings } = await supabase
       .from("member_area_settings")
       .select("ai_persona_prompt")
@@ -36,6 +45,9 @@ serve(async (req) => {
       .maybeSingle();
 
     const personaPrompt = memberSettings?.ai_persona_prompt || "";
+
+    // Pick random category
+    const chosen = categories[Math.floor(Math.random() * categories.length)];
 
     const productList = (products || [])
       .map((p: { name: string; materials: string[] }) => 
@@ -89,33 +101,39 @@ serve(async (req) => {
 - Membro há: ${memberSinceStr}${memberDays <= 7 ? " (MEMBRO NOVA!)" : ""}
 - Produtos que possui: ${totalProducts}
 - Dias sem acessar materiais: ${daysSinceLastAccess !== null ? daysSinceLastAccess : "nunca acessou"}${daysSinceLastAccess !== null && daysSinceLastAccess > 3 ? " (ESTÁ SUMIDA!)" : ""}
-- Categoria: ${profileCategory === "novo" ? "NOVA — precisa de acolhimento" : profileCategory === "inativo" ? "INATIVA — precisa de re-engajamento" : profileCategory === "fiel" ? "FIEL — merece reconhecimento" : "REGULAR"}`;
+- Categoria: ${profileCategory === "novo" ? "NOVA" : profileCategory === "inativo" ? "INATIVA" : profileCategory === "fiel" ? "FIEL" : "REGULAR"}`;
 
     const personaBlock = personaPrompt 
       ? `\nSUA PERSONALIDADE:\n${personaPrompt}\n` 
       : `\nVocê é uma mulher cristã de 57 anos, líder de uma comunidade de orações. Fala com carinho, como uma amiga próxima. Nunca usa termos de marketing.\n`;
 
-    const systemPrompt = `Você é uma amiga conversando por WhatsApp. Gere EXATAMENTE 2 mensagens curtas como se fossem balões de WhatsApp enviados em sequência pela mesma pessoa. A segunda mensagem deve ser uma continuação NATURAL da primeira, como se você tivesse apertado "enviar" e continuado o pensamento.
+    const systemPrompt = `Você é uma amiga conversando por WhatsApp. Gere EXATAMENTE 2 mensagens curtas como se fossem balões de WhatsApp enviados em sequência pela mesma pessoa.
 ${personaBlock}
+CATEGORIA SORTEADA PARA A SEGUNDA MENSAGEM: ${chosen.id.toUpperCase()}
+${chosen.instruction}
+
 ADAPTE O TOM ao perfil:
-${profileCategory === "novo" ? `🌟 MEMBRO NOVA: Boas-vindas calorosas. Mostre que fez a escolha certa.` : ""}
-${profileCategory === "inativo" ? `💜 MEMBRO INATIVA: Mostre que sentiu falta. NÃO critique a ausência.` : ""}
-${profileCategory === "fiel" ? `👑 MEMBRO FIEL: Reconheça a dedicação e fidelidade.` : ""}
-${profileCategory === "regular" ? `😊 MEMBRO REGULAR: Tom amigável e encorajador.` : ""}
+${profileCategory === "novo" ? `MEMBRO NOVA: Boas-vindas calorosas. Mostre que fez a escolha certa.` : ""}
+${profileCategory === "inativo" ? `MEMBRO INATIVA: Mostre que sentiu falta. NÃO critique a ausência.` : ""}
+${profileCategory === "fiel" ? `MEMBRO FIEL: Reconheça a dedicação e fidelidade.` : ""}
+${profileCategory === "regular" ? `MEMBRO REGULAR: Tom amigável e encorajador.` : ""}
 
 REGRAS ABSOLUTAS:
-- NUNCA use travessão (—) em hipótese alguma
+- PROIBIDO usar travessão (—) em qualquer lugar da mensagem
+- PROIBIDO usar travessão curto (–) em qualquer lugar da mensagem
 - NUNCA use termos genéricos como "este material", "este conteúdo"
-- SEMPRE cite nomes EXATOS dos produtos e materiais
+- SEMPRE cite nomes EXATOS dos produtos e materiais quando mencionar
 - Tom: amiga próxima mandando mensagem no WhatsApp, informal e carinhosa
 - NUNCA use termos de marketing como "insights", "mindset", "jornada transformadora", "exclusivo"
 - NUNCA mencione valores ou preços
 - Máximo 2 frases por mensagem
 - Use 1 emoji por mensagem no máximo
-- As mensagens devem fluir como uma conversa, NÃO como blocos independentes
+- As mensagens devem fluir como uma conversa natural
+- Seja CRIATIVA e ORIGINAL. Nunca repita padrões. Cada interação deve ser única.
 
-1. SAUDAÇÃO (greeting): Cumprimento pessoal usando o nome, como se estivesse mandando uma mensagem no WhatsApp pra uma amiga. Máx 2 frases curtas. Seja criativa e original a cada vez.
-2. CONTINUAÇÃO (tip): Continue a conversa naturalmente. Pode ser sobre o progresso, um incentivo, ou um comentário carinhoso sobre algo específico. Máx 2 frases. Nunca repita padrões.`;
+ESTRUTURA:
+1. SAUDAÇÃO (greeting): Cumprimento pessoal usando o nome. Como se estivesse mandando uma mensagem no WhatsApp pra uma amiga. Máx 2 frases curtas. Seja criativa e varie sempre.
+2. CONTINUAÇÃO (followup): Siga OBRIGATORIAMENTE a categoria sorteada "${chosen.id}". ${chosen.instruction} Máx 2 frases. A mensagem deve fluir naturalmente após a saudação.`;
 
     const userPrompt = `Nome: ${firstName || "Querido(a)"}
 
@@ -127,7 +145,9 @@ Produtos com acesso:
 Nomes dos produtos: ${ownedNames}
 
 PROGRESSO:
-- ${progressContext}`;
+- ${progressContext}
+
+CATEGORIA OBRIGATÓRIA para a segunda mensagem: ${chosen.id.toUpperCase()} - ${chosen.instruction}`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -137,6 +157,7 @@ PROGRESSO:
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
+        temperature: 1.1,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -146,20 +167,20 @@ PROGRESSO:
             type: "function",
             function: {
               name: "generate_member_context",
-              description: "Generate 2 personalized AI content blocks for the member area.",
+              description: "Generate 2 personalized WhatsApp-style chat messages for the member area.",
               parameters: {
                 type: "object",
                 properties: {
                   greeting: {
                     type: "string",
-                    description: "Personalized greeting message, max 2 sentences."
+                    description: "Personalized greeting message, max 2 sentences. No dashes."
                   },
-                  tip: {
+                  followup: {
                     type: "string",
-                    description: "Personal message about progress, encouragement, or a warm comment. Max 2 sentences."
+                    description: `Follow-up message following the category "${chosen.id}": ${chosen.instruction}. Max 2 sentences. No dashes.`
                   }
                 },
-                required: ["greeting", "tip"]
+                required: ["greeting", "followup"]
               }
             }
           }
@@ -182,8 +203,17 @@ PROGRESSO:
     }
 
     const result = JSON.parse(toolCall.function.arguments);
+    
+    // Strip any dashes that might have slipped through
+    const cleanDashes = (text: string) => text.replace(/[—–]/g, ",");
+    
+    // Map followup back to tip for backward compatibility with frontend
+    const finalResult = {
+      greeting: cleanDashes(result.greeting || ""),
+      tip: cleanDashes(result.followup || result.tip || ""),
+    };
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify(finalResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
