@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { toast } from "sonner";
-import { Crown, Plus, Search, Settings, Gift, Users, BookOpen } from "lucide-react";
+import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Layout } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
 import MemberClientCard from "@/components/membros/MemberClientCard";
 import ContentManagement from "@/components/membros/ContentManagement";
+import LayoutEditor from "@/components/membros/LayoutEditor";
 
 // ---- Member Products Tab ----
 function MemberProductsTab() {
@@ -334,6 +335,9 @@ export default function AreaMembros() {
           <TabsTrigger value="offers" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Gift className="h-4 w-4" /> Ofertas
           </TabsTrigger>
+          <TabsTrigger value="layout" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
+            <Layout className="h-4 w-4" /> Layout
+          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Settings className="h-4 w-4" /> Configurações
           </TabsTrigger>
@@ -342,6 +346,7 @@ export default function AreaMembros() {
         <TabsContent value="products"><MemberProductsTab /></TabsContent>
         <TabsContent value="content"><ContentManagement /></TabsContent>
         <TabsContent value="offers"><MemberOffersTab /></TabsContent>
+        <TabsContent value="layout"><LayoutEditor /></TabsContent>
         <TabsContent value="settings"><MemberSettingsTab /></TabsContent>
       </Tabs>
     </div>

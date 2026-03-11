@@ -27,6 +27,7 @@ interface MemberSettings {
   logo_url: string | null;
   welcome_message: string | null;
   theme_color: string;
+  layout_order?: string[];
 }
 
 const GREETING_CACHE_KEY = "member_ai_greeting";
@@ -181,113 +182,113 @@ export default function AreaMembrosPublica() {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 pb-20 space-y-8 -mt-1">
-        {/* AI Greeting */}
-        {aiGreeting && (
-          <div className="flex items-start gap-3.5 rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-4">
-            <div
-              className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-              style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
-            >
-              <Sparkles className="h-4 w-4" style={{ color: themeColor }} />
-            </div>
-            <p className="text-sm text-gray-600 leading-relaxed pt-1.5">{aiGreeting}</p>
-          </div>
-        )}
+        {(settings?.layout_order || ["greeting", "content", "verse", "offers"]).map((section: string) => {
+          switch (section) {
+            case "greeting":
+              return aiGreeting ? (
+                <div key="greeting" className="flex items-start gap-3.5 rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-4">
+                  <div
+                    className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                    style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
+                  >
+                    <Sparkles className="h-4 w-4" style={{ color: themeColor }} />
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed pt-1.5">{aiGreeting}</p>
+                </div>
+              ) : null;
 
-        {/* Products with DailyVerse between 1st and 2nd */}
-        <section>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}12` }}>
-              <Crown className="h-4 w-4" style={{ color: themeColor }} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Seus Conteúdos</h2>
-              <p className="text-xs text-gray-400">{products.length} {products.length === 1 ? 'produto liberado' : 'produtos liberados'}</p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {sortedProducts.map((mp, index) => {
-              const product = mp.delivery_products;
-              if (!product) return null;
-              const isExpanded = expandedProduct === mp.id;
-
+            case "content":
               return (
-                <div key={mp.id}>
-                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
-                    <button
-                      className="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-gray-50/50"
-                      onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
-                    >
-                      {product.page_logo ? (
-                        <img src={product.page_logo} alt={product.name} className="h-12 w-12 rounded-xl object-cover shrink-0 shadow-sm" />
-                      ) : (
-                        <div
-                          className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${themeColor}18, ${themeColor}08)` }}
-                        >
-                          <ShoppingBag className="h-5 w-5" style={{ color: themeColor }} />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-900 text-[15px] truncate">{product.name}</h3>
-                        {index === 0 && (
-                          <span
-                            className="inline-block text-[10px] font-bold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: `${themeColor}12`, color: themeColor }}
-                          >
-                            ✨ Mais recente
-                          </span>
-                        )}
-                      </div>
-                      <ChevronDown className={`h-5 w-5 text-gray-300 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
-                    </button>
-
-                    {isExpanded && (
-                      <div className="px-5 pb-5 border-t border-gray-50">
-                        <div className="pt-5">
-                          <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
-                        </div>
-                      </div>
-                    )}
+                <section key="content">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}12` }}>
+                      <Crown className="h-4 w-4" style={{ color: themeColor }} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">Seus Conteúdos</h2>
+                      <p className="text-xs text-gray-400">{products.length} {products.length === 1 ? 'produto liberado' : 'produtos liberados'}</p>
+                    </div>
                   </div>
 
-                  {/* DailyVerse between 1st and 2nd product */}
-                  {index === 0 && sortedProducts.length > 1 && (
-                    <div className="mt-4">
-                      <DailyVerse />
-                    </div>
-                  )}
-                </div>
+                  <div className="space-y-4">
+                    {sortedProducts.map((mp, index) => {
+                      const product = mp.delivery_products;
+                      if (!product) return null;
+                      const isExpanded = expandedProduct === mp.id;
+
+                      return (
+                        <div key={mp.id}>
+                          <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
+                            <button
+                              className="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-gray-50/50"
+                              onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
+                            >
+                              {product.page_logo ? (
+                                <img src={product.page_logo} alt={product.name} className="h-12 w-12 rounded-xl object-cover shrink-0 shadow-sm" />
+                              ) : (
+                                <div
+                                  className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+                                  style={{ background: `linear-gradient(135deg, ${themeColor}18, ${themeColor}08)` }}
+                                >
+                                  <ShoppingBag className="h-5 w-5" style={{ color: themeColor }} />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-gray-900 text-[15px] truncate">{product.name}</h3>
+                                {index === 0 && (
+                                  <span
+                                    className="inline-block text-[10px] font-bold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full"
+                                    style={{ backgroundColor: `${themeColor}12`, color: themeColor }}
+                                  >
+                                    ✨ Mais recente
+                                  </span>
+                                )}
+                              </div>
+                              <ChevronDown className={`h-5 w-5 text-gray-300 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                            </button>
+
+                            {isExpanded && (
+                              <div className="px-5 pb-5 border-t border-gray-50">
+                                <div className="pt-5">
+                                  <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
               );
-            })}
 
-            {/* If only 1 product, show verse after it */}
-            {sortedProducts.length === 1 && (
-              <DailyVerse />
-            )}
-          </div>
-        </section>
+            case "verse":
+              return <DailyVerse key="verse" />;
 
-        {/* Locked Offers */}
-        {offers.length > 0 && (
-          <section>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
-                <span className="text-base">🔒</span>
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Conteúdos Exclusivos</h2>
-                <p className="text-xs text-gray-400">Descubra mais conteúdos para sua jornada</p>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {offers.map((offer: any) => (
-                <LockedOfferCard key={offer.id} offer={offer} themeColor={themeColor} />
-              ))}
-            </div>
-          </section>
-        )}
+            case "offers":
+              return offers.length > 0 ? (
+                <section key="offers">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                      <span className="text-base">🔒</span>
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">Conteúdos Exclusivos</h2>
+                      <p className="text-xs text-gray-400">Descubra mais conteúdos para sua jornada</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {offers.map((offer: any) => (
+                      <LockedOfferCard key={offer.id} offer={offer} themeColor={themeColor} />
+                    ))}
+                  </div>
+                </section>
+              ) : null;
+
+            default:
+              return null;
+          }
+        })}
       </main>
 
       <footer className="text-center py-8 border-t border-gray-100">
