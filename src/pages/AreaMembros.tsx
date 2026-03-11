@@ -223,6 +223,16 @@ function MemberSettingsTab() {
             <Input value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-32" />
           </div>
         </div>
+        <div>
+          <Label>Personalidade da IA (persona)</Label>
+          <Textarea
+            value={aiPersonaPrompt}
+            onChange={(e) => setAiPersonaPrompt(e.target.value)}
+            placeholder="Ex: Você é uma mulher cristã de 57 anos, líder de uma comunidade de orações..."
+            rows={4}
+          />
+          <p className="text-xs text-muted-foreground mt-1">Define como a IA se comporta no chat e nas ofertas</p>
+        </div>
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? "Salvando..." : "Salvar Configurações"}</Button>
       </CardContent>
     </Card>
