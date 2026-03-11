@@ -281,7 +281,17 @@ export default function AreaMembrosPublica() {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 pt-4 pb-16 space-y-5">
-        {(settings?.layout_order || defaultLayout).map((section: string) => {
+        {(() => {
+          const rawLayout = settings?.layout_order || defaultLayout;
+          // Auto-migrate old layout names to unified products_interleaved
+          const hasOldSections = rawLayout.includes("recent_product") || rawLayout.includes("other_products") || rawLayout.includes("content");
+          const effectiveLayout = hasOldSections
+            ? ["greeting", "products_interleaved", "ai_tip", "verse", "offers"]
+            : rawLayout;
+          // Deduplicate
+          const seen = new Set<string>();
+          return effectiveLayout.filter((s: string) => { if (seen.has(s)) return false; seen.add(s); return true; });
+        })().map((section: string) => {
           switch (section) {
             case "greeting":
               if (aiLoading && !aiContext) {

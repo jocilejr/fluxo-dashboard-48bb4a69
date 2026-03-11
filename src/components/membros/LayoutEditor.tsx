@@ -2,21 +2,24 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { GripVertical, Sparkles, Star, BookOpen, Cross, Gift } from "lucide-react";
+import { GripVertical, Sparkles, Star, BookOpen, Cross, Gift, Lightbulb } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-type LayoutSection = "greeting" | "recent_product" | "other_products" | "verse" | "offers";
+type LayoutSection = "greeting" | "products_interleaved" | "ai_tip" | "verse" | "offers";
 
 const sectionMeta: Record<LayoutSection, { label: string; description: string; icon: typeof Sparkles }> = {
   greeting: { label: "Mensagem I.A.", description: "Saudação personalizada gerada por inteligência artificial", icon: Sparkles },
-  recent_product: { label: "Produto Recente", description: "O produto mais recente liberado para o membro", icon: Star },
-  other_products: { label: "Demais Produtos", description: "Os outros produtos liberados para o membro", icon: BookOpen },
+  products_interleaved: { label: "Produtos + Sugestão IA", description: "Produtos liberados com sugestão estratégica entre eles", icon: Star },
+  ai_tip: { label: "Dica da IA", description: "Dica personalizada gerada por inteligência artificial", icon: Lightbulb },
   verse: { label: "Salmo / Versículo", description: "Versículo do dia exibido entre os conteúdos", icon: Cross },
   offers: { label: "Ofertas Exclusivas", description: "Cards de produtos bloqueados para upsell", icon: Gift },
 };
 
-const DEFAULT_ORDER: LayoutSection[] = ["greeting", "recent_product", "verse", "other_products", "offers"];
+const DEFAULT_ORDER: LayoutSection[] = ["greeting", "products_interleaved", "ai_tip", "verse", "offers"];
+
+// Old sections that should be migrated
+const OLD_SECTIONS = ["recent_product", "other_products", "content"];
 
 export default function LayoutEditor() {
   const queryClient = useQueryClient();
@@ -36,6 +39,12 @@ export default function LayoutEditor() {
       try {
         const raw = (settings as any).layout_order as string[];
         if (Array.isArray(raw) && raw.length > 0) {
+          const hasOld = raw.some(s => OLD_SECTIONS.includes(s));
+          if (hasOld) {
+            // Auto-migrate: use default order
+            setOrder(DEFAULT_ORDER);
+            return;
+          }
           const validKeys = Object.keys(sectionMeta) as LayoutSection[];
           const filtered = raw.filter((s): s is LayoutSection => validKeys.includes(s as LayoutSection));
           const missing = DEFAULT_ORDER.filter(k => !filtered.includes(k));
