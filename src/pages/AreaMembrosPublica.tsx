@@ -462,13 +462,26 @@ export default function AreaMembrosPublica() {
               </div>
             ) : (
               <>
-                {aiContext?.greeting && (
-                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
+                {visibleMessages >= 1 && aiContext?.greeting && (
+                  <div
+                    className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%] animate-fade-in"
+                    style={{ backgroundColor: `${themeColor}10` }}
+                  >
                     {aiContext.greeting}
                   </div>
                 )}
-                {aiContext?.tip && (
-                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
+                {showTypingAfterFirst && (
+                  <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl rounded-tl-md w-fit" style={{ backgroundColor: `${themeColor}10` }}>
+                    <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "0ms" }} />
+                    <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "150ms" }} />
+                    <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "300ms" }} />
+                  </div>
+                )}
+                {visibleMessages >= 2 && aiContext?.tip && (
+                  <div
+                    className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%] animate-fade-in"
+                    style={{ backgroundColor: `${themeColor}10` }}
+                  >
                     {aiContext.tip}
                   </div>
                 )}
