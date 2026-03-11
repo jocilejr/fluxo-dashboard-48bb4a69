@@ -1,26 +1,33 @@
 
 
-## Corrigir layout bugado do PaymentFlow
+## Problema
 
-### Problema
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-O dialog do PaymentFlow herda estilos de dark mode do sistema (inputs com fundo escuro, labels cortados, close button sobrepondo o header). O componente usa `bg-white` no container mas os inputs e labels usam classes CSS que respondem ao tema escuro (ex: `bg-background`, `text-foreground`).
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-### Correções
+## Solução
 
-**`src/components/membros/PaymentFlow.tsx`**:
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-1. **Forçar cores explícitas light-mode** em todos os elementos (seguindo o padrão já usado em outros componentes da área de membros conforme `area-membros-popup-readability`):
-   - Inputs: adicionar classes explícitas `bg-white text-gray-900 border-gray-300 placeholder:text-gray-400`
-   - Labels: usar `text-gray-700` explícito
-   - Close button (X) do Dialog: esconder o default e não conflitar com o header colorido — o header já tem o botão de voltar, e o close do dialog fica invisível sobre o gradiente
+### Alteração em `src/hooks/useTransactions.ts`
 
-2. **Esconder o botão X padrão do DialogContent** que sobrepõe o header com gradiente — usar `[&>button]:hidden` ou posicionar corretamente com cor branca
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-3. **Adicionar `DialogTitle` invisível** para acessibilidade (evitar warning do Radix)
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
 
-4. **Garantir `p-0` e `gap-0`** no DialogContent para que o header colorido fique grudado no topo sem espaçamentos extras
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-### Arquivos
-- **Editado**: `src/components/membros/PaymentFlow.tsx` — forçar cores light-mode explícitas em inputs, labels, textos e ajustar close button
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 

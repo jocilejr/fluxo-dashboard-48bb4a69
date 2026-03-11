@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -131,7 +131,8 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="sm:max-w-md rounded-2xl border-0 p-0 overflow-hidden shadow-2xl bg-white">
+      <DialogContent className="sm:max-w-md rounded-2xl border-0 p-0 gap-0 overflow-hidden shadow-2xl bg-white [&>button]:hidden">
+        <DialogTitle className="sr-only">Pagamento</DialogTitle>
         {/* Header */}
         <div
           className="px-5 py-4 flex items-center gap-3"
@@ -268,24 +269,24 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
 
             <div className="space-y-3">
               <div>
-                <Label htmlFor="boleto-name" className="text-xs">Nome Completo *</Label>
+                <Label htmlFor="boleto-name" className="text-xs text-gray-700">Nome Completo *</Label>
                 <Input
                   id="boleto-name"
                   value={boletoName}
                   onChange={(e) => setBoletoName(e.target.value)}
                   placeholder="Seu nome completo"
-                  className="mt-1"
+                  className="mt-1 bg-white text-gray-900 border-gray-300 placeholder:text-gray-400"
                 />
               </div>
               <div>
-                <Label htmlFor="boleto-cpf" className="text-xs">CPF *</Label>
+                <Label htmlFor="boleto-cpf" className="text-xs text-gray-700">CPF *</Label>
                 <Input
                   id="boleto-cpf"
                   value={boletoCpf}
                   onChange={(e) => setBoletoCpf(formatCPF(e.target.value))}
                   placeholder="12345678901"
                   maxLength={11}
-                  className="mt-1"
+                  className="mt-1 bg-white text-gray-900 border-gray-300 placeholder:text-gray-400"
                 />
               </div>
             </div>
