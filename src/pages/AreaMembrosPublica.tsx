@@ -499,6 +499,7 @@ export default function AreaMembrosPublica() {
                 ownedProductNames={ownedProductNames}
                 firstName={firstName}
                 memberProfile={memberProfile}
+                memberPhone={normalizedPhone}
               />
             );
           });
