@@ -161,11 +161,8 @@ export default function AreaMembrosPublica() {
               <img src={settings.logo_url} alt="Logo" className="h-16 w-16 rounded-2xl mx-auto shadow-xl border-2 border-white/20 object-cover" />
             </div>
           )}
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2">
-            {settings?.title || "Área de Membros"}
-          </h1>
-          <p className="text-white/85 text-base sm:text-lg max-w-md mx-auto leading-relaxed">
-            Olá, <span className="font-bold">{firstName}</span>! {settings?.welcome_message}
+          <p className="text-xl sm:text-2xl font-bold tracking-tight leading-relaxed max-w-md mx-auto">
+            Olá, <span className="font-extrabold">{firstName}</span>! {settings?.welcome_message}
           </p>
         </div>
         
