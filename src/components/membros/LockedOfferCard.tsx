@@ -51,6 +51,7 @@ function getContextLabel(offer: Offer, index?: number): string {
 
 export default function LockedOfferCard({ offer, themeColor, ownedProductNames, firstName, memberProfile, memberPhone }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [visibleCount, setVisibleCount] = useState(0);
   const [showDots, setShowDots] = useState(false);
