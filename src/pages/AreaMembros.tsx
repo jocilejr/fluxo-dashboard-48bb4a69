@@ -571,101 +571,100 @@ function MemberPreviewTab() {
               </div>
             </div>
 
-            {/* Product cards with progress */}
-            {(products && products.length > 0 ? products : [
-              { id: "mock1", name: "Água que Cura", page_logo: null },
-              { id: "mock2", name: "Guia de Orações", page_logo: null },
-            ]).map((prod, i) => {
-              const mock = mockProgressData[i % mockProgressData.length];
-              const totalMats = (materialCounts && materialCounts[prod.id]) || (i === 0 ? 5 : 3);
-              const accessed = Math.round((mock.pct / 100) * totalMats);
+            {/* Interleaved product cards and offer cards */}
+            {(() => {
+              const prodList = products && products.length > 0 ? products : [
+                { id: "mock1", name: "Água que Cura", page_logo: null },
+                { id: "mock2", name: "Guia de Orações", page_logo: null },
+              ];
+              const offerList = offers && offers.length > 0 ? offers : [{ id: "mock", name: "Curso Completo de Meditação", image_url: null, purchase_url: "#" }];
 
-              return (
-                <button
-                  key={prod.id}
-                  className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
-                  onClick={() => setOpenProductId(prod.id)}
-                >
-                  {prod.page_logo ? (
-                    <div className="relative shrink-0">
-                      <img src={prod.page_logo} alt={prod.name} className="h-16 w-16 rounded-xl object-cover" style={{ border: `2px solid ${themeColor}20` }} />
-                      {mock.pct > 0 && mock.pct < 100 && (
-                        <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full flex items-center justify-center shadow-sm text-[9px] font-bold text-white" style={{ backgroundColor: themeColor }}>
-                          {mock.pct}%
+              const interleaved: { type: "product" | "offer"; data: any; idx: number }[] = [];
+              if (prodList.length > 0) interleaved.push({ type: "product", data: prodList[0], idx: 0 });
+              if (offerList.length > 0) interleaved.push({ type: "offer", data: offerList[0], idx: 0 });
+              for (let i = 1; i < prodList.length; i++) interleaved.push({ type: "product", data: prodList[i], idx: i });
+              for (let i = 1; i < offerList.length; i++) interleaved.push({ type: "offer", data: offerList[i], idx: i });
+
+              return interleaved.map((item) => {
+                if (item.type === "product") {
+                  const prod = item.data;
+                  const i = item.idx;
+                  const mock = mockProgressData[i % mockProgressData.length];
+                  const totalMats = (materialCounts && materialCounts[prod.id]) || (i === 0 ? 5 : 3);
+                  const accessed = Math.round((mock.pct / 100) * totalMats);
+
+                  return (
+                    <button
+                      key={prod.id}
+                      className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
+                      style={{ borderColor: `${themeColor}15` }}
+                      onClick={() => setOpenProductId(prod.id)}
+                    >
+                      {prod.page_logo ? (
+                        <div className="relative shrink-0">
+                          <img src={prod.page_logo} alt={prod.name} className="h-16 w-16 rounded-xl object-cover" style={{ border: `2px solid ${themeColor}20` }} />
+                          {mock.pct > 0 && mock.pct < 100 && (
+                            <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full flex items-center justify-center shadow-sm text-[9px] font-bold text-white" style={{ backgroundColor: themeColor }}>
+                              {mock.pct}%
+                            </div>
+                          )}
+                          {mock.pct === 0 && (
+                            <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: "#10b981" }}>
+                              <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}>
+                          <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
                         </div>
                       )}
-                      {mock.pct === 0 && (
-                        <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: "#10b981" }}>
-                          <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{prod.name}</h3>
+                        {i === 0 ? (
+                          <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Liberado recentemente</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-gray-500">✓ Liberado</span>
+                        )}
+                        <div className="mt-2 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${mock.pct}%`, backgroundColor: themeColor }} />
+                            </div>
+                            <span className="text-[10px] font-semibold text-gray-400 shrink-0">{accessed}/{totalMats}</span>
+                          </div>
+                          {mock.label && <p className="text-[11px] text-gray-500 leading-tight truncate">{mock.label}</p>}
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}>
-                      <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{prod.name}</h3>
-                    {i === 0 ? (
-                      <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Liberado recentemente</span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-gray-500">✓ Liberado</span>
-                    )}
-
-                    {/* Progress bar */}
-                    <div className="mt-2 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${mock.pct}%`, backgroundColor: themeColor }}
-                          />
+                      </div>
+                    </button>
+                  );
+                } else {
+                  const offer = item.data;
+                  return (
+                    <div key={offer.id} className="flex items-center gap-4 bg-white rounded-2xl p-4 border shadow-sm" style={{ borderColor: `${themeColor}15` }}>
+                      <div className="relative shrink-0">
+                        {offer.image_url ? (
+                          <img src={offer.image_url} alt={offer.name} className="h-16 w-16 rounded-xl object-cover opacity-80 grayscale-[20%]" style={{ border: `2px solid ${themeColor}20` }} />
+                        ) : (
+                          <div className="h-16 w-16 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${themeColor}12, ${themeColor}06)` }}>
+                            <Lock className="h-6 w-6" style={{ color: `${themeColor}80` }} />
+                          </div>
+                        )}
+                        <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: themeColor }}>
+                          <Lock className="h-2.5 w-2.5 text-white" strokeWidth={3} />
                         </div>
-                        <span className="text-[10px] font-semibold text-gray-400 shrink-0">
-                          {accessed}/{totalMats}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
+                        <span className="flex items-center gap-1 mt-1.5 text-[12px] font-semibold" style={{ color: themeColor }}>
+                          🔒 Toque para saber mais
                         </span>
                       </div>
-                      {mock.label && (
-                        <p className="text-[11px] text-gray-500 leading-tight truncate">
-                          {mock.label}
-                        </p>
-                      )}
                     </div>
-                  </div>
-                </button>
-              );
-            })}
-
-
-            {/* Offer cards */}
-            {(offers && offers.length > 0 ? offers : [{ id: "mock", name: "Curso Completo de Meditação", image_url: null, category_tag: "Novo", purchase_url: "#" }]).map((offer: any) => (
-              <div key={offer.id} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-                <div className="relative shrink-0">
-                  {offer.image_url ? (
-                    <img src={offer.image_url} alt={offer.name} className="h-16 w-16 rounded-xl object-cover opacity-70 grayscale-[30%]" />
-                  ) : (
-                    <div className="h-16 w-16 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${themeColor}12, ${themeColor}06)` }}>
-                      <Gift className="h-6 w-6" style={{ color: `${themeColor}80` }} />
-                    </div>
-                  )}
-                  <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center shadow-sm">
-                    <Crown className="h-2.5 w-2.5 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
-                  {offer.category_tag && (
-                    <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: `${themeColor}cc` }}>
-                      {offer.category_tag}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1 mt-1 text-[11px] font-semibold" style={{ color: themeColor }}>
-                    🔒 Toque para saber mais
-                  </span>
-                </div>
-              </div>
-            ))}
+                  );
+                }
+              });
+            })()}
 
             {/* Daily verse mock */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">

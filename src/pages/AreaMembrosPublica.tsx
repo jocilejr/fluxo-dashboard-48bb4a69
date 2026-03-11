@@ -451,29 +451,46 @@ export default function AreaMembrosPublica() {
           </div>
         </div>
 
-        {/* Products */}
-        {sortedProducts.map((mp) => renderProductCard(mp))}
+        {/* Interleaved products and offers */}
+        {(() => {
+          const items: { type: "product"; data: MemberProduct }[] | { type: "offer"; data: any }[] = [];
+          const interleaved: ({ type: "product"; data: MemberProduct } | { type: "offer"; data: any })[] = [];
+          
+          // First product
+          if (sortedProducts.length > 0) {
+            interleaved.push({ type: "product", data: sortedProducts[0] });
+          }
+          // First offer after first product
+          if (offers.length > 0) {
+            interleaved.push({ type: "offer", data: offers[0] });
+          }
+          // Remaining products
+          for (let i = 1; i < sortedProducts.length; i++) {
+            interleaved.push({ type: "product", data: sortedProducts[i] });
+          }
+          // Remaining offers
+          for (let i = 1; i < offers.length; i++) {
+            interleaved.push({ type: "offer", data: offers[i] });
+          }
 
-        <DailyVerse />
-
-        {/* Offers */}
-        {offers.length > 0 && (
-          <div className="space-y-3 pt-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
-              Descubra mais
-            </p>
-            {offers.map((offer: any) => (
+          return interleaved.map((item, idx) => {
+            if (item.type === "product") {
+              return renderProductCard(item.data);
+            }
+            return (
               <LockedOfferCard
-                key={offer.id}
-                offer={offer}
+                key={item.data.id}
+                offer={item.data}
                 themeColor={themeColor}
                 ownedProductNames={ownedProductNames}
                 firstName={firstName}
                 memberProfile={memberProfile}
               />
-            ))}
-          </div>
-        )}
+            );
+          });
+        })()}
+
+        <DailyVerse />
       </main>
 
       {/* Product content popup */}
