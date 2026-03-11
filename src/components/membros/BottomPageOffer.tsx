@@ -1,5 +1,4 @@
-import { ExternalLink, Sparkles, Gift } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 
 interface Offer {
   id: string;
@@ -18,94 +17,59 @@ interface Props {
 
 export default function BottomPageOffer({ offer, themeColor }: Props) {
   return (
-    <div
-      className="relative rounded-3xl overflow-hidden shadow-lg border"
-      style={{ borderColor: `${themeColor}20` }}
-    >
-      {/* Background image or gradient */}
-      {offer.image_url ? (
-        <div className="relative">
+    <div className="space-y-3">
+      {/* Subtle top label */}
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-gray-200" />
+        <span className="text-[11px] uppercase tracking-widest text-gray-400 font-medium">
+          {offer.category_tag || "Recomendado para você"}
+        </span>
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+
+      {/* Main card */}
+      <div
+        className="flex flex-col sm:flex-row gap-5 p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-300 cursor-pointer"
+        onClick={() => offer.purchase_url && window.open(offer.purchase_url, "_blank")}
+      >
+        {/* Image */}
+        {offer.image_url && (
           <img
             src={offer.image_url}
             alt={offer.name}
-            className="w-full h-48 object-cover"
+            className="w-full sm:w-40 h-32 sm:h-28 object-cover rounded-xl flex-shrink-0"
           />
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `linear-gradient(to top, ${themeColor}ee 0%, ${themeColor}99 40%, transparent 100%)`,
-            }}
-          />
-          <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
-            {offer.category_tag && (
-              <span
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold mb-2 bg-white/20 backdrop-blur-sm"
-              >
-                <Sparkles className="h-3 w-3" />
-                {offer.category_tag}
-              </span>
-            )}
-            <h3 className="font-extrabold text-xl leading-tight drop-shadow-md">
-              {offer.name}
-            </h3>
-          </div>
-        </div>
-      ) : (
-        <div
-          className="relative p-6 pb-4"
-          style={{
-            background: `linear-gradient(135deg, ${themeColor}15 0%, ${themeColor}08 50%, ${themeColor}12 100%)`,
-          }}
-        >
-          <Gift
-            className="absolute top-4 right-4 h-12 w-12 opacity-10"
-            style={{ color: themeColor }}
-          />
-          {offer.category_tag && (
-            <span
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-white mb-3"
-              style={{ backgroundColor: themeColor }}
-            >
-              <Sparkles className="h-3 w-3" />
-              {offer.category_tag}
-            </span>
-          )}
-          <h3 className="font-extrabold text-gray-800 text-xl leading-tight">
-            {offer.name}
-          </h3>
-        </div>
-      )}
-
-      {/* Content section */}
-      <div className="p-5 bg-white space-y-4">
-        {offer.description && (
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {offer.description}
-          </p>
         )}
 
-        <div className="flex items-center justify-between gap-3">
-          {offer.price && (
-            <div>
-              <p className="text-[11px] text-gray-400 font-medium">Por apenas</p>
-              <p className="text-xl font-extrabold" style={{ color: themeColor }}>
+        {/* Content */}
+        <div className="flex-1 flex flex-col justify-center gap-2 min-w-0">
+          <h3 className="text-lg font-semibold text-gray-800 leading-snug">
+            {offer.name}
+          </h3>
+
+          {offer.description && (
+            <p className="text-sm text-gray-500 leading-relaxed line-clamp-2">
+              {offer.description}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between gap-4 mt-1">
+            {offer.price != null && offer.price > 0 && (
+              <span className="text-base font-semibold text-gray-700">
                 R$ {Number(offer.price).toFixed(2).replace(".", ",")}
-              </p>
-            </div>
-          )}
-          {offer.purchase_url && (
-            <Button
-              className="h-12 px-6 rounded-xl font-bold text-white text-sm border-0 shadow-md hover:shadow-lg transition-all"
-              style={{
-                background: `linear-gradient(135deg, ${themeColor}, ${themeColor}cc)`,
-                boxShadow: `0 4px 20px ${themeColor}35`,
-              }}
-              onClick={() => window.open(offer.purchase_url, "_blank")}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Quero conhecer
-            </Button>
-          )}
+              </span>
+            )}
+
+            {offer.purchase_url && (
+              <span
+                className="inline-flex items-center gap-1.5 text-sm font-medium hover:gap-2.5 transition-all duration-200"
+                style={{ color: themeColor }}
+              >
+                Saiba mais
+                <ArrowRight className="h-4 w-4" />
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
