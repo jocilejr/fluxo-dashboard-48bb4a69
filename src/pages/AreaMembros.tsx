@@ -312,6 +312,8 @@ function MemberOffersTab() {
           price: price ? parseFloat(price) : null,
           category_tag: categoryTag || null,
           display_type: displayType,
+          pix_key: pixKey || null,
+          card_payment_url: cardPaymentUrl || null,
         } as any).eq("id", editingOffer.id);
         if (error) throw error;
       } else {
