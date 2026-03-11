@@ -475,20 +475,17 @@ export default function AreaMembrosPublica() {
         {/* Interleaved products and offers (2:1 ratio) */}
         {(() => {
           const interleaved: ({ type: "product"; data: MemberProduct } | { type: "offer"; data: any })[] = [];
-          // Cards use all offers except the last one (reserved for floating bar)
-          const cardOffers = filteredOffers.length > 1 ? filteredOffers.slice(0, -1) : filteredOffers;
+          const interleavedCardOffers = cardOffers.length > 1 ? cardOffers.slice(0, -1) : cardOffers;
           let offerIdx = 0;
 
           for (let i = 0; i < sortedProducts.length; i++) {
             interleaved.push({ type: "product", data: sortedProducts[i] });
-            // Insert offer after every 2 products
-            if ((i + 1) % 2 === 0 && offerIdx < cardOffers.length) {
-              interleaved.push({ type: "offer", data: cardOffers[offerIdx++] });
+            if ((i + 1) % 2 === 0 && offerIdx < interleavedCardOffers.length) {
+              interleaved.push({ type: "offer", data: interleavedCardOffers[offerIdx++] });
             }
           }
-          // Remaining offers that didn't fit
-          while (offerIdx < cardOffers.length) {
-            interleaved.push({ type: "offer", data: cardOffers[offerIdx++] });
+          while (offerIdx < interleavedCardOffers.length) {
+            interleaved.push({ type: "offer", data: interleavedCardOffers[offerIdx++] });
           }
 
           return interleaved.map((item) => {
@@ -509,18 +506,25 @@ export default function AreaMembrosPublica() {
         })()}
 
         <DailyVerse />
+
+        {/* Bottom page offers */}
+        {bottomPageOffers.length > 0 && (
+          <div className="space-y-4 pt-4">
+            {bottomPageOffers.map((offer: any) => (
+              <BottomPageOffer key={offer.id} offer={offer} themeColor={themeColor} />
+            ))}
+          </div>
+        )}
       </main>
 
       {/* Floating offer bar for secondary offer */}
-      {filteredOffers.length > 1 && (() => {
-        const floatingOffer = filteredOffers[filteredOffers.length - 1];
+      {cardOffers.length > 1 && (() => {
+        const floatingOffer = cardOffers[cardOffers.length - 1];
         return (
           <FloatingOfferBar
             offer={floatingOffer}
             themeColor={themeColor}
             onOpenChat={() => {
-              // Programmatically open the LockedOfferCard dialog by finding/creating a hidden trigger
-              // For simplicity, open the purchase URL directly
               if (floatingOffer.purchase_url) {
                 window.open(floatingOffer.purchase_url, "_blank");
               }
