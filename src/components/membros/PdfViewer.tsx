@@ -8,9 +8,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 interface Props {
   url: string;
   themeColor: string;
+  preloadedPdf?: pdfjsLib.PDFDocumentProxy | null;
 }
 
-export default function PdfViewer({ url, themeColor }: Props) {
+export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
   const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -20,6 +21,14 @@ export default function PdfViewer({ url, themeColor }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (preloadedPdf) {
+      setPdf(preloadedPdf);
+      setTotalPages(preloadedPdf.numPages);
+      setCurrentPage(1);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -40,7 +49,7 @@ export default function PdfViewer({ url, themeColor }: Props) {
       });
 
     return () => { cancelled = true; };
-  }, [url]);
+  }, [url, preloadedPdf]);
 
   const renderPage = useCallback(async (pageNum: number) => {
     if (!pdf || !canvasRef.current || !containerRef.current) return;
@@ -57,8 +66,7 @@ export default function PdfViewer({ url, themeColor }: Props) {
     const canvas = canvasRef.current;
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    canvas.style.width = `${viewport.width / (window.devicePixelRatio > 1 ? scale / (containerWidth / baseViewport.width) : 1)}px`;
-    canvas.style.maxWidth = "100%";
+    canvas.style.width = "100%";
     canvas.style.height = "auto";
 
     const ctx = canvas.getContext("2d");
