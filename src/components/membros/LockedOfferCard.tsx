@@ -158,7 +158,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
 
       {/* Dialog — chat escuro estilo WhatsApp */}
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-0 p-0 overflow-hidden shadow-2xl bg-[#0b141a]">
+        <DialogContent className="sm:max-w-md rounded-2xl border-0 p-0 overflow-hidden shadow-2xl bg-white">
           {/* Header */}
           <div
             className="flex items-center gap-3 px-4 py-3"
@@ -170,7 +170,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
                 alt="Meire Rosana"
                 className="h-11 w-11 rounded-full object-cover ring-2 ring-white/30"
               />
-              <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-400 ring-2 ring-[#0b141a]" />
+              <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-400 ring-2 ring-white" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-white drop-shadow-sm">Meire Rosana</p>
@@ -178,22 +178,12 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
                 {aiLoading && visibleCount === 0 ? "digitando..." : "online"}
               </p>
             </div>
-            {offer.image_url && (
-              <img
-                src={offer.image_url}
-                alt={offer.name}
-                className="h-9 w-9 rounded-lg object-cover ring-1 ring-white/20"
-              />
-            )}
           </div>
 
           {/* Chat body */}
           <div
             ref={scrollRef}
-            className="px-3 py-4 space-y-2 min-h-[200px] max-h-[320px] overflow-y-auto"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }}
+            className="px-3 py-4 space-y-2 min-h-[200px] max-h-[320px] overflow-y-auto bg-gray-50"
           >
             {/* Messages */}
             {aiMessages.slice(0, visibleCount).map((msg, i) => (
@@ -210,15 +200,14 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
                   <div className="h-7 w-7 shrink-0" />
                 )}
                 <div
-                  className="px-3.5 py-2.5 rounded-2xl text-[13.5px] leading-relaxed max-w-[82%] shadow-sm"
+                  className="px-3.5 py-2.5 rounded-2xl text-[13.5px] leading-relaxed max-w-[82%] shadow-sm text-gray-700"
                   style={{
-                    backgroundColor: `${themeColor}18`,
-                    color: "#e9edef",
+                    backgroundColor: `${themeColor}10`,
                     borderTopLeftRadius: i === 0 ? "4px" : undefined,
                   }}
                 >
                   {msg}
-                  <span className="block text-[10px] text-white/30 text-right mt-1 -mb-0.5">
+                  <span className="block text-[10px] text-gray-400 text-right mt-1 -mb-0.5">
                     {new Date().getHours().toString().padStart(2, "0")}:{new Date().getMinutes().toString().padStart(2, "0")}
                   </span>
                 </div>
@@ -235,14 +224,14 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
                 )}
                 <div
                   className="flex items-center gap-[5px] px-4 py-3 rounded-2xl rounded-tl-md shadow-sm"
-                  style={{ backgroundColor: `${themeColor}15` }}
+                  style={{ backgroundColor: `${themeColor}10` }}
                 >
                   {[0, 1, 2].map(i => (
                     <span
                       key={i}
                       className="inline-block h-[6px] w-[6px] rounded-full"
                       style={{
-                        backgroundColor: `${themeColor}90`,
+                        backgroundColor: `${themeColor}70`,
                         animation: `dotBounce 1.2s ease-in-out ${i * 0.15}s infinite`,
                       }}
                     />
@@ -256,8 +245,8 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
               <div className="flex items-end gap-2" style={{ animation: "chatBubbleIn 0.3s ease-out forwards" }}>
                 <img src={meirePhoto} alt="" className="h-7 w-7 rounded-full object-cover shrink-0 mb-0.5" />
                 <div
-                  className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13.5px] leading-relaxed max-w-[82%] shadow-sm"
-                  style={{ backgroundColor: `${themeColor}18`, color: "#e9edef" }}
+                  className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13.5px] leading-relaxed max-w-[82%] shadow-sm text-gray-700"
+                  style={{ backgroundColor: `${themeColor}10` }}
                 >
                   {offer.description || `${offer.name} é um material muito especial que preparamos com carinho. ❤️`}
                 </div>
@@ -268,8 +257,8 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
           {/* CTA */}
           {offer.purchase_url && ctaVisible && (
             <div
-              className="px-4 pb-4 pt-1"
-              style={{ animation: "chatBubbleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards", backgroundColor: "#0b141a" }}
+              className="px-4 pb-4 pt-1 bg-white"
+              style={{ animation: "chatBubbleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}
             >
               <Button
                 className="w-full h-12 rounded-xl font-bold text-white text-sm tracking-wide border-0"
