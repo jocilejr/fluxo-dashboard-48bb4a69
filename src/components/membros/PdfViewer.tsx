@@ -56,18 +56,29 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
 
     const page = await pdf.getPage(pageNum);
     const container = containerRef.current;
-    const containerWidth = container.clientWidth;
+    const containerWidth = container.clientWidth - 32; // subtract padding
 
-    // Scale to fit container width, cap at 2x for sharpness
+    if (containerWidth <= 0) {
+      // Container not yet laid out, retry after a frame
+      requestAnimationFrame(() => renderPage(pageNum));
+      return;
+    }
+
     const baseViewport = page.getViewport({ scale: 1 });
-    const scale = Math.min((containerWidth / baseViewport.width), 2);
-    const viewport = page.getViewport({ scale });
+    const fitScale = containerWidth / baseViewport.width;
+    // Use devicePixelRatio for sharp rendering on retina
+    const dpr = window.devicePixelRatio || 1;
+    const renderScale = fitScale * dpr;
+    const viewport = page.getViewport({ scale: renderScale });
 
     const canvas = canvasRef.current;
     canvas.width = viewport.width;
     canvas.height = viewport.height;
-    canvas.style.width = "100%";
-    canvas.style.height = "auto";
+    // Display at CSS size = fit container width
+    const cssWidth = baseViewport.width * fitScale;
+    const cssHeight = baseViewport.height * fitScale;
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
