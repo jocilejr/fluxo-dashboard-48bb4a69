@@ -1,33 +1,50 @@
 
 
-## Problema
+## Redesign: Página de Membros Clara, Horizontal, para Idosos
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Mudanças Principais
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+**1. Tema Claro** -- Fundo branco/cinza claro (`bg-gray-50`), textos escuros. Sem dark mode.
 
-## Solução
+**2. Cards Horizontais de Produto**
+- Imagem quadrada à esquerda (do `page_logo` do produto, ~64x64px, `rounded-xl`)
+- Nome do produto à direita em texto bold escuro
+- Badge: "Liberado recentemente" (verde) para o mais novo, "Liberado" para os demais
+- Ao clicar: abre popup com os materiais do produto (não expande inline)
+- Fundo branco, borda sutil, sombra leve
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
-
-### Alteração em `src/hooks/useTransactions.ts`
-
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
+```text
+┌─────────────────────────────────┐
+│ [IMG]  Água que Cura            │
+│        ✓ Liberado recentemente  │
+└─────────────────────────────────┘
 ```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+**3. Cards de Oferta Bloqueada** -- Mesmo layout horizontal dos produtos, mas:
+- Imagem com filtro grayscale + opacidade reduzida
+- Ícone de cadeado sobre a imagem
+- Badge: "🔒 Toque para saber mais"
+- Ao clicar: popup com mensagem IA + botão CTA
 
-A deduplicação acontece automaticamente pelo banco.
+**4. Conteúdo em Popup** -- Clicar no produto abre um Dialog com a lista de materiais (MaterialCard). Sem expansão inline. O `ProductContentViewer` será renderizado dentro do popup.
 
-### Impacto
+**5. Adicionar `cover_image_url` à tabela `member_product_materials`** -- Para que cada material possa ter uma imagem de capa quadrada (o admin define). Usado nos MaterialCards dentro do popup.
 
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+**6. Header Limpo e Claro**
+- Fundo branco com borda inferior sutil
+- Logo + "Olá, Junior!" + saudação IA como subtítulo
+- Faixa fina do themeColor no topo (4px)
+
+**7. DailyVerse e AI Tip** -- Adaptados para tema claro (textos escuros, fundo branco)
+
+### Arquivos
+
+| Arquivo | Mudança |
+|---|---|
+| `src/pages/AreaMembrosPublica.tsx` | Tema claro, cards horizontais, produto abre popup em vez de expandir |
+| `src/components/membros/LockedOfferCard.tsx` | Layout horizontal idêntico ao produto, tema claro |
+| `src/components/membros/DailyVerse.tsx` | Tema claro |
+| `src/components/membros/ProductContentViewer.tsx` | Textos adaptados para tema claro |
+| `src/components/membros/MaterialCard.tsx` | Textos adaptados para tema claro |
+| Migration SQL | Adicionar `cover_image_url TEXT` à tabela `member_product_materials` |
 
