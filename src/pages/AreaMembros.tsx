@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
 import MemberClientCard from "@/components/membros/MemberClientCard";
 import ContentManagement from "@/components/membros/ContentManagement";
+import LayoutEditor from "@/components/membros/LayoutEditor";
 
 // ---- Member Products Tab ----
 function MemberProductsTab() {
