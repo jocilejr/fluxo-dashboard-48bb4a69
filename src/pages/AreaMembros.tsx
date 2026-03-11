@@ -461,6 +461,6 @@ export default function AreaMembros() {
           </TabsContent>
         </Tabs>
       </div>
-    </PageTransition>
+    </div>
   );
 }
