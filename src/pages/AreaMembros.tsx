@@ -374,8 +374,13 @@ function MemberOffersTab() {
   );
 }
 
-// ---- Preview Tab (Static Mock) ----
+// ---- Preview Tab (Full Replica) ----
 function MemberPreviewTab() {
+  const [previewPhone, setPreviewPhone] = useState("");
+  const [activePhone, setActivePhone] = useState("");
+  const [openProductId, setOpenProductId] = useState<string | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
+
   const { data: settings } = useQuery({
     queryKey: ["member-area-settings"],
     queryFn: async () => {
@@ -387,7 +392,7 @@ function MemberPreviewTab() {
   const { data: offers } = useQuery({
     queryKey: ["member-area-offers-preview"],
     queryFn: async () => {
-      const { data } = await supabase.from("member_area_offers").select("*").eq("is_active", true).order("sort_order").limit(3);
+      const { data } = await supabase.from("member_area_offers").select("*").eq("is_active", true).order("sort_order").limit(5);
       return data || [];
     },
   });
@@ -395,17 +400,134 @@ function MemberPreviewTab() {
   const { data: products } = useQuery({
     queryKey: ["delivery-products-preview"],
     queryFn: async () => {
-      const { data } = await supabase.from("delivery_products").select("id, name, page_logo").eq("is_active", true).limit(4);
+      const { data } = await supabase.from("delivery_products").select("id, name, page_logo").eq("is_active", true).limit(6);
       return data || [];
+    },
+  });
+
+  // Fetch materials count per product
+  const productIds = (products || []).map(p => p.id);
+  const { data: materialCounts } = useQuery({
+    queryKey: ["materials-count-preview", productIds],
+    queryFn: async () => {
+      if (!productIds.length) return {};
+      const { data } = await supabase
+        .from("member_product_materials")
+        .select("product_id")
+        .in("product_id", productIds);
+      const counts: Record<string, number> = {};
+      (data || []).forEach(m => {
+        counts[m.product_id] = (counts[m.product_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: productIds.length > 0,
+  });
+
+  // Recent members for quick access
+  const { data: recentMembers } = useQuery({
+    queryKey: ["recent-members-preview"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("member_products")
+        .select("normalized_phone")
+        .order("granted_at", { ascending: false })
+        .limit(5);
+      const phones = [...new Set((data || []).map(d => d.normalized_phone))];
+      if (!phones.length) return [];
+      const allVars = phones.flatMap(p => generatePhoneVariations(p));
+      const { data: customers } = await supabase.from("customers").select("normalized_phone, name").in("normalized_phone", [...new Set(allVars)]);
+      return phones.map(p => {
+        const vars = new Set(generatePhoneVariations(p));
+        const c = (customers || []).find(c => vars.has(c.normalized_phone));
+        return { phone: p, name: c?.name || p };
+      });
     },
   });
 
   const themeColor = settings?.theme_color || "#8B5CF6";
   const logoUrl = settings?.logo_url || null;
 
+  // Mock progress data for preview
+  const mockProgressData = [
+    { pct: 65, label: "📖 Parou na pág. 12 de 30" },
+    { pct: 30, label: "▶️ Assistiu 30% do vídeo" },
+    { pct: 0, label: null },
+    { pct: 100, label: "✅ Concluído" },
+  ];
+
+  const handleLoadPhone = () => {
+    if (previewPhone.trim()) {
+      setActivePhone(previewPhone.replace(/\D/g, ""));
+    }
+  };
+
+  // If a phone is active, render the real public page in an iframe
+  if (activePhone) {
+    const previewUrl = `${window.location.origin}/membro/${activePhone}`;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => setActivePhone("")}>
+            ← Voltar ao preview estático
+          </Button>
+          <span className="text-sm text-muted-foreground">Visualizando membro: <strong>{activePhone}</strong></span>
+          <Button variant="ghost" size="icon" onClick={() => setIframeKey(k => k + 1)} title="Recarregar">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => window.open(previewUrl, "_blank")} title="Abrir em nova aba">
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex justify-center">
+          <div className="w-full max-w-[430px] rounded-2xl border border-border shadow-lg overflow-hidden">
+            <iframe
+              key={iframeKey}
+              src={previewUrl}
+              className="w-full bg-white"
+              style={{ height: "80vh" }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Pré-visualização estática com dados simulados. Alterações de conteúdo, ofertas e configurações são refletidas aqui automaticamente.</p>
+      {/* Quick access to real member */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Ver membro real</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Telefone do membro..."
+              value={previewPhone}
+              onChange={e => setPreviewPhone(e.target.value)}
+              className="w-48"
+              onKeyDown={e => e.key === "Enter" && handleLoadPhone()}
+            />
+            <Button size="sm" onClick={handleLoadPhone} disabled={!previewPhone.trim()}>Carregar</Button>
+          </div>
+        </div>
+        {recentMembers && recentMembers.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {recentMembers.map(m => (
+              <Button
+                key={m.phone}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => setActivePhone(m.phone)}
+              >
+                {m.name?.split(" ")[0] || m.phone}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className="text-sm text-muted-foreground">Preview estático com dados reais e progresso simulado. Clique nos produtos para ver os materiais.</p>
 
       {/* Phone-sized frame */}
       <div className="flex justify-center">
@@ -428,51 +550,94 @@ function MemberPreviewTab() {
 
           {/* Content */}
           <div className="px-4 py-4 space-y-3">
-            {/* Product cards */}
-            {products && products.length > 0 ? (
-              products.map((prod, i) => (
-                <div key={prod.id} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            {/* AI Progress Message Mock */}
+            <div
+              className="rounded-2xl p-4 border shadow-sm"
+              style={{ backgroundColor: `${themeColor}08`, borderColor: `${themeColor}20` }}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ backgroundColor: `${themeColor}15` }}
+                >
+                  <BookOpen className="h-4 w-4" style={{ color: themeColor }} />
+                </div>
+                <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                  📖 Maria, você parou na página 12 de 30 do "Água que Cura". Continue de onde parou — faltam apenas 18 páginas! 💪
+                </p>
+              </div>
+            </div>
+
+            {/* Product cards with progress */}
+            {(products && products.length > 0 ? products : [
+              { id: "mock1", name: "Água que Cura", page_logo: null },
+              { id: "mock2", name: "Guia de Orações", page_logo: null },
+            ]).map((prod, i) => {
+              const mock = mockProgressData[i % mockProgressData.length];
+              const totalMats = (materialCounts && materialCounts[prod.id]) || (i === 0 ? 5 : 3);
+              const accessed = Math.round((mock.pct / 100) * totalMats);
+
+              return (
+                <button
+                  key={prod.id}
+                  className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
+                  onClick={() => setOpenProductId(prod.id)}
+                >
                   {prod.page_logo ? (
                     <div className="relative shrink-0">
                       <img src={prod.page_logo} alt={prod.name} className="h-16 w-16 rounded-xl object-cover" style={{ border: `2px solid ${themeColor}20` }} />
-                      <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: "#10b981" }}>
-                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
-                      </div>
+                      {mock.pct > 0 && mock.pct < 100 && (
+                        <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full flex items-center justify-center shadow-sm text-[9px] font-bold text-white" style={{ backgroundColor: themeColor }}>
+                          {mock.pct}%
+                        </div>
+                      )}
+                      {mock.pct === 0 && (
+                        <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: "#10b981" }}>
+                          <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}>
-                      <BookOpen className="h-7 w-7" style={{ color: themeColor }} />
+                      <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{prod.name}</h3>
                     {i === 0 ? (
-                      <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Liberado recentemente</span>
+                      <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Liberado recentemente</span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-gray-500">✓ Liberado</span>
+                      <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-gray-500">✓ Liberado</span>
                     )}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <>
-                {[{ name: "Água que Cura", recent: true }, { name: "Guia de Orações", recent: false }].map((mock, i) => (
-                  <div key={i} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-                    <div className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}>
-                      <BookOpen className="h-7 w-7" style={{ color: themeColor }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{mock.name}</h3>
-                      {mock.recent ? (
-                        <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Liberado recentemente</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-gray-500">✓ Liberado</span>
+
+                    {/* Progress bar */}
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${mock.pct}%`, backgroundColor: themeColor }}
+                          />
+                        </div>
+                        <span className="text-[10px] font-semibold text-gray-400 shrink-0">
+                          {accessed}/{totalMats}
+                        </span>
+                      </div>
+                      {mock.label && (
+                        <p className="text-[11px] text-gray-500 leading-tight truncate">
+                          {mock.label}
+                        </p>
                       )}
                     </div>
                   </div>
-                ))}
-              </>
-            )}
+                </button>
+              );
+            })}
+
+            {/* AI tip mock */}
+            <p className="text-sm text-gray-500 italic leading-relaxed px-1">
+              Maria, você tem dois materiais poderosos em mãos — está conseguindo aplicar o passo a passo? 🙏
+            </p>
 
             {/* Offer cards */}
             {(offers && offers.length > 0 ? offers : [{ id: "mock", name: "Curso Completo de Meditação", image_url: null, category_tag: "Novo", purchase_url: "#" }]).map((offer: any) => (
@@ -521,6 +686,36 @@ function MemberPreviewTab() {
           </div>
         </div>
       </div>
+
+      {/* Product content popup — real data */}
+      {openProductId && (
+        <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl bg-white">
+            {(() => {
+              const prod = (products || []).find(p => p.id === openProductId);
+              if (!prod) return <div className="p-8 text-center text-gray-400">Produto não encontrado</div>;
+              const ProductContentViewer = require("@/components/membros/ProductContentViewer").default;
+              return (
+                <>
+                  <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3">
+                    {prod.page_logo && (
+                      <img src={prod.page_logo} alt="" className="h-10 w-10 rounded-lg object-cover" />
+                    )}
+                    <h2 className="font-bold text-gray-800 text-lg truncate">{prod.name}</h2>
+                  </div>
+                  <div className="p-5">
+                    <ProductContentViewer
+                      productId={prod.id}
+                      productName={prod.name}
+                      themeColor={themeColor}
+                    />
+                  </div>
+                </>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
