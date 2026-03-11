@@ -37,7 +37,14 @@ interface AiContext {
   greeting: string;
   tip: string;
   progressMessage: string;
-  offerSuggestion: { offerId: string; message: string };
+}
+
+interface MemberProfile {
+  memberSince: string | null;
+  totalPaid: number;
+  totalTransactions: number;
+  totalProducts: number;
+  daysSinceLastAccess: number | null;
 }
 
 interface ContentProgress {
