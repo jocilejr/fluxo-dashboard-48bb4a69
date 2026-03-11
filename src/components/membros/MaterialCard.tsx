@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Video, Image, Download, ExternalLink } from "lucide-react";
+import { FileText, Video, Image, Download, ExternalLink, ArrowLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -27,12 +27,13 @@ const typeConfig: Record<string, { icon: typeof FileText; label: string; accent:
 
 export default function MaterialCard({ material, themeColor }: Props) {
   const [open, setOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const config = typeConfig[material.content_type] || typeConfig.text;
   const Icon = config.icon;
 
   const handleOpen = () => {
     if (material.content_type === "pdf") {
-      window.open(material.content_url || "#", "_blank");
+      setPdfOpen(true);
     } else {
       setOpen(true);
     }
@@ -44,11 +45,9 @@ export default function MaterialCard({ material, themeColor }: Props) {
         onClick={handleOpen}
         className="group relative w-full text-left rounded-xl bg-card border border-border shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 overflow-hidden"
       >
-        {/* Left accent border */}
         <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl transition-all duration-300 group-hover:w-1.5" style={{ backgroundColor: config.accent }} />
         
         <div className="pl-5 pr-4 py-4 flex items-start gap-3.5">
-          {/* Icon */}
           <div
             className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
             style={{ backgroundColor: `${config.accent}10` }}
@@ -56,7 +55,6 @@ export default function MaterialCard({ material, themeColor }: Props) {
             <Icon className="h-5 w-5" style={{ color: config.accent }} />
           </div>
 
-          {/* Content */}
           <div className="flex-1 min-w-0 space-y-1">
             <p className="font-semibold text-sm text-foreground leading-snug line-clamp-2 group-hover:text-muted-foreground transition-colors">
               {material.title}
@@ -74,9 +72,32 @@ export default function MaterialCard({ material, themeColor }: Props) {
         </div>
       </button>
 
+      {/* PDF fullscreen dialog */}
+      <Dialog open={pdfOpen} onOpenChange={setPdfOpen}>
+        <DialogContent className="w-[98vw] max-w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 overflow-hidden gap-0">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-4 shrink-0 bg-card">
+            <Button
+              variant="ghost"
+              size="lg"
+              onClick={() => setPdfOpen(false)}
+              className="text-lg gap-2 px-5 py-3 h-auto font-semibold"
+            >
+              <ArrowLeft className="h-6 w-6" />
+              Voltar
+            </Button>
+            <h2 className="text-lg font-bold truncate text-foreground">{material.title}</h2>
+          </div>
+          <iframe
+            src={material.content_url || ""}
+            className="w-full flex-1 border-0"
+            title={material.title}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Standard dialog for text/video/image */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-0">
-          {/* Colored header */}
           <div className="px-6 pt-6 pb-4 border-b border-border" style={{ background: `linear-gradient(135deg, ${config.accent}08, ${config.accent}04)` }}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-3 text-lg">
@@ -95,9 +116,7 @@ export default function MaterialCard({ material, themeColor }: Props) {
             {material.content_type === "text" && (
               <div className="space-y-5">
                 {material.content_text && (
-                  <div
-                    className="prose prose-sm max-w-none whitespace-pre-wrap leading-relaxed text-foreground rounded-xl p-6 border border-border bg-muted/50"
-                  >
+                  <div className="prose prose-sm max-w-none whitespace-pre-wrap leading-relaxed text-foreground rounded-xl p-6 border border-border bg-muted/50">
                     {material.content_text}
                   </div>
                 )}
