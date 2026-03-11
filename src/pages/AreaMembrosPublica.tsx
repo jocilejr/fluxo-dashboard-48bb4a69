@@ -501,8 +501,8 @@ export default function AreaMembrosPublica() {
       </main>
 
       {/* Floating offer bar for secondary offer */}
-      {offers.length > 1 && (() => {
-        const floatingOffer = offers[offers.length - 1];
+      {filteredOffers.length > 1 && (() => {
+        const floatingOffer = filteredOffers[filteredOffers.length - 1];
         return (
           <FloatingOfferBar
             offer={floatingOffer}
