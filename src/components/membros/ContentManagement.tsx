@@ -272,8 +272,29 @@ function ProductContentEditor({ productId }: { productId: string }) {
                       <div><Label>Texto do botão</Label><Input value={matButtonLabel} onChange={(e) => setMatButtonLabel(e.target.value)} placeholder="Acessar" /></div>
                     )}
                   </>
+                ) : matType === "video" ? (
+                  <div><Label>URL do vídeo</Label><Input value={matUrl} onChange={(e) => setMatUrl(e.target.value)} placeholder="https://youtube.com/..." /></div>
                 ) : (
-                  <div><Label>URL do conteúdo</Label><Input value={matUrl} onChange={(e) => setMatUrl(e.target.value)} placeholder="https://..." /></div>
+                  <div className="space-y-2">
+                    <Label>{matType === "pdf" ? "Arquivo PDF" : "Arquivo de Imagem"}</Label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={matType === "pdf" ? ".pdf" : "image/*"}
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    {matUrl ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-muted-foreground truncate flex-1">{matUrl.split("/").pop()}</p>
+                        <Button type="button" size="sm" variant="outline" onClick={() => { setMatUrl(""); if (fileInputRef.current) fileInputRef.current.value = ""; }}>Trocar</Button>
+                      </div>
+                    ) : (
+                      <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                        {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</> : <><Upload className="h-4 w-4 mr-2" /> Selecionar arquivo</>}
+                      </Button>
+                    )}
+                  </div>
                 )}
                 <Button className="w-full" onClick={() => addMatMutation.mutate()} disabled={addMatMutation.isPending}>Adicionar Material</Button>
               </div>
