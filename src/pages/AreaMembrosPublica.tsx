@@ -271,6 +271,12 @@ export default function AreaMembrosPublica() {
     setAiLoading(false);
   };
 
+  // Filter out offers for products the member already owns
+  const filteredOffers = useMemo(() => {
+    const ownedProductIds = new Set(products.map(p => p.product_id));
+    return offers.filter((offer: any) => !offer.product_id || !ownedProductIds.has(offer.product_id));
+  }, [offers, products]);
+
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());
   }, [products]);
