@@ -384,6 +384,7 @@ function MemberOffersTab() {
                   <SelectContent>
                     <SelectItem value="card">Oferta Card</SelectItem>
                     <SelectItem value="bottom_page">Oferta Fim da Página</SelectItem>
+                    <SelectItem value="showcase">Produto Físico (Vitrine)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
