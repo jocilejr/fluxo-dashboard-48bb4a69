@@ -400,28 +400,45 @@ export default function AreaMembrosPublica() {
       </header>
 
       <main className="max-w-2xl mx-auto px-5 pt-5 pb-20 space-y-3">
-        {/* AI Progress Message */}
-        {aiContext?.progressMessage && (
-          <div
-            className="rounded-2xl p-4 border shadow-sm transition-opacity duration-700"
-            style={{
-              backgroundColor: `${themeColor}08`,
-              borderColor: `${themeColor}20`,
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                style={{ backgroundColor: `${themeColor}15` }}
-              >
-                <BookOpen className="h-4.5 w-4.5" style={{ color: themeColor }} />
-              </div>
-              <p className="text-sm text-gray-700 leading-relaxed flex-1">
-                {aiContext.progressMessage}
-              </p>
+        {/* Meire Rosana Chat Bubble */}
+        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-2.5 px-4 py-2.5 border-b border-gray-50">
+            <img src={meirePhoto} alt="Meire Rosana" className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-100" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-800 leading-tight">Meire Rosana</p>
+              {aiLoading && (
+                <p className="text-[11px] text-emerald-500 font-medium">digitando...</p>
+              )}
             </div>
           </div>
-        )}
+          <div className="px-4 py-3 space-y-2">
+            {aiLoading ? (
+              <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm w-fit">
+                <span className="inline-block h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="inline-block h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="inline-block h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            ) : (
+              <>
+                {aiContext?.greeting && (
+                  <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%]">
+                    {aiContext.greeting}
+                  </div>
+                )}
+                {aiContext?.progressMessage && (
+                  <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%]">
+                    {aiContext.progressMessage}
+                  </div>
+                )}
+                {aiContext?.tip && (
+                  <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%] italic">
+                    {aiContext.tip}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
 
         {/* Products */}
         {sortedProducts.length > 0 && renderProductCard(sortedProducts[0])}
