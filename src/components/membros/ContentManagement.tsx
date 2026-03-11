@@ -86,8 +86,11 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const [matText, setMatText] = useState("");
   const [matButtonLabel, setMatButtonLabel] = useState("");
   const [matCategoryId, setMatCategoryId] = useState<string>("");
+  const [matCoverUrl, setMatCoverUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const { data: categories } = useQuery({
     queryKey: ["admin-categories", productId],
@@ -131,6 +134,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
         content_type: matType,
         content_url: matUrl || null,
         content_text: matText || null,
+        cover_image_url: matCoverUrl || null,
         sort_order: (materials?.length || 0),
       };
       if (matType === "text" && matButtonLabel) {
@@ -142,7 +146,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
     onSuccess: () => {
       toast.success("Material adicionado!");
       queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatDialogOpen(false);
+      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatCoverUrl(""); setMatDialogOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -159,31 +163,36 @@ function ProductContentEditor({ productId }: { productId: string }) {
     { value: "image", label: "Imagem (upload)" },
   ];
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const uploadFile = async (file: File, setter: (url: string) => void, setLoading: (v: boolean) => void) => {
     const maxSize = 20 * 1024 * 1024;
     if (file.size > maxSize) {
       toast.error("Arquivo muito grande (máx 20MB)");
       return;
     }
-
-    setUploading(true);
+    setLoading(true);
     try {
       const ext = file.name.split(".").pop();
       const filePath = `${productId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error } = await supabase.storage.from("member-files").upload(filePath, file);
       if (error) throw error;
-
       const { data: urlData } = supabase.storage.from("member-files").getPublicUrl(filePath);
-      setMatUrl(urlData.publicUrl);
+      setter(urlData.publicUrl);
       toast.success("Arquivo enviado!");
     } catch (err: any) {
       toast.error("Erro ao enviar: " + err.message);
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file, setMatUrl, setUploading);
+  };
+
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file, setMatCoverUrl, setUploadingCover);
   };
 
   return (
@@ -244,7 +253,28 @@ function ProductContentEditor({ productId }: { productId: string }) {
               <DialogHeader><DialogTitle>Novo Material</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div><Label>Título</Label><Input value={matTitle} onChange={(e) => setMatTitle(e.target.value)} placeholder="Ex: Oração da Manhã" /></div>
-                <div><Label>Descrição (opcional)</Label><Input value={matDesc} onChange={(e) => setMatDesc(e.target.value)} /></div>
+                <div><Label>Mini texto / Descrição (opcional)</Label><Textarea value={matDesc} onChange={(e) => setMatDesc(e.target.value)} placeholder="Um breve resumo do material..." rows={3} /></div>
+                {/* Cover image upload */}
+                <div className="space-y-2">
+                  <Label>Imagem de capa (opcional)</Label>
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverUpload}
+                    className="hidden"
+                  />
+                  {matCoverUrl ? (
+                    <div className="flex items-center gap-3">
+                      <img src={matCoverUrl} alt="Capa" className="h-16 w-24 rounded-lg object-cover border border-border" />
+                      <Button type="button" size="sm" variant="outline" onClick={() => { setMatCoverUrl(""); if (coverInputRef.current) coverInputRef.current.value = ""; }}>Trocar</Button>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" className="w-full" onClick={() => coverInputRef.current?.click()} disabled={uploadingCover}>
+                      {uploadingCover ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</> : <><Image className="h-4 w-4 mr-2" /> Selecionar imagem de capa</>}
+                    </Button>
+                  )}
+                </div>
                 <div>
                   <Label>Categoria</Label>
                   <Select value={matCategoryId} onValueChange={setMatCategoryId}>
