@@ -504,16 +504,16 @@ export default function AreaMembrosPublica() {
           });
         })()}
 
-        {/* Showcase offers (physical products) */}
+        <DailyVerse />
+
+        {/* Showcase offers (physical products) — after prayer */}
         {showcaseOffers.length > 0 && (
-          <div className="space-y-6 pt-4">
+          <div className="space-y-2">
             {showcaseOffers.map((offer: any) => (
               <PhysicalProductShowcase key={offer.id} offer={offer} themeColor={themeColor} />
             ))}
           </div>
         )}
-
-        <DailyVerse />
 
         {/* Bottom page offers */}
         {bottomPageOffers.length > 0 && (
