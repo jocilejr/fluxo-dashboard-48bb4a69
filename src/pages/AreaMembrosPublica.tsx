@@ -335,10 +335,10 @@ export default function AreaMembrosPublica() {
         }}
         onClick={() => setOpenProductId(mp.id)}
       >
-        {product.page_logo ? (
+        {(product.member_cover_image || product.page_logo) ? (
           <div className="relative shrink-0">
             <img
-              src={product.page_logo}
+              src={product.member_cover_image || product.page_logo!}
               alt={product.name}
               className="h-16 w-16 rounded-xl object-cover shadow-sm"
               style={{ border: `2px solid ${themeColor}25` }}

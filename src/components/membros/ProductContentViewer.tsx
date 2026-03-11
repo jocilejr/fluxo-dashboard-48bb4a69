@@ -115,22 +115,12 @@ export default function ProductContentViewer({ productId, productName, themeColo
 
   return (
     <div className="space-y-8">
-      {/* Product cover & description */}
-      {(productDetail?.member_cover_image || productDetail?.member_description) && (
+      {/* Product description */}
+      {productDetail?.member_description && (
         <div className="space-y-3">
-          {productDetail.member_cover_image && (
-            <img
-              src={productDetail.member_cover_image}
-              alt={productName}
-              className="w-full h-40 sm:h-48 rounded-2xl object-cover shadow-sm"
-              style={{ border: `2px solid ${themeColor}20` }}
-            />
-          )}
-          {productDetail.member_description && (
-            <p className="text-sm text-gray-600 leading-relaxed px-1">
-              {productDetail.member_description}
-            </p>
-          )}
+          <p className="text-sm text-gray-600 leading-relaxed px-1">
+            {productDetail.member_description}
+          </p>
         </div>
       )}
       {categorized.map((cat: any) => (
