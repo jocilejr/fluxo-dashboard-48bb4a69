@@ -1,4 +1,4 @@
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 interface Offer {
   id: string;
@@ -17,59 +17,56 @@ interface Props {
 
 export default function PhysicalProductShowcase({ offer, themeColor }: Props) {
   return (
-    <div className="space-y-1">
-      {/* GIF / Image */}
-      {offer.image_url && (
-        <div className="relative overflow-hidden rounded-2xl shadow-lg">
-          <div className="aspect-video">
+    <section className="py-8 px-4">
+      {/* Subtle divider */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="text-[11px] uppercase tracking-widest text-gray-400 font-medium">
+          {offer.category_tag || "exclusivo"}
+        </span>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+
+      <div className="flex flex-col items-center gap-4">
+        {/* Small product image */}
+        {offer.image_url && (
+          <div className="w-28 h-28 rounded-2xl overflow-hidden shadow-sm">
             <img
               src={offer.image_url}
               alt={offer.name}
               className="w-full h-full object-cover"
             />
           </div>
-          {/* Subtle gradient overlay at bottom */}
-          <div
-            className="absolute inset-x-0 bottom-0 h-1/3"
-            style={{
-              background: `linear-gradient(to top, ${themeColor}22, transparent)`,
-            }}
-          />
+        )}
+
+        {/* Minimal copy */}
+        <div className="text-center space-y-1.5 max-w-xs">
+          <p className="text-sm font-semibold text-gray-700">
+            {offer.name}
+          </p>
+          {offer.description && (
+            <p className="text-xs text-gray-400 leading-relaxed">
+              {offer.description}
+            </p>
+          )}
         </div>
-      )}
 
-      {/* Content */}
-      <div className="text-center space-y-3 py-4 px-2">
-        <h3 className="text-xl font-bold text-gray-800 flex items-center justify-center gap-2">
-          <Sparkles className="h-5 w-5" style={{ color: themeColor }} />
-          {offer.name}
-        </h3>
-
-        {offer.description && (
-          <p className="text-sm text-gray-500 leading-relaxed max-w-sm mx-auto">
-            {offer.description}
-          </p>
-        )}
-
-        {offer.price != null && offer.price > 0 && (
-          <p className="text-lg font-semibold text-gray-700">
-            R$ {Number(offer.price).toFixed(2).replace(".", ",")}
-          </p>
-        )}
-
+        {/* Subtle CTA */}
         {offer.purchase_url && (
           <button
             onClick={() => window.open(offer.purchase_url, "_blank")}
-            className="inline-flex items-center gap-2 px-8 py-3 rounded-full text-white font-semibold text-base shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 animate-pulse-soft"
+            className="inline-flex items-center gap-1.5 text-xs font-medium py-2 px-5 rounded-full border transition-all duration-200 hover:scale-[1.03]"
             style={{
-              background: `linear-gradient(135deg, ${themeColor}, ${themeColor}cc)`,
+              color: themeColor,
+              borderColor: `${themeColor}40`,
+              backgroundColor: `${themeColor}08`,
             }}
           >
             Reservar o seu
-            <ArrowRight className="h-5 w-5" />
+            <ArrowRight className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
-    </div>
+    </section>
   );
 }
