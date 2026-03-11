@@ -203,18 +203,10 @@ export default function AreaMembrosPublica() {
           materials: (matsByProd[p.product_id] || []).map(m => m.title),
         }));
 
-      const ownedProductNames = prods
+      const ownedProductNamesPayload = prods
         .filter(p => p.delivery_products)
         .map(p => p.delivery_products!.name);
 
-      const offersPayload = memberOffers.map(o => ({
-        id: o.id,
-        name: o.name,
-        description: o.description,
-        categoryTag: o.category_tag,
-      }));
-
-      // Build progress payload for AI
       const progressPayload = progressData.map(p => {
         let matName = "material";
         for (const mats of Object.values(matsByProd)) {
@@ -231,13 +223,11 @@ export default function AreaMembrosPublica() {
         };
       });
 
-      // Calculate profile metrics
       const memberSince = customerProfile?.first_seen_at || prods[0]?.granted_at || null;
       const totalPaid = customerProfile?.total_paid || 0;
       const totalTransactions = customerProfile?.total_transactions || 0;
       const totalProducts = prods.length;
       
-      // Calculate days since last access from progress data
       let daysSinceLastAccess: number | null = null;
       if (progressData.length > 0) {
         const latestAccess = progressData.reduce((latest, p) => {
@@ -249,16 +239,17 @@ export default function AreaMembrosPublica() {
         }
       }
 
-      const profileData = {
+      const profileData: MemberProfile = {
         memberSince,
         totalPaid: Number(totalPaid),
         totalTransactions: Number(totalTransactions),
         totalProducts,
         daysSinceLastAccess,
       };
+      setMemberProfile(profileData);
 
       const { data, error } = await supabase.functions.invoke("member-ai-context", {
-        body: { firstName, products: productsPayload, offers: offersPayload, ownedProductNames, progress: progressPayload, profile: profileData },
+        body: { firstName, products: productsPayload, ownedProductNames: ownedProductNamesPayload, progress: progressPayload, profile: profileData },
       });
 
       if (!error && data?.greeting) {
@@ -266,7 +257,6 @@ export default function AreaMembrosPublica() {
           greeting: data.greeting,
           tip: data.tip || "",
           progressMessage: data.progressMessage || "",
-          offerSuggestion: data.offerSuggestion || { offerId: "", message: "" },
         };
         setAiContext(ctx);
         try {
