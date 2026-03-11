@@ -1,33 +1,28 @@
 
 
-## Problema
+## Redesign: Oferta Fim da Página — Estilo "Apresentação Premium"
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+O componente atual (`BottomPageOffer.tsx`) tem cara de venda direta — gradientes coloridos, "Por apenas", botão "Quero conhecer". Vou redesenhá-lo com uma abordagem editorial/premium, como uma recomendação curada.
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+### Conceito Visual
 
-## Solução
+Layout horizontal elegante e minimalista:
+- Fundo branco com borda sutil e leve sombra
+- Imagem à esquerda com cantos arredondados (sem overlay/gradiente)
+- Conteúdo à direita: tag discreta, título com tipografia sóbria (sem font-extrabold), descrição em tom editorial
+- Preço discreto (se houver), sem "Por apenas"
+- CTA como link sutil com seta, não um botão gritante — texto tipo "Saiba mais →"
+- Separador fino acima com label tipo "Você também pode gostar" ou a category_tag
+- Em mobile, empilha verticalmente (imagem em cima, conteúdo embaixo)
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+### Mudanças
 
-### Alteração em `src/hooks/useTransactions.ts`
-
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
-
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+**Arquivo: `src/components/membros/BottomPageOffer.tsx`** — Reescrever completamente:
+- Remover gradientes, Sparkles, Gift icons, botões com boxShadow colorido
+- Layout flex horizontal (lg) / vertical (mobile)
+- Imagem com `rounded-xl`, `object-cover`, sem overlay
+- Tipografia: `font-semibold` no título, `text-gray-500` na descrição
+- CTA discreto: texto com cor do tema + ícone ArrowRight, sem fundo
+- Preço em formato limpo sem label "Por apenas"
+- Seção envolvida em borda superior com label "Recomendado para você"
 
