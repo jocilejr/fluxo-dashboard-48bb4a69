@@ -869,6 +869,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          layout_order: Json | null
           logo_url: string | null
           theme_color: string | null
           title: string
@@ -878,6 +879,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          layout_order?: Json | null
           logo_url?: string | null
           theme_color?: string | null
           title?: string
@@ -887,6 +889,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          layout_order?: Json | null
           logo_url?: string | null
           theme_color?: string | null
           title?: string
@@ -935,6 +938,7 @@ export type Database = {
       }
       member_product_materials: {
         Row: {
+          button_label: string | null
           category_id: string | null
           content_text: string | null
           content_type: string
@@ -948,6 +952,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          button_label?: string | null
           category_id?: string | null
           content_text?: string | null
           content_type?: string
@@ -961,6 +966,7 @@ export type Database = {
           title: string
         }
         Update: {
+          button_label?: string | null
           category_id?: string | null
           content_text?: string | null
           content_type?: string
