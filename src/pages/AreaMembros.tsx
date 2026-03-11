@@ -18,6 +18,7 @@ import { Trash2 } from "lucide-react";
 import MemberClientCard from "@/components/membros/MemberClientCard";
 import ContentManagement from "@/components/membros/ContentManagement";
 import LayoutEditor from "@/components/membros/LayoutEditor";
+import ProductContentViewer from "@/components/membros/ProductContentViewer";
 
 // ---- Member Products Tab ----
 function MemberProductsTab() {
