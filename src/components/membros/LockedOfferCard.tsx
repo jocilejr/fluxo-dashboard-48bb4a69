@@ -139,12 +139,6 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
               alt={offer.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)`,
-              }}
-            />
             <div className="absolute bottom-0 left-0 right-0 p-3.5">
               <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white/90 mb-1.5"
