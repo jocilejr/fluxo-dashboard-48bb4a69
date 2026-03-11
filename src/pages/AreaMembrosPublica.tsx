@@ -261,17 +261,7 @@ export default function AreaMembrosPublica() {
         };
         setAiContext(ctx);
         setVisibleMessages(0);
-        // Start sequential reveal
-        setTimeout(() => {
-          setVisibleMessages(1);
-          if (ctx.tip) {
-            setShowTypingAfterFirst(true);
-            setTimeout(() => {
-              setShowTypingAfterFirst(false);
-              setVisibleMessages(2);
-            }, 1200);
-          }
-        }, 600);
+        setTimeout(() => setVisibleMessages(1), 600);
         try {
           localStorage.setItem(cacheKey, JSON.stringify({ data: ctx, cachedAt: Date.now() }));
         } catch {}
