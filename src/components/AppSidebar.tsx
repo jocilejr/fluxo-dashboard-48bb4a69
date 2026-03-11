@@ -38,6 +38,7 @@ const navItems: NavItem[] = [
   { title: "Clientes", icon: Users, path: "/clientes", permissionKey: "clientes", desktopOnly: true },
   { title: "Grupos", icon: UsersRound, path: "/grupos", permissionKey: "grupos", desktopOnly: true },
   { title: "Entrega", icon: Package, path: "/entrega", permissionKey: "entrega", desktopOnly: true },
+  { title: "Área de Membros", icon: Crown, path: "/area-membros", permissionKey: "area_membros", desktopOnly: true },
   { title: "Respostas", icon: MessageSquare, path: "/projetos", permissionKey: "projetos", desktopOnly: true },
   { title: "Typebots", icon: Bot, path: "/typebots", permissionKey: "typebots", adminOnly: true, desktopOnly: true },
   { title: "Gerar Boleto", icon: FileText, path: "/gerar-boleto", permissionKey: "gerar_boleto", desktopOnly: true },
