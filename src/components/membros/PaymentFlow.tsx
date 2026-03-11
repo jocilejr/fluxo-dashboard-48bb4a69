@@ -269,24 +269,24 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
 
             <div className="space-y-3">
               <div>
-                <Label htmlFor="boleto-name" className="text-xs">Nome Completo *</Label>
+                <Label htmlFor="boleto-name" className="text-xs text-gray-700">Nome Completo *</Label>
                 <Input
                   id="boleto-name"
                   value={boletoName}
                   onChange={(e) => setBoletoName(e.target.value)}
                   placeholder="Seu nome completo"
-                  className="mt-1"
+                  className="mt-1 bg-white text-gray-900 border-gray-300 placeholder:text-gray-400"
                 />
               </div>
               <div>
-                <Label htmlFor="boleto-cpf" className="text-xs">CPF *</Label>
+                <Label htmlFor="boleto-cpf" className="text-xs text-gray-700">CPF *</Label>
                 <Input
                   id="boleto-cpf"
                   value={boletoCpf}
                   onChange={(e) => setBoletoCpf(formatCPF(e.target.value))}
                   placeholder="12345678901"
                   maxLength={11}
-                  className="mt-1"
+                  className="mt-1 bg-white text-gray-900 border-gray-300 placeholder:text-gray-400"
                 />
               </div>
             </div>
