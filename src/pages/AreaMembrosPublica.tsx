@@ -97,7 +97,7 @@ export default function AreaMembrosPublica() {
     if (variations.length === 0) { setNotFound(true); setLoading(false); return; }
 
     const [productsRes, settingsRes, offersRes, customerRes] = await Promise.all([
-      supabase.from("member_products").select("*, delivery_products(name, slug, redirect_url, page_logo, value)").in("normalized_phone", variations).eq("is_active", true),
+      supabase.from("member_products").select("*, delivery_products(name, slug, redirect_url, page_logo, value, member_cover_image)").in("normalized_phone", variations).eq("is_active", true),
       supabase.from("member_area_settings").select("*").limit(1).maybeSingle(),
       supabase.from("member_area_offers").select("*").eq("is_active", true).order("sort_order"),
       supabase.from("customers").select("name, display_phone, first_seen_at, total_paid, total_transactions, pix_payment_count").in("normalized_phone", variations).limit(1).maybeSingle(),
