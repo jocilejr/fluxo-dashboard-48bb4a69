@@ -107,6 +107,7 @@ export default function AreaMembrosPublica() {
         : { title: "Área de Membros", logo_url: null, welcome_message: "Bem-vinda à sua área exclusiva! 🎉", theme_color: "#8B5CF6" }
     );
     const name = customerRes.data?.name || null;
+    const customerProfile = customerRes.data || null;
     setCustomerName(name);
 
     // Load materials and progress
