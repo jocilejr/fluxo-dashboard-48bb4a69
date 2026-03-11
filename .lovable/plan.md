@@ -1,20 +1,33 @@
 
 
-## Ajustes na Área de Membros Pública
+## Problema
 
-### Mudanças
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-**1. `src/pages/AreaMembrosPublica.tsx` — Header e Versículo**
-- Remover o título "Área de Membros" (`h1`) do header. Manter apenas o logo (se houver) e a frase personalizada com o nome do membro (ex: "Olá, Maria! Bem-vinda à sua área exclusiva!")
-- Mover o componente `<DailyVerse />` de antes dos produtos para **entre o 1º e o 2º produto** na lista. O produto mais recente fica em destaque no topo, seguido do versículo, depois os demais produtos.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-**2. Lógica de renderização dos produtos**
-- Separar `sortedProducts[0]` (mais recente) dos demais
-- Renderizar: Produto 1 → DailyVerse → Produtos 2..N
-- AI Greeting permanece acima dos produtos
+## Solução
 
-### Arquivos
-- `src/pages/AreaMembrosPublica.tsx`
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-Sem mudanças de banco de dados. A aba de Conteúdo já existe no admin e permite gerenciar categorias e materiais por produto.
+### Alteração em `src/hooks/useTransactions.ts`
+
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
+
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
