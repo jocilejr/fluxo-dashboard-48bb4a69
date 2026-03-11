@@ -89,11 +89,13 @@ export default function MaterialCard({ material, themeColor }: Props) {
             </Button>
             <h2 className="text-lg font-bold truncate text-foreground">{material.title}</h2>
           </div>
-          <iframe
-            src={`https://docs.google.com/gview?url=${encodeURIComponent(material.content_url || "")}&embedded=true`}
-            className="w-full flex-1 border-0"
-            title={material.title}
-          />
+          <Suspense fallback={
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+            </div>
+          }>
+            <PdfViewer url={material.content_url || ""} themeColor={themeColor} />
+          </Suspense>
         </DialogContent>
       </Dialog>
 
