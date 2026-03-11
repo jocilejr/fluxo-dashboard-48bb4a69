@@ -1,33 +1,44 @@
 
 
-## Problema
+## Corrigir Mobile + Redesign Sutil da Oferta
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Problemas
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+1. **Produtos não aparecem no iPhone**: O `layout_order` salvo no banco usa as seções antigas (`recent_product`, `other_products`). O novo `products_interleaved` só existe no `defaultLayout` (usado quando não há layout salvo). Resultado: se o admin já salvou um layout, os produtos aparecem pelas seções antigas — que ainda funcionam — mas a sugestão IA entre produtos não aparece. Preciso garantir compatibilidade.
 
-## Solução
+2. **Oferta muito grande**: O `LockedOfferCard` com `inline` ocupa espaço excessivo. O pedido é um card compacto horizontal: imagem chamativa à esquerda + texto IA à direita, sutil e elegante.
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+### Plano
 
-### Alteração em `src/hooks/useTransactions.ts`
+#### 1. Compatibilidade de layout (fix mobile)
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+No `AreaMembrosPublica.tsx`, ao processar o `layout_order` do banco:
+- Mapear automaticamente `["recent_product", "other_products"]` → `["products_interleaved"]` quando ambos existem
+- Isso garante que layouts salvos antigos funcionem com a nova lógica unificada
+- Manter os cases `recent_product` e `other_products` como fallback
 
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
+#### 2. Atualizar LayoutEditor
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+No `LayoutEditor.tsx`:
+- Adicionar `products_interleaved` e `ai_tip` como seções válidas
+- Remover `recent_product` e `other_products` do editor (migrar automaticamente)
+- Adicionar `ai_tip` com label "Dica da IA"
 
-A deduplicação acontece automaticamente pelo banco.
+#### 3. Redesign do LockedOfferCard inline
 
-### Impacto
+Transformar o card inline em algo mais sutil e compacto:
+- Layout horizontal: imagem (h-16 w-20 rounded-lg) à esquerda, conteúdo à direita
+- Sem preço grande, sem botão largo — apenas um link discreto "Conhecer →"
+- Mensagem IA como texto principal em destaque (não itálico, direto)
+- Badge com cadeado pequeno sobre a imagem
+- Altura total máxima ~80px, sem padding excessivo
+- Fundo com gradiente muito sutil, borda fina
 
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Arquivos
+
+| Arquivo | Mudança |
+|---|---|
+| `src/pages/AreaMembrosPublica.tsx` | Migração automática de layout_order antigo → novo |
+| `src/components/membros/LayoutEditor.tsx` | Novas seções, migração automática |
+| `src/components/membros/LockedOfferCard.tsx` | Redesign inline compacto e sutil |
 
