@@ -695,7 +695,7 @@ function MemberPreviewTab() {
             {(() => {
               const prod = (products || []).find(p => p.id === openProductId);
               if (!prod) return <div className="p-8 text-center text-gray-400">Produto não encontrado</div>;
-              const ProductContentViewer = require("@/components/membros/ProductContentViewer").default;
+              // ProductContentViewer already imported at top
               return (
                 <>
                   <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3">
