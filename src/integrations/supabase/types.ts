@@ -823,6 +823,113 @@ export type Database = {
         }
         Relationships: []
       }
+      member_area_offers: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          price: number | null
+          purchase_url: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          price?: number | null
+          purchase_url: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          price?: number | null
+          purchase_url?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      member_area_settings: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          theme_color: string | null
+          title: string
+          updated_at: string
+          welcome_message: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          theme_color?: string | null
+          title?: string
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          theme_color?: string | null
+          title?: string
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Relationships: []
+      }
+      member_products: {
+        Row: {
+          created_at: string
+          granted_at: string
+          id: string
+          is_active: boolean
+          normalized_phone: string
+          product_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          granted_at?: string
+          id?: string
+          is_active?: boolean
+          normalized_phone: string
+          product_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          granted_at?: string
+          id?: string
+          is_active?: boolean
+          normalized_phone?: string
+          product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meta_ads_settings: {
         Row: {
           access_token: string
