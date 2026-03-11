@@ -18,6 +18,18 @@ export default function ProductContentViewer({ productId, productName, themeColo
   const [preloadedPdf, setPreloadedPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const preloadedPdfIdRef = useRef<string | null>(null);
 
+  const { data: productDetail } = useQuery({
+    queryKey: ["product-member-detail", productId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("delivery_products")
+        .select("member_cover_image, member_description")
+        .eq("id", productId)
+        .single();
+      return data as any;
+    },
+  });
+
   const { data: categories, isLoading: loadingCats } = useQuery({
     queryKey: ["member-categories", productId],
     queryFn: async () => {
