@@ -134,6 +134,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
         content_type: matType,
         content_url: matUrl || null,
         content_text: matText || null,
+        cover_image_url: matCoverUrl || null,
         sort_order: (materials?.length || 0),
       };
       if (matType === "text" && matButtonLabel) {
