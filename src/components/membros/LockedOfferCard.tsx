@@ -22,7 +22,7 @@ interface Props {
 export default function LockedOfferCard({ offer, themeColor, aiMessage, isHighlighted }: Props) {
   return (
     <Card className={`overflow-hidden transition-all duration-500 group relative rounded-xl ${isHighlighted ? 'border-2 shadow-lg ring-1 ring-offset-1' : 'border-gray-200 hover:shadow-lg'}`}
-      style={isHighlighted ? { borderColor: themeColor, ringColor: `${themeColor}40` } : undefined}
+      style={isHighlighted ? { borderColor: themeColor, boxShadow: `0 0 0 2px ${themeColor}20` } : undefined}
     >
       {isHighlighted && (
         <div className="absolute top-3 left-3 z-10">
