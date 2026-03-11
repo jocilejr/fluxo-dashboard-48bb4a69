@@ -255,7 +255,6 @@ export default function AreaMembrosPublica() {
         const ctx: AiContext = {
           greeting: data.greeting,
           tip: data.tip || "",
-          progressMessage: data.progressMessage || "",
         };
         setAiContext(ctx);
         try {
