@@ -448,13 +448,13 @@ export default function AreaMembrosPublica() {
             <img src={meirePhoto} alt="Meire Rosana" className="h-9 w-9 rounded-full object-cover shadow-sm" style={{ border: `2px solid ${themeColor}40` }} />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-gray-800 leading-tight">Meire Rosana</p>
-              {aiLoading && (
+              {(aiLoading || showTypingAfterFirst) && (
                 <p className="text-[11px] font-medium" style={{ color: themeColor }}>digitando...</p>
               )}
             </div>
           </div>
           <div className="px-4 pb-3.5 pt-0.5 space-y-1.5">
-            {aiLoading ? (
+            {aiLoading && visibleMessages === 0 ? (
               <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl rounded-tl-md w-fit" style={{ backgroundColor: `${themeColor}10` }}>
                 <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "0ms" }} />
                 <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "150ms" }} />
