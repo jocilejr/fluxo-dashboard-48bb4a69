@@ -1,47 +1,33 @@
 
 
-## Plano: Ofertas dinâmicas com múltiplos formatos + barra flutuante
+## Problema
 
-### Problema
-Existe apenas 1 formato de oferta (card com cadeado). Tudo parece igual e previsível, criando sensação de "loja" em vez de área de estudo.
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-### Solução
-Criar **2 tipos de oferta** com posicionamentos diferentes, e intercalar cards a cada 2 produtos. A experiência deve ser sutil e conectada ao conteúdo que a pessoa já consome.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
----
+## Solução
 
-### 1. Intercalação a cada 2 produtos (`AreaMembrosPublica.tsx`)
-- Nova lógica: a cada 2 cards de produto, inserir 1 oferta (ciclando pelas ofertas disponíveis)
-- A primeira oferta usa o formato **card redesenhado**
-- A segunda oferta (se existir) vai para a **barra flutuante** no rodapé
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-### 2. Card de oferta redesenhado (`LockedOfferCard.tsx`)
-Transformar o card atual (horizontal minimalista) em algo mais chamativo mas orgânico:
-- Se tem imagem: mostrar como banner de largura total (~120px altura) com overlay gradiente suave
-- Badge com `category_tag` da oferta (ou "Recomendado para você") usando themeColor
-- Descrição curta (1 linha) abaixo do título
-- Borda com gradiente sutil pulsante (animação leve no hover)
-- Botão discreto "Conhecer" integrado ao card
-- Manter o dialog de chat ao clicar
+### Alteração em `src/hooks/useTransactions.ts`
 
-### 3. Nova barra flutuante (`FloatingOfferBar.tsx`)
-Componente novo, fixo no bottom da tela:
-- Aparece após scroll de 300px (com animação slide-up)
-- Mostra a **segunda oferta** (ou uma oferta diferente da que está nos cards)
-- Layout: ícone/mini-imagem + texto curto contextual + botão "Ver mais"
-- Texto conectado ao progresso: ex. "Complementa o que você está estudando" ou usa o `category_tag`
-- Pode ser fechada (dismiss) com X, reaparece na próxima visita
-- Fundo branco com sombra, bordas arredondadas, altura ~56px
-- Não aparece se só existe 1 oferta (nesse caso, card apenas)
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-### 4. Sutileza na conexão com materiais
-- No card de oferta, se a oferta tem `product_id` vinculado a um `delivery_product`, verificar se o membro tem materiais do mesmo tema
-- Mostrar texto contextual como "Aprofunde seus estudos" em vez de "Compre agora"
-- Nunca mostrar preço no card externo
-- A barra flutuante usa linguagem de continuidade: "Continue sua jornada", "Material complementar"
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
 
-### Arquivos
-- `src/pages/AreaMembrosPublica.tsx` — nova intercalação 2:1 + renderizar FloatingOfferBar
-- `src/components/membros/LockedOfferCard.tsx` — redesign visual do card
-- `src/components/membros/FloatingOfferBar.tsx` — novo componente de barra flutuante
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 

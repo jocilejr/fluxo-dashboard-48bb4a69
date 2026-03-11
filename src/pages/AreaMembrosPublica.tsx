@@ -6,6 +6,7 @@ import { Loader2, Crown, ShoppingBag, Check, Lock, BookOpen, Play } from "lucide
 import DailyVerse from "@/components/membros/DailyVerse";
 import ProductContentViewer from "@/components/membros/ProductContentViewer";
 import LockedOfferCard from "@/components/membros/LockedOfferCard";
+import FloatingOfferBar from "@/components/membros/FloatingOfferBar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import meirePhoto from "@/assets/meire-rosana.png";
@@ -454,29 +455,26 @@ export default function AreaMembrosPublica() {
           </div>
         </div>
 
-        {/* Interleaved products and offers */}
+        {/* Interleaved products and offers (2:1 ratio) */}
         {(() => {
-          const items: { type: "product"; data: MemberProduct }[] | { type: "offer"; data: any }[] = [];
           const interleaved: ({ type: "product"; data: MemberProduct } | { type: "offer"; data: any })[] = [];
-          
-          // First product
-          if (sortedProducts.length > 0) {
-            interleaved.push({ type: "product", data: sortedProducts[0] });
-          }
-          // First offer after first product
-          if (offers.length > 0) {
-            interleaved.push({ type: "offer", data: offers[0] });
-          }
-          // Remaining products
-          for (let i = 1; i < sortedProducts.length; i++) {
+          // Cards use all offers except the last one (reserved for floating bar)
+          const cardOffers = offers.length > 1 ? offers.slice(0, -1) : offers;
+          let offerIdx = 0;
+
+          for (let i = 0; i < sortedProducts.length; i++) {
             interleaved.push({ type: "product", data: sortedProducts[i] });
+            // Insert offer after every 2 products
+            if ((i + 1) % 2 === 0 && offerIdx < cardOffers.length) {
+              interleaved.push({ type: "offer", data: cardOffers[offerIdx++] });
+            }
           }
-          // Remaining offers
-          for (let i = 1; i < offers.length; i++) {
-            interleaved.push({ type: "offer", data: offers[i] });
+          // Remaining offers that didn't fit
+          while (offerIdx < cardOffers.length) {
+            interleaved.push({ type: "offer", data: cardOffers[offerIdx++] });
           }
 
-          return interleaved.map((item, idx) => {
+          return interleaved.map((item) => {
             if (item.type === "product") {
               return renderProductCard(item.data);
             }
@@ -496,7 +494,23 @@ export default function AreaMembrosPublica() {
         <DailyVerse />
       </main>
 
-      {/* Product content popup */}
+      {/* Floating offer bar for secondary offer */}
+      {offers.length > 1 && (() => {
+        const floatingOffer = offers[offers.length - 1];
+        return (
+          <FloatingOfferBar
+            offer={floatingOffer}
+            themeColor={themeColor}
+            onOpenChat={() => {
+              // Programmatically open the LockedOfferCard dialog by finding/creating a hidden trigger
+              // For simplicity, open the purchase URL directly
+              if (floatingOffer.purchase_url) {
+                window.open(floatingOffer.purchase_url, "_blank");
+              }
+            }}
+          />
+        );
+      })()}
       <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl bg-white">
           {openProduct?.delivery_products && (
