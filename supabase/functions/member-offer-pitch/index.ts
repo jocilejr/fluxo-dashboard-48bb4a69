@@ -16,15 +16,16 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data: settings, error: settingsError } = await supabase
-      .from("openai_settings")
-      .select("api_key")
-      .limit(1)
-      .maybeSingle();
+    const [openaiRes, settingsRes] = await Promise.all([
+      supabase.from("openai_settings").select("api_key").limit(1).maybeSingle(),
+      supabase.from("member_area_settings").select("ai_persona_prompt").limit(1).maybeSingle(),
+    ]);
 
-    if (settingsError || !settings?.api_key) {
+    if (openaiRes.error || !openaiRes.data?.api_key) {
       throw new Error("OpenAI API key not configured.");
     }
+
+    const personaPrompt = settingsRes.data?.ai_persona_prompt || "";
 
     const prof = profile || {};
     let memberDays = 0;
@@ -39,63 +40,76 @@ serve(async (req) => {
 
     const ownedNames = (ownedProductNames || []).join(", ") || "nenhum";
 
-    const systemPrompt = `Você é uma copywriter especialista em conversão para uma área de membros cristã. A pessoa clicou em um material bloqueado — ela tem INTERESSE. Sua missão é criar uma copy persuasiva e pessoal para convencê-la a adquirir.
+    const personaBlock = personaPrompt
+      ? `SUA PERSONALIDADE:\n${personaPrompt}`
+      : `SUA PERSONALIDADE:\nVocê é uma mulher cristã de 57 anos, líder de uma comunidade de orações. Você age de forma cristã e nunca tenta vender algo — você oferece com carinho algo que pode fazer sentido para a pessoa, e pede uma contribuição caso a pessoa possa contribuir.`;
+
+    const systemPrompt = `Você vai gerar mensagens de chat simulando uma conversa pessoal sobre um material que a pessoa demonstrou interesse.
+
+${personaBlock}
 
 REGRAS ABSOLUTAS:
 - NUNCA mencione valores, preços ou "por apenas R$..."
-- NUNCA use termos genéricos — cite o NOME EXATO da oferta
-- Tom: amiga próxima, íntima, como se conhecesse a pessoa há anos
-- Máximo 3 frases curtas e impactantes
+- NUNCA use termos de marketing como "insights", "mindset", "jornada transformadora", "desbloqueie", "exclusivo"
+- Fale de forma natural, como uma amiga que conhece a pessoa
+- Baseie-se APENAS no título e descrição da oferta para explicar o que é
 - Use o nome da pessoa
-- Conecte a oferta com o que ela JÁ possui (mostre complementaridade)
+- Gere EXATAMENTE 2-3 mensagens curtas (como balões de WhatsApp)
+- Cada mensagem deve ter no máximo 2 frases
+- A primeira mensagem deve ser pessoal e acolhedora
+- A segunda deve explicar brevemente o que é o material com base na descrição
+- A terceira (opcional) deve ser um convite gentil, nunca pressão
 
 PERFIL DA PESSOA:
 - Nome: ${firstName}
-- Membro há: ${memberDays} dias${memberDays <= 7 ? " (NOVA)" : ""}
+- Membro há: ${memberDays} dias${memberDays <= 7 ? " (nova)" : ""}
 - Produtos que já possui: ${ownedNames}
 - Categoria: ${profileCategory}
 ${profileCategory === "novo" ? "→ É nova, não pressione. Mostre que é um próximo passo natural." : ""}
 ${profileCategory === "inativo" ? "→ Está voltando. Incentive com carinho." : ""}
-${profileCategory === "fiel" ? "→ É fiel e comprometida. Reconheça isso e mostre como complementa sua jornada." : ""}
+${profileCategory === "fiel" ? "→ É fiel e comprometida. Reconheça isso." : ""}
 
-OFERTA CLICADA:
+MATERIAL CLICADO:
 - Nome: "${offerName}"
-- Descrição: "${offerDescription || 'Conteúdo exclusivo para complementar sua jornada.'}"
+- Descrição: "${offerDescription || 'Material especial preparado com muito carinho.'}"
 
-Gere a copy usando a função fornecida.`;
+Gere as mensagens usando a função fornecida.`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${settings.api_key}`,
+        Authorization: `Bearer ${openaiRes.data.api_key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere a copy persuasiva para ${firstName} sobre "${offerName}".` },
+          { role: "user", content: `Gere as mensagens de chat para ${firstName} sobre "${offerName}".` },
         ],
         tools: [
           {
             type: "function",
             function: {
-              name: "generate_offer_pitch",
-              description: "Generate a persuasive pitch for a locked offer.",
+              name: "generate_offer_chat",
+              description: "Generate 2-3 chat messages simulating a personal conversation about the offer.",
               parameters: {
                 type: "object",
                 properties: {
-                  message: {
-                    type: "string",
-                    description: "Persuasive copy, max 3 sentences. Personal, warm, no prices."
+                  messages: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Array of 2-3 short chat messages, each max 2 sentences.",
+                    minItems: 2,
+                    maxItems: 3,
                   }
                 },
-                required: ["message"]
+                required: ["messages"]
               }
             }
           }
         ],
-        tool_choice: { type: "function", function: { name: "generate_offer_pitch" } },
+        tool_choice: { type: "function", function: { name: "generate_offer_chat" } },
       }),
     });
 

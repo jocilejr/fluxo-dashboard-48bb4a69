@@ -36,7 +36,6 @@ interface MemberSettings {
 interface AiContext {
   greeting: string;
   tip: string;
-  progressMessage: string;
 }
 
 interface MemberProfile {
@@ -256,7 +255,6 @@ export default function AreaMembrosPublica() {
         const ctx: AiContext = {
           greeting: data.greeting,
           tip: data.tip || "",
-          progressMessage: data.progressMessage || "",
         };
         setAiContext(ctx);
         try {
@@ -320,6 +318,7 @@ export default function AreaMembrosPublica() {
     if (!product) return null;
     const recent = isRecent(mp.granted_at);
     const progress = getProductProgress(mp.product_id);
+    const mats = materialsByProduct[mp.product_id] || [];
     const progressLabel = getProgressLabel(progress.latestProgress, mp.product_id);
     const progressPct = progress.totalMaterials > 0
       ? Math.round((progress.materialsAccessed / progress.totalMaterials) * 100)
@@ -328,7 +327,11 @@ export default function AreaMembrosPublica() {
     return (
       <button
         key={mp.id}
-        className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
+        className="w-full flex items-center gap-4 rounded-2xl p-4 border shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
+        style={{
+          background: `linear-gradient(135deg, white 85%, ${themeColor}08)`,
+          borderColor: `${themeColor}15`,
+        }}
         onClick={() => setOpenProductId(mp.id)}
       >
         {product.page_logo ? (
@@ -336,8 +339,8 @@ export default function AreaMembrosPublica() {
             <img
               src={product.page_logo}
               alt={product.name}
-              className="h-16 w-16 rounded-xl object-cover"
-              style={{ border: `2px solid ${themeColor}20` }}
+              className="h-16 w-16 rounded-xl object-cover shadow-sm"
+              style={{ border: `2px solid ${themeColor}25` }}
             />
             {progressPct > 0 && (
               <div
@@ -358,14 +361,20 @@ export default function AreaMembrosPublica() {
           </div>
         ) : (
           <div
-            className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}
+            className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+            style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
           >
-            <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
+            {mats.length > 0 && mats[0]?.content_type === "video" ? (
+              <Play className="h-7 w-7" style={{ color: themeColor }} />
+            ) : mats.length > 0 && mats[0]?.content_type === "pdf" ? (
+              <BookOpen className="h-7 w-7" style={{ color: themeColor }} />
+            ) : (
+              <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
+            )}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{product.name}</h3>
+          <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{product.name}</h3>
           {recent ? (
             <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
               ✓ Liberado recentemente
@@ -407,11 +416,6 @@ export default function AreaMembrosPublica() {
       <div className="h-1" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}90, ${themeColor})` }} />
 
       <main className="max-w-2xl mx-auto px-5 pt-6 pb-20 space-y-3">
-        {/* Greeting */}
-        <h1 className="text-xl font-bold text-gray-800 tracking-tight px-1">
-          Olá, {firstName}
-        </h1>
-
         {/* Meire Rosana Chat Bubble */}
         <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: `${themeColor}0d`, borderColor: `${themeColor}22` }}>
           <div className="flex items-center gap-2.5 px-4 py-3">
@@ -437,13 +441,8 @@ export default function AreaMembrosPublica() {
                     {aiContext.greeting}
                   </div>
                 )}
-                {aiContext?.progressMessage && (
-                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
-                    {aiContext.progressMessage}
-                  </div>
-                )}
                 {aiContext?.tip && (
-                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-600 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}08` }}>
+                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
                     {aiContext.tip}
                   </div>
                 )}
@@ -453,10 +452,7 @@ export default function AreaMembrosPublica() {
         </div>
 
         {/* Products */}
-        {sortedProducts.length > 0 && renderProductCard(sortedProducts[0])}
-
-        {/* Remaining products */}
-        {sortedProducts.slice(1).map((mp) => renderProductCard(mp))}
+        {sortedProducts.map((mp) => renderProductCard(mp))}
 
         <DailyVerse />
 

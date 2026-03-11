@@ -188,18 +188,19 @@ function MemberSettingsTab() {
   const [logoUrl, setLogoUrl] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [themeColor, setThemeColor] = useState("#8B5CF6");
+  const [aiPersonaPrompt, setAiPersonaPrompt] = useState("");
 
   useState(() => {
-    if (settings) { setTitle(settings.title || "Área de Membros"); setLogoUrl(settings.logo_url || ""); setWelcomeMessage(settings.welcome_message || ""); setThemeColor(settings.theme_color || "#8B5CF6"); }
+    if (settings) { setTitle(settings.title || "Área de Membros"); setLogoUrl(settings.logo_url || ""); setWelcomeMessage(settings.welcome_message || ""); setThemeColor(settings.theme_color || "#8B5CF6"); setAiPersonaPrompt((settings as any).ai_persona_prompt || ""); }
   });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (settings?.id) {
-        const { error } = await supabase.from("member_area_settings").update({ title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor }).eq("id", settings.id);
+        const { error } = await supabase.from("member_area_settings").update({ title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor, ai_persona_prompt: aiPersonaPrompt || null } as any).eq("id", settings.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("member_area_settings").insert({ title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor });
+        const { error } = await supabase.from("member_area_settings").insert({ title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor, ai_persona_prompt: aiPersonaPrompt || null } as any);
         if (error) throw error;
       }
     },
@@ -221,6 +222,16 @@ function MemberSettingsTab() {
             <input type="color" value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="h-10 w-14 rounded border cursor-pointer" />
             <Input value={themeColor} onChange={(e) => setThemeColor(e.target.value)} className="w-32" />
           </div>
+        </div>
+        <div>
+          <Label>Personalidade da IA (persona)</Label>
+          <Textarea
+            value={aiPersonaPrompt}
+            onChange={(e) => setAiPersonaPrompt(e.target.value)}
+            placeholder="Ex: Você é uma mulher cristã de 57 anos, líder de uma comunidade de orações..."
+            rows={4}
+          />
+          <p className="text-xs text-muted-foreground mt-1">Define como a IA se comporta no chat e nas ofertas</p>
         </div>
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? "Salvando..." : "Salvar Configurações"}</Button>
       </CardContent>
@@ -555,10 +566,7 @@ function MemberPreviewTab() {
                   Maria, que bom te ver de volta! 😊
                 </div>
                 <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
-                  📖 Você parou na página 12 de 30 do "Água que Cura". Continue de onde parou — faltam apenas 18 páginas! 💪
-                </div>
-                <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-600 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}08` }}>
-                  Está conseguindo aplicar o passo a passo? 🙏
+                  📖 Você parou na página 12 de 30 do "Água que Cura". Continue de onde parou! 💪
                 </div>
               </div>
             </div>
