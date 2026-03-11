@@ -23,138 +23,69 @@ interface Props {
 export default function LockedOfferCard({ offer, themeColor, aiMessage, ownedProductNames }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const hasImage = !!offer.image_url;
-
   return (
     <>
-      {/* Netflix-style card — image dominant, desirable */}
-      <div
-        className="rounded-2xl overflow-hidden cursor-pointer transition-all duration-400 group relative"
-        style={{
-          background: hasImage ? "transparent" : "rgba(255,255,255,0.04)",
-          border: `1px solid ${themeColor}20`,
-          boxShadow: `0 0 20px ${themeColor}08`,
-        }}
+      {/* Horizontal card — same structure as product cards but locked style */}
+      <button
+        className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
         onClick={() => setDialogOpen(true)}
       >
-        {hasImage ? (
-          <div className="relative h-44 overflow-hidden">
+        {/* Square image with lock overlay */}
+        <div className="relative shrink-0">
+          {offer.image_url ? (
             <img
-              src={offer.image_url!}
+              src={offer.image_url}
               alt={offer.name}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              className="h-16 w-16 rounded-xl object-cover opacity-70 grayscale-[30%]"
             />
-            {/* Dark gradient overlay */}
+          ) : (
             <div
-              className="absolute inset-0"
-              style={{
-                background: `linear-gradient(0deg, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.4) 50%, rgba(15,23,42,0.2) 100%)`,
-              }}
-            />
-
-            {/* Category tag */}
-            {offer.category_tag && (
-              <div
-                className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-white"
-                style={{ backgroundColor: `${themeColor}cc` }}
-              >
-                {offer.category_tag}
-              </div>
-            )}
-
-            {/* Lock icon */}
-            <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-              <Lock className="h-3.5 w-3.5 text-white/80" />
-            </div>
-
-            {/* Bottom content over image */}
-            <div className="absolute bottom-0 left-0 right-0 px-4 pb-4">
-              <h3 className="font-bold text-white text-base leading-tight">{offer.name}</h3>
-              {offer.description && (
-                <p className="text-white/60 text-xs mt-1 line-clamp-1">{offer.description}</p>
-              )}
-              <div className="flex items-center gap-2 mt-2.5">
-                <div
-                  className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-white flex items-center gap-1.5"
-                  style={{ backgroundColor: themeColor }}
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Saiba mais
-                </div>
-                {offer.price && (
-                  <span className="text-white/50 text-xs">
-                    R$ {offer.price.toFixed(2).replace(".", ",")}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* No-image variant — still premium */
-          <div className="px-4 py-4 flex items-center gap-3.5">
-            <div
-              className="h-14 w-14 rounded-xl flex items-center justify-center shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${themeColor}25, ${themeColor}10)`,
-                border: `1px solid ${themeColor}20`,
-              }}
+              className="h-16 w-16 rounded-xl flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${themeColor}12, ${themeColor}06)` }}
             >
-              <Lock className="h-5 w-5" style={{ color: themeColor }} />
+              <Lock className="h-6 w-6" style={{ color: `${themeColor}80` }} />
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-white/90 text-sm truncate">{offer.name}</h3>
-              {offer.description && (
-                <p className="text-slate-500 text-xs mt-0.5 line-clamp-1">{offer.description}</p>
-              )}
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <Sparkles className="h-3 w-3" style={{ color: themeColor }} />
-                <span className="text-[11px] font-semibold" style={{ color: themeColor }}>
-                  Toque para descobrir
-                </span>
-              </div>
-            </div>
+          )}
+          <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center shadow-sm">
+            <Lock className="h-2.5 w-2.5 text-white" strokeWidth={3} />
           </div>
-        )}
+        </div>
 
-        {/* Glow effect on hover */}
-        <div
-          className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
-          style={{
-            boxShadow: `inset 0 0 30px ${themeColor}10, 0 0 30px ${themeColor}10`,
-          }}
-        />
-      </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
+          {offer.category_tag && (
+            <span
+              className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
+              style={{ backgroundColor: `${themeColor}cc` }}
+            >
+              {offer.category_tag}
+            </span>
+          )}
+          <span className="flex items-center gap-1 mt-1 text-[11px] font-semibold" style={{ color: themeColor }}>
+            <Sparkles className="h-3 w-3" />
+            Toque para saber mais
+          </span>
+        </div>
+      </button>
 
-      {/* Premium dark popup */}
+      {/* Clean light popup */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent
-          className="sm:max-w-md rounded-3xl border-0 p-0 overflow-hidden"
-          style={{
-            background: "linear-gradient(180deg, #0f172a 0%, #1e293b 100%)",
-            boxShadow: `0 0 60px ${themeColor}15, 0 25px 50px rgba(0,0,0,0.5)`,
-          }}
-        >
-          {/* Offer image in popup */}
+        <DialogContent className="sm:max-w-md rounded-2xl border border-gray-100 p-0 overflow-hidden bg-white shadow-xl">
+          {/* Offer image */}
           {offer.image_url && (
-            <div className="relative h-48 overflow-hidden">
+            <div className="h-48 overflow-hidden">
               <img
                 src={offer.image_url}
                 alt={offer.name}
                 className="w-full h-full object-cover"
               />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `linear-gradient(0deg, #0f172a 0%, transparent 60%)`,
-                }}
-              />
             </div>
           )}
 
-          <div className="px-6 pb-6 space-y-4" style={{ paddingTop: offer.image_url ? "0" : "24px" }}>
+          <div className="px-6 pb-6 space-y-4" style={{ paddingTop: offer.image_url ? "16px" : "24px" }}>
             {/* Title */}
             <div>
-              <h2 className="text-lg font-bold text-white">{offer.name}</h2>
+              <h2 className="text-lg font-bold text-gray-800">{offer.name}</h2>
               {offer.category_tag && (
                 <span
                   className="inline-block mt-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider text-white"
@@ -165,18 +96,18 @@ export default function LockedOfferCard({ offer, themeColor, aiMessage, ownedPro
               )}
             </div>
 
-            {/* AI personalized message */}
+            {/* AI personalized message or description */}
             {aiMessage ? (
-              <p className="text-sm text-slate-300 leading-relaxed">{aiMessage}</p>
+              <p className="text-sm text-gray-600 leading-relaxed">{aiMessage}</p>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm text-slate-300 leading-relaxed">
+                <p className="text-sm text-gray-600 leading-relaxed">
                   {offer.description || `${offer.name} é um conteúdo exclusivo preparado para complementar sua jornada.`}
                 </p>
                 {ownedProductNames && ownedProductNames.length > 0 && (
-                  <p className="text-sm text-slate-400 leading-relaxed">
+                  <p className="text-sm text-gray-500 leading-relaxed">
                     Você já desbloqueou{" "}
-                    <span className="font-semibold text-white/80">
+                    <span className="font-semibold text-gray-700">
                       {ownedProductNames.join(" e ")}
                     </span>
                     . Este material complementa perfeitamente o que você já está praticando.
@@ -191,12 +122,19 @@ export default function LockedOfferCard({ offer, themeColor, aiMessage, ownedPro
                 {ownedProductNames.map((name) => (
                   <span
                     key={name}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/5 text-slate-400 border border-white/8"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-50 text-gray-500 border border-gray-100"
                   >
                     ✓ {name}
                   </span>
                 ))}
               </div>
+            )}
+
+            {/* Price */}
+            {offer.price && (
+              <p className="text-lg font-bold text-gray-800">
+                R$ {offer.price.toFixed(2).replace(".", ",")}
+              </p>
             )}
 
             {/* CTA */}
@@ -205,7 +143,7 @@ export default function LockedOfferCard({ offer, themeColor, aiMessage, ownedPro
                 className="w-full h-12 rounded-xl font-bold text-white text-sm tracking-wide border-0"
                 style={{
                   background: `linear-gradient(135deg, ${themeColor}, ${themeColor}dd)`,
-                  boxShadow: `0 4px 20px ${themeColor}40`,
+                  boxShadow: `0 4px 15px ${themeColor}30`,
                 }}
                 onClick={() => window.open(offer.purchase_url, "_blank")}
               >
