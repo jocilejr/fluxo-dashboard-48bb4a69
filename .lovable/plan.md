@@ -1,33 +1,26 @@
 
 
-## Problema
+## Plano: Reduzir para 1 mensagem única e dinâmica
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Problema
+As 2 mensagens (greeting + tip) ficam repetitivas e desconexas. O usuário quer apenas **1 mensagem** por vez, mas que varie radicalmente entre categorias.
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+### Mudanças
 
-## Solução
+**1. Edge function `member-ai-context/index.ts`**
+- Mudar o prompt para gerar **1 única mensagem** em vez de 2
+- Remover o campo `greeting` separado — a saudação com o nome fica integrada na mensagem única
+- A mensagem segue a categoria sorteada (salmo, progresso, reflexão, curiosidade, oração, incentivo, pergunta)
+- Manter `temperature: 1.1` e regra anti-travessão
+- Tool call retorna apenas `{ message: string }` em vez de `{ greeting, followup }`
+- Mapear o resultado para `{ greeting: message, tip: "" }` para compatibilidade com o frontend
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+**2. Frontend `AreaMembrosPublica.tsx`**
+- Remover lógica de `showTypingAfterFirst` e revelação sequencial de 2 mensagens
+- Mostrar apenas 1 balão de chat (o `greeting`)
+- Simplificar: loading dots → mensagem aparece (sem segundo passo)
 
-### Alteração em `src/hooks/useTransactions.ts`
-
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
-
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Arquivos modificados
+- `supabase/functions/member-ai-context/index.ts`
+- `src/pages/AreaMembrosPublica.tsx`
 
