@@ -1,29 +1,33 @@
 
 
-## Fix: Admin Area Colors and Layout for Dark Theme
+## Problema
 
-### Root Cause
-The entire app uses a dark color scheme (CSS variables: `--background: 220 20% 4%`, `--foreground: 0 0% 98%`), but the admin member area components use hardcoded light-mode Tailwind colors like `text-gray-900`, `bg-white`, `bg-gray-50`, `bg-emerald-50`, `bg-amber-50`, `bg-gray-100/80`. This creates unreadable text and broken contrast.
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-### Fix Strategy
-Replace all hardcoded gray/white/colored backgrounds and text colors with theme-aware CSS variable classes (`text-foreground`, `bg-card`, `bg-muted`, `border-border`, `text-muted-foreground`, etc.) across all admin member area files.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-### Files to Edit
+## Solução
 
-**1. `src/pages/AreaMembros.tsx`**
-- Header: `text-gray-900` → `text-foreground`, `text-gray-500` → `text-muted-foreground`
-- Stats cards: `bg-emerald-50`, `bg-amber-50`, `bg-primary/5` → use `bg-card` or `bg-muted` with accent borders
-- TabsList: `bg-gray-100/80` → `bg-muted`, `data-[state=active]:bg-white` → `data-[state=active]:bg-card`
-- Labels: all `text-gray-500`, `text-gray-400` → `text-muted-foreground`
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-**2. `src/components/membros/MemberClientCard.tsx`**
-- URL bar: `bg-gray-50` → `bg-muted`
-- Text: `text-gray-900`, `text-gray-700`, `text-gray-500`, `text-gray-400` → theme tokens
-- Transaction rows: `bg-gray-50/80` → `bg-muted/50`
-- Borders: `border-gray-100` → `border-border`
+### Alteração em `src/hooks/useTransactions.ts`
 
-**3. `src/components/membros/ContentManagement.tsx`**
-- Same pattern: replace all hardcoded light colors with theme-aware equivalents
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-No database changes needed. Pure CSS/class fixes.
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
+
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
