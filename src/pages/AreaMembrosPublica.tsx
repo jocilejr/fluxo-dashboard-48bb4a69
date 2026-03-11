@@ -381,57 +381,44 @@ export default function AreaMembrosPublica() {
     <div className="min-h-screen bg-gray-50">
       <div className="h-1" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}90, ${themeColor})` }} />
 
-      <header className="bg-white border-b border-gray-100">
-        <div className="max-w-2xl mx-auto px-5 py-5 flex items-center gap-4">
-          {settings?.logo_url && (
-            <img
-              src={settings.logo_url}
-              alt="Logo"
-              className="h-14 w-14 rounded-2xl object-cover shrink-0 shadow-sm"
-              style={{ border: `2px solid ${themeColor}20` }}
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-gray-800 tracking-tight">
-              Olá, {firstName}
-            </h1>
-          </div>
-        </div>
-      </header>
+      <main className="max-w-2xl mx-auto px-5 pt-6 pb-20 space-y-3">
+        {/* Greeting */}
+        <h1 className="text-xl font-bold text-gray-800 tracking-tight px-1">
+          Olá, {firstName}
+        </h1>
 
-      <main className="max-w-2xl mx-auto px-5 pt-5 pb-20 space-y-3">
         {/* Meire Rosana Chat Bubble */}
-        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2.5 px-4 py-2.5 border-b border-gray-50">
-            <img src={meirePhoto} alt="Meire Rosana" className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-100" />
+        <div className="rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden" style={{ backgroundColor: "#fafbfc" }}>
+          <div className="flex items-center gap-2.5 px-4 py-3">
+            <img src={meirePhoto} alt="Meire Rosana" className="h-9 w-9 rounded-full object-cover shadow-sm" style={{ border: `2px solid ${themeColor}40` }} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800 leading-tight">Meire Rosana</p>
+              <p className="text-[13px] font-semibold text-gray-800 leading-tight">Meire Rosana</p>
               {aiLoading && (
-                <p className="text-[11px] text-emerald-500 font-medium">digitando...</p>
+                <p className="text-[11px] font-medium" style={{ color: themeColor }}>digitando...</p>
               )}
             </div>
           </div>
-          <div className="px-4 py-3 space-y-2">
+          <div className="px-4 pb-3.5 pt-0.5 space-y-1.5">
             {aiLoading ? (
-              <div className="flex items-center gap-1 px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm w-fit">
-                <span className="inline-block h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="inline-block h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="inline-block h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+              <div className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl rounded-tl-md w-fit" style={{ backgroundColor: `${themeColor}10` }}>
+                <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "0ms" }} />
+                <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "150ms" }} />
+                <span className="inline-block h-1.5 w-1.5 rounded-full animate-bounce" style={{ backgroundColor: `${themeColor}80`, animationDelay: "300ms" }} />
               </div>
             ) : (
               <>
                 {aiContext?.greeting && (
-                  <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%]">
+                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
                     {aiContext.greeting}
                   </div>
                 )}
                 {aiContext?.progressMessage && (
-                  <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%]">
+                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
                     {aiContext.progressMessage}
                   </div>
                 )}
                 {aiContext?.tip && (
-                  <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%] italic">
+                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-600 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}08` }}>
                     {aiContext.tip}
                   </div>
                 )}

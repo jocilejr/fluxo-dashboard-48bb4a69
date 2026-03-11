@@ -537,32 +537,27 @@ function MemberPreviewTab() {
           {/* Theme bar */}
           <div className="h-1" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}90, ${themeColor})` }} />
 
-          {/* Header */}
-          <div className="bg-white border-b border-gray-100 px-5 py-5 flex items-center gap-4">
-            {logoUrl && (
-              <img src={logoUrl} alt="Logo" className="h-14 w-14 rounded-2xl object-cover shrink-0 shadow-sm" style={{ border: `2px solid ${themeColor}20` }} />
-            )}
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-bold text-gray-800 tracking-tight">Olá, Maria</h1>
-            </div>
+          {/* Greeting */}
+          <div className="px-5 pt-5">
+            <h1 className="text-xl font-bold text-gray-800 tracking-tight">Olá, Maria</h1>
           </div>
 
           {/* Content */}
           <div className="px-4 py-4 space-y-3">
             {/* Meire Rosana Chat Bubble Mock */}
-            <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
-              <div className="flex items-center gap-2.5 px-4 py-2.5 border-b border-gray-50">
-                <img src={meirePhoto} alt="Meire Rosana" className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-100" />
-                <p className="text-sm font-semibold text-gray-800 leading-tight">Meire Rosana</p>
+            <div className="rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden" style={{ backgroundColor: "#fafbfc" }}>
+              <div className="flex items-center gap-2.5 px-4 py-3">
+                <img src={meirePhoto} alt="Meire Rosana" className="h-9 w-9 rounded-full object-cover shadow-sm" style={{ border: `2px solid ${themeColor}40` }} />
+                <p className="text-[13px] font-semibold text-gray-800 leading-tight">Meire Rosana</p>
               </div>
-              <div className="px-4 py-3 space-y-2">
-                <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%]">
+              <div className="px-4 pb-3.5 pt-0.5 space-y-1.5">
+                <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
                   Maria, que bom te ver de volta! 😊
                 </div>
-                <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%]">
+                <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
                   📖 Você parou na página 12 de 30 do "Água que Cura". Continue de onde parou — faltam apenas 18 páginas! 💪
                 </div>
-                <div className="px-3 py-2 bg-gray-50 rounded-2xl rounded-tl-sm text-sm text-gray-700 leading-relaxed w-fit max-w-[90%] italic">
+                <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-600 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}08` }}>
                   Está conseguindo aplicar o passo a passo? 🙏
                 </div>
               </div>
