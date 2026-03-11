@@ -2,10 +2,11 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
-import { Loader2, Crown, ShoppingBag, ChevronDown, ShieldCheck, Check } from "lucide-react";
+import { Loader2, Crown, ShoppingBag, Check, Lock } from "lucide-react";
 import DailyVerse from "@/components/membros/DailyVerse";
 import ProductContentViewer from "@/components/membros/ProductContentViewer";
 import LockedOfferCard from "@/components/membros/LockedOfferCard";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface MemberProduct {
   id: string;
@@ -47,7 +48,7 @@ export default function AreaMembrosPublica() {
   const [settings, setSettings] = useState<MemberSettings | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [openProductId, setOpenProductId] = useState<string | null>(null);
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
 
@@ -84,10 +85,6 @@ export default function AreaMembrosPublica() {
     );
     const name = customerRes.data?.name || null;
     setCustomerName(name);
-
-    const sorted = [...memberProds].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());
-    if (sorted.length > 0) setExpandedProduct(sorted[0].id);
-
     setLoading(false);
     loadAiContext(name, memberProds, memberOffers);
   };
@@ -167,12 +164,18 @@ export default function AreaMembrosPublica() {
 
   const firstName = customerName?.split(" ")[0] || "Querido(a)";
 
+  // Find the product being viewed in popup
+  const openProduct = useMemo(() => {
+    if (!openProductId) return null;
+    return sortedProducts.find(p => p.id === openProductId) || null;
+  }, [openProductId, sortedProducts]);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center space-y-3">
-          <Loader2 className="h-7 w-7 animate-spin text-slate-500 mx-auto" />
-          <p className="text-slate-500 text-sm">Carregando...</p>
+          <Loader2 className="h-7 w-7 animate-spin text-gray-400 mx-auto" />
+          <p className="text-gray-400 text-sm">Carregando...</p>
         </div>
       </div>
     );
@@ -180,191 +183,98 @@ export default function AreaMembrosPublica() {
 
   if (notFound) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center space-y-3 max-w-sm">
-          <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center mx-auto">
-            <Crown className="h-8 w-8 text-slate-600" />
+          <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+            <Crown className="h-8 w-8 text-gray-400" />
           </div>
-          <h1 className="text-xl font-bold text-white">Área não encontrada</h1>
-          <p className="text-slate-400 text-sm leading-relaxed">Não encontramos produtos liberados para este número.</p>
+          <h1 className="text-xl font-bold text-gray-800">Área não encontrada</h1>
+          <p className="text-gray-500 text-sm leading-relaxed">Não encontramos produtos liberados para este número.</p>
         </div>
       </div>
     );
   }
 
   const themeColor = settings?.theme_color || "#8B5CF6";
-
-  const renderHeroProduct = (mp: MemberProduct) => {
-    const product = mp.delivery_products;
-    if (!product) return null;
-    const isExpanded = expandedProduct === mp.id;
-
-    return (
-      <div
-        key={mp.id}
-        className="rounded-3xl overflow-hidden transition-all duration-500"
-        style={{
-          background: `linear-gradient(145deg, ${themeColor}18, ${themeColor}08, rgba(255,255,255,0.03))`,
-          border: `1px solid ${themeColor}30`,
-          boxShadow: `0 0 40px ${themeColor}10, 0 4px 20px rgba(0,0,0,0.3)`,
-        }}
-      >
-        <button
-          className="w-full px-5 py-5 flex items-center gap-4 text-left transition-colors"
-          onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
-        >
-          {product.page_logo ? (
-            <div className="relative">
-              <img
-                src={product.page_logo}
-                alt={product.name}
-                className="h-16 w-16 rounded-2xl object-cover shrink-0"
-                style={{ boxShadow: `0 4px 20px ${themeColor}30` }}
-              />
-              <div
-                className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: themeColor }}
-              >
-                <Check className="h-3 w-3 text-white" strokeWidth={3} />
-              </div>
-            </div>
-          ) : (
-            <div
-              className="h-16 w-16 rounded-2xl flex items-center justify-center shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${themeColor}30, ${themeColor}15)`,
-                boxShadow: `0 4px 20px ${themeColor}20`,
-              }}
-            >
-              <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-white text-base truncate">{product.name}</h3>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <ShieldCheck className="h-3.5 w-3.5" style={{ color: themeColor }} />
-              <span
-                className="text-[11px] font-bold tracking-wide uppercase"
-                style={{ color: themeColor }}
-              >
-                Desbloqueado
-              </span>
-            </div>
-          </div>
-          <ChevronDown
-            className={`h-5 w-5 text-slate-500 transition-transform duration-500 shrink-0 ${isExpanded ? "rotate-180" : ""}`}
-          />
-        </button>
-        {isExpanded && (
-          <div className="px-5 pb-5 border-t" style={{ borderColor: `${themeColor}15` }}>
-            <div className="pt-4">
-              <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderProductCard = (mp: MemberProduct) => {
-    const product = mp.delivery_products;
-    if (!product) return null;
-    const isExpanded = expandedProduct === mp.id;
-
-    return (
-      <div
-        key={mp.id}
-        className="rounded-2xl overflow-hidden transition-all duration-400 hover:bg-white/[0.06]"
-        style={{
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}
-      >
-        <button
-          className="w-full px-4 py-3.5 flex items-center gap-3.5 text-left"
-          onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
-        >
-          {product.page_logo ? (
-            <div className="relative">
-              <img
-                src={product.page_logo}
-                alt={product.name}
-                className="h-12 w-12 rounded-xl object-cover shrink-0"
-                style={{ border: `2px solid ${themeColor}25` }}
-              />
-              <div
-                className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "#10b981" }}
-              >
-                <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
-              </div>
-            </div>
-          ) : (
-            <div
-              className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
-            >
-              <ShoppingBag className="h-5 w-5" style={{ color: themeColor }} />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-white/90 text-sm truncate">{product.name}</h3>
-            <span className="text-[11px] font-medium text-emerald-400/80 mt-0.5 block">Liberado</span>
-          </div>
-          <ChevronDown className={`h-4 w-4 text-slate-600 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
-        </button>
-        {isExpanded && (
-          <div className="px-4 pb-4 border-t border-white/[0.06]">
-            <div className="pt-4">
-              <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // Determine the greeting text: AI > settings > default
   const greetingText = aiContext?.greeting || settings?.welcome_message || "Sua área exclusiva";
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
-      {/* Gradient accent bar */}
-      <div
-        className="h-1"
-        style={{
-          background: `linear-gradient(90deg, ${themeColor}, ${themeColor}80, ${themeColor})`,
-        }}
-      />
+  const isRecent = (grantedAt: string) => {
+    const diffDays = (Date.now() - new Date(grantedAt).getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 7;
+  };
 
-      {/* Header — Premium glassmorphism */}
-      <header
-        className="backdrop-blur-xl border-b"
-        style={{
-          background: "rgba(255,255,255,0.03)",
-          borderColor: "rgba(255,255,255,0.06)",
-        }}
+  const renderProductCard = (mp: MemberProduct, index: number) => {
+    const product = mp.delivery_products;
+    if (!product) return null;
+    const recent = isRecent(mp.granted_at);
+
+    return (
+      <button
+        key={mp.id}
+        className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
+        onClick={() => setOpenProductId(mp.id)}
       >
-        <div className="max-w-2xl mx-auto px-5 py-6 flex items-center gap-4">
-          {settings?.logo_url && (
-            <div className="relative shrink-0">
-              <img
-                src={settings.logo_url}
-                alt="Logo"
-                className="h-14 w-14 rounded-2xl object-cover"
-                style={{
-                  boxShadow: `0 0 25px ${themeColor}25, 0 4px 12px rgba(0,0,0,0.4)`,
-                  border: `2px solid ${themeColor}30`,
-                }}
-              />
+        {product.page_logo ? (
+          <div className="relative shrink-0">
+            <img
+              src={product.page_logo}
+              alt={product.name}
+              className="h-16 w-16 rounded-xl object-cover"
+              style={{ border: `2px solid ${themeColor}20` }}
+            />
+            <div
+              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm"
+              style={{ backgroundColor: "#10b981" }}
+            >
+              <Check className="h-3 w-3 text-white" strokeWidth={3} />
             </div>
+          </div>
+        ) : (
+          <div
+            className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}
+          >
+            <ShoppingBag className="h-7 w-7" style={{ color: themeColor }} />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{product.name}</h3>
+          {recent ? (
+            <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              ✓ Liberado recentemente
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-gray-500">
+              ✓ Liberado
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Theme accent bar */}
+      <div className="h-1" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}90, ${themeColor})` }} />
+
+      {/* Header — Clean & light */}
+      <header className="bg-white border-b border-gray-100">
+        <div className="max-w-2xl mx-auto px-5 py-5 flex items-center gap-4">
+          {settings?.logo_url && (
+            <img
+              src={settings.logo_url}
+              alt="Logo"
+              className="h-14 w-14 rounded-2xl object-cover shrink-0 shadow-sm"
+              style={{ border: `2px solid ${themeColor}20` }}
+            />
           )}
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-white tracking-tight">
+            <h1 className="text-xl font-bold text-gray-800 tracking-tight">
               Olá, {firstName}
             </h1>
             <p
-              className="text-sm text-slate-400 mt-0.5 leading-relaxed line-clamp-2 transition-opacity duration-700"
+              className="text-sm text-gray-500 mt-0.5 leading-relaxed line-clamp-2 transition-opacity duration-700"
               style={{ opacity: aiContext?.greeting ? 1 : 0.7 }}
             >
               {greetingText}
@@ -373,11 +283,11 @@ export default function AreaMembrosPublica() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-5 pt-6 pb-20 space-y-4">
-        {/* Hero product — first/newest */}
-        {sortedProducts.length > 0 && renderHeroProduct(sortedProducts[0])}
+      <main className="max-w-2xl mx-auto px-5 pt-5 pb-20 space-y-3">
+        {/* Products as horizontal cards */}
+        {sortedProducts.length > 0 && renderProductCard(sortedProducts[0], 0)}
 
-        {/* AI suggested offer — between hero and rest */}
+        {/* AI suggested offer — between first product and rest */}
         {aiContext?.offerSuggestion?.offerId && aiContext.offerSuggestion.message ? (
           (() => {
             const suggestedOffer = offers.find((o: any) => o.id === aiContext.offerSuggestion.offerId);
@@ -392,22 +302,15 @@ export default function AreaMembrosPublica() {
           })()
         ) : null}
 
-        {/* AI personal message — inline, no card chrome */}
+        {/* AI tip — subtle inline */}
         {aiContext?.tip && (
-          <p
-            className="text-sm text-slate-400 italic leading-relaxed px-1 transition-opacity duration-700"
-            style={{ opacity: 1 }}
-          >
+          <p className="text-sm text-gray-500 italic leading-relaxed px-1 transition-opacity duration-700">
             {aiContext.tip}
           </p>
         )}
 
         {/* Remaining products */}
-        {sortedProducts.length > 1 && (
-          <div className="space-y-3">
-            {sortedProducts.slice(1).map((mp) => renderProductCard(mp))}
-          </div>
-        )}
+        {sortedProducts.slice(1).map((mp, i) => renderProductCard(mp, i + 1))}
 
         {/* Daily Verse */}
         <DailyVerse />
@@ -419,7 +322,7 @@ export default function AreaMembrosPublica() {
             : offers;
           return filteredOffers.length > 0 ? (
             <div className="space-y-3 pt-2">
-              <p className="text-xs font-medium text-slate-600 uppercase tracking-wider px-1">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1">
                 Descubra mais
               </p>
               {filteredOffers.map((offer: any) => (
@@ -435,14 +338,35 @@ export default function AreaMembrosPublica() {
         })()}
       </main>
 
-      <footer
-        className="text-center py-6 border-t"
-        style={{
-          borderColor: "rgba(255,255,255,0.04)",
-          background: "rgba(255,255,255,0.02)",
-        }}
-      >
-        <p className="text-[11px] text-slate-600">Área exclusiva para membros ✝️</p>
+      {/* Product content popup */}
+      <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl">
+          {openProduct?.delivery_products && (
+            <>
+              <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3">
+                {openProduct.delivery_products.page_logo && (
+                  <img
+                    src={openProduct.delivery_products.page_logo}
+                    alt=""
+                    className="h-10 w-10 rounded-lg object-cover"
+                  />
+                )}
+                <h2 className="font-bold text-gray-800 text-lg truncate">{openProduct.delivery_products.name}</h2>
+              </div>
+              <div className="p-5">
+                <ProductContentViewer
+                  productId={openProduct.product_id}
+                  productName={openProduct.delivery_products.name}
+                  themeColor={themeColor}
+                />
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <footer className="text-center py-6 border-t border-gray-100 bg-white">
+        <p className="text-[11px] text-gray-400">Área exclusiva para membros ✝️</p>
       </footer>
     </div>
   );

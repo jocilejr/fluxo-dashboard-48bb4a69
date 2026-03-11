@@ -43,23 +43,17 @@ export default function DailyVerse() {
   }, []);
 
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl"
-      style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.06)",
-      }}
-    >
+    <div className="relative overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm">
       <div className="relative px-5 py-4">
-        <div className="absolute top-1 left-3 text-white/[0.06] text-4xl font-serif leading-none select-none">"</div>
+        <div className="absolute top-1 left-3 text-gray-100 text-4xl font-serif leading-none select-none">"</div>
 
         <div className="pl-5">
-          <p className="text-sm text-slate-300 leading-relaxed font-medium" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
+          <p className="text-sm text-gray-700 leading-relaxed font-medium" style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}>
             {verse.text}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <div className="h-px flex-1 max-w-[30px] bg-gradient-to-r from-slate-600 to-transparent" />
-            <p className="text-[10px] font-semibold text-slate-500 tracking-wide uppercase">{verse.ref}</p>
+            <div className="h-px flex-1 max-w-[30px] bg-gradient-to-r from-gray-300 to-transparent" />
+            <p className="text-[10px] font-semibold text-gray-400 tracking-wide uppercase">{verse.ref}</p>
           </div>
         </div>
       </div>

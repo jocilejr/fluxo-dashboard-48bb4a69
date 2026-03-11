@@ -113,7 +113,7 @@ export default function ProductContentViewer({ productId, productName, themeColo
             >
               {cat.icon || "📖"}
             </div>
-            <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider">{cat.name}</h4>
+            <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">{cat.name}</h4>
             <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent" />
             <span className="text-xs text-gray-400 font-medium">{cat.materials.length}</span>
           </div>

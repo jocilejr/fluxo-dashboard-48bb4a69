@@ -954,6 +954,7 @@ export type Database = {
           content_text: string | null
           content_type: string
           content_url: string | null
+          cover_image_url: string | null
           created_at: string
           description: string | null
           id: string
@@ -968,6 +969,7 @@ export type Database = {
           content_text?: string | null
           content_type?: string
           content_url?: string | null
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -982,6 +984,7 @@ export type Database = {
           content_text?: string | null
           content_type?: string
           content_url?: string | null
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
           id?: string

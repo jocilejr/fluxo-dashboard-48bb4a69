@@ -76,7 +76,7 @@ export default function MaterialCard({ material, themeColor, preloadedPdf }: Pro
           </div>
 
           <div className="flex-1 min-w-0 space-y-1">
-            <p className="font-semibold text-sm text-foreground leading-snug line-clamp-2 group-hover:text-muted-foreground transition-colors">
+            <p className="font-semibold text-sm text-gray-800 leading-snug line-clamp-2 group-hover:text-gray-600 transition-colors">
               {material.title}
             </p>
             {material.description && (
