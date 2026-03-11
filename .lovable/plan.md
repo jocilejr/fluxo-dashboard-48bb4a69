@@ -1,33 +1,26 @@
 
 
-## Problema
+## Plano: Card menor + dimensões de imagem + edição de ofertas
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Mudanças
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+**1. Card de oferta menor (`LockedOfferCard.tsx`)**
+- Reduzir altura da imagem de `h-[120px]` para `h-[90px]`
+- Reduzir altura do fallback sem imagem de `h-[100px]` para `h-[80px]`
+- Reduzir padding do bottom section
 
-## Solução
+**2. Especificação de dimensões na aba Ofertas (`AreaMembros.tsx` — `MemberOffersTab`)**
+- Adicionar texto de ajuda no campo de imagem: "Tamanho recomendado: 600×200px (formato banner horizontal)"
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+**3. Edição de ofertas (`AreaMembros.tsx` — `MemberOffersTab`)**
+- Adicionar estado `editingOffer` para controlar qual oferta está sendo editada
+- Criar botão de editar (ícone Edit) ao lado do Switch e do botão de excluir em cada oferta
+- Reutilizar o mesmo dialog de criação, mas pré-preenchido com os dados da oferta
+- Ao salvar, fazer `update` em vez de `insert` quando `editingOffer` está definido
+- Campos editáveis: descrição, imagem, URL de compra, preço, category_tag
+- Adicionar campo `category_tag` (texto livre) no form de criar/editar, com placeholder "Ex: Material complementar"
 
-### Alteração em `src/hooks/useTransactions.ts`
-
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
-
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Arquivos modificados
+- `src/components/membros/LockedOfferCard.tsx` — reduzir alturas
+- `src/pages/AreaMembros.tsx` — adicionar edição de ofertas + dica de dimensões + campo category_tag
 
