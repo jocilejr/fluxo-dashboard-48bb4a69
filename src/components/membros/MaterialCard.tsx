@@ -1,8 +1,10 @@
 import { useState, lazy, Suspense } from "react";
 import { FileText, Video, Image, Download, ExternalLink, ArrowLeft, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type * as pdfjsLib from "pdfjs-dist";
 
-const PdfViewer = lazy(() => import("./PdfViewer"));
+const PdfViewerLazy = lazy(() => import("./PdfViewer"));
+import PdfViewer from "./PdfViewer";
 import { Button } from "@/components/ui/button";
 
 interface Material {
@@ -18,6 +20,7 @@ interface Material {
 interface Props {
   material: Material;
   themeColor: string;
+  preloadedPdf?: pdfjsLib.PDFDocumentProxy | null;
 }
 
 const typeConfig: Record<string, { icon: typeof FileText; label: string; accent: string }> = {
@@ -27,7 +30,7 @@ const typeConfig: Record<string, { icon: typeof FileText; label: string; accent:
   image: { icon: Image, label: "Imagem", accent: "#10b981" },
 };
 
-export default function MaterialCard({ material, themeColor }: Props) {
+export default function MaterialCard({ material, themeColor, preloadedPdf }: Props) {
   const [open, setOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const config = typeConfig[material.content_type] || typeConfig.text;
@@ -39,6 +42,21 @@ export default function MaterialCard({ material, themeColor }: Props) {
     } else {
       setOpen(true);
     }
+  };
+
+  const renderPdfViewer = () => {
+    if (preloadedPdf) {
+      return <PdfViewer url={material.content_url || ""} themeColor={themeColor} preloadedPdf={preloadedPdf} />;
+    }
+    return (
+      <Suspense fallback={
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+        </div>
+      }>
+        <PdfViewerLazy url={material.content_url || ""} themeColor={themeColor} />
+      </Suspense>
+    );
   };
 
   return (
@@ -89,13 +107,7 @@ export default function MaterialCard({ material, themeColor }: Props) {
             </Button>
             <h2 className="text-lg font-bold truncate text-foreground">{material.title}</h2>
           </div>
-          <Suspense fallback={
-            <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-            </div>
-          }>
-            <PdfViewer url={material.content_url || ""} themeColor={themeColor} />
-          </Suspense>
+          {renderPdfViewer()}
         </DialogContent>
       </Dialog>
 

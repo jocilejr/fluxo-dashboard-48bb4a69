@@ -1,7 +1,11 @@
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import * as pdfjsLib from "pdfjs-dist";
 import MaterialCard from "./MaterialCard";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 interface Props {
   productId: string;
@@ -10,6 +14,9 @@ interface Props {
 }
 
 export default function ProductContentViewer({ productId, productName, themeColor }: Props) {
+  const [preloadedPdf, setPreloadedPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const preloadedPdfIdRef = useRef<string | null>(null);
+
   const { data: categories, isLoading: loadingCats } = useQuery({
     queryKey: ["member-categories", productId],
     queryFn: async () => {
@@ -34,6 +41,31 @@ export default function ProductContentViewer({ productId, productName, themeColo
     },
   });
 
+  // Pre-load the most recent PDF in background
+  const allMaterials = materials || [];
+  const mostRecentPdf = [...allMaterials]
+    .reverse()
+    .find((m) => m.content_type === "pdf" && m.content_url);
+
+  useEffect(() => {
+    if (!mostRecentPdf?.content_url || preloadedPdfIdRef.current === mostRecentPdf.id) return;
+    preloadedPdfIdRef.current = mostRecentPdf.id;
+
+    pdfjsLib
+      .getDocument({
+        url: mostRecentPdf.content_url,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+        useSystemFonts: true,
+      })
+      .promise.then((doc) => {
+        setPreloadedPdf(doc);
+      })
+      .catch(() => {
+        // Silently fail — user will load on demand
+      });
+  }, [mostRecentPdf?.id, mostRecentPdf?.content_url]);
+
   if (loadingCats || loadingMats) {
     return (
       <div className="flex items-center justify-center py-10">
@@ -42,7 +74,6 @@ export default function ProductContentViewer({ productId, productName, themeColo
     );
   }
 
-  const allMaterials = materials || [];
   const allCategories = categories || [];
 
   if (allMaterials.length === 0) {
@@ -62,11 +93,19 @@ export default function ProductContentViewer({ productId, productName, themeColo
 
   const uncategorized = allMaterials.filter((m: any) => !m.category_id);
 
+  const renderMaterialCard = (mat: any) => (
+    <MaterialCard
+      key={mat.id}
+      material={mat}
+      themeColor={themeColor}
+      preloadedPdf={mostRecentPdf?.id === mat.id ? preloadedPdf : undefined}
+    />
+  );
+
   return (
     <div className="space-y-8">
       {categorized.map((cat: any) => (
         <div key={cat.id}>
-          {/* Category separator */}
           <div className="flex items-center gap-3 mb-4">
             <div
               className="h-8 w-8 rounded-lg flex items-center justify-center text-base"
@@ -79,9 +118,7 @@ export default function ProductContentViewer({ productId, productName, themeColo
             <span className="text-xs text-gray-400 font-medium">{cat.materials.length}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {cat.materials.map((mat: any) => (
-              <MaterialCard key={mat.id} material={mat} themeColor={themeColor} />
-            ))}
+            {cat.materials.map(renderMaterialCard)}
           </div>
         </div>
       ))}
@@ -102,9 +139,7 @@ export default function ProductContentViewer({ productId, productName, themeColo
             </div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {uncategorized.map((mat: any) => (
-              <MaterialCard key={mat.id} material={mat} themeColor={themeColor} />
-            ))}
+            {uncategorized.map(renderMaterialCard)}
           </div>
         </div>
       )}
