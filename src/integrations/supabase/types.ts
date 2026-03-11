@@ -833,7 +833,8 @@ export type Database = {
           is_active: boolean
           name: string
           price: number | null
-          purchase_url: string
+          product_id: string | null
+          purchase_url: string | null
           sort_order: number
           updated_at: string
         }
@@ -846,7 +847,8 @@ export type Database = {
           is_active?: boolean
           name: string
           price?: number | null
-          purchase_url: string
+          product_id?: string | null
+          purchase_url?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -859,11 +861,20 @@ export type Database = {
           is_active?: boolean
           name?: string
           price?: number | null
-          purchase_url?: string
+          product_id?: string | null
+          purchase_url?: string | null
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "member_area_offers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       member_area_settings: {
         Row: {
