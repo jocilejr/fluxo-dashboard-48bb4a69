@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { FileText, Video, Music, Image, ExternalLink, Eye } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { FileText, Video, Music, Image, ExternalLink, Eye, Play } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Material {
@@ -18,53 +17,45 @@ interface Props {
   themeColor: string;
 }
 
-const typeIcons: Record<string, typeof FileText> = {
-  text: FileText,
-  pdf: FileText,
-  video: Video,
-  audio: Music,
-  image: Image,
-  link: ExternalLink,
+const typeConfig: Record<string, { icon: typeof FileText; label: string }> = {
+  text: { icon: FileText, label: "Texto" },
+  pdf: { icon: FileText, label: "PDF" },
+  video: { icon: Video, label: "Vídeo" },
+  audio: { icon: Music, label: "Áudio" },
+  image: { icon: Image, label: "Imagem" },
+  link: { icon: ExternalLink, label: "Link" },
 };
 
 export default function MaterialCard({ material, themeColor }: Props) {
   const [open, setOpen] = useState(false);
-  const Icon = typeIcons[material.content_type] || FileText;
+  const config = typeConfig[material.content_type] || typeConfig.text;
+  const Icon = config.icon;
 
   const handleOpen = () => {
-    if (material.content_type === "text") {
-      setOpen(true);
-    } else if (material.content_type === "pdf" || material.content_type === "link") {
+    if (material.content_type === "pdf" || material.content_type === "link") {
       window.open(material.content_url || "#", "_blank");
-    } else if (material.content_type === "image") {
-      setOpen(true);
-    } else if (material.content_type === "video" || material.content_type === "audio") {
+    } else {
       setOpen(true);
     }
   };
 
   return (
     <>
-      <Card
-        className="flex items-center gap-3 p-3 cursor-pointer hover:shadow-md transition-all border-amber-100 hover:border-amber-300 group"
+      <button
         onClick={handleOpen}
+        className="group relative flex flex-col items-center gap-2 p-4 rounded-xl bg-white border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all duration-200 text-center min-h-[120px] justify-center"
       >
         <div
-          className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `${themeColor}15` }}
+          className="h-12 w-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
+          style={{ backgroundColor: `${themeColor}12` }}
         >
-          <Icon className="h-5 w-5" style={{ color: themeColor }} />
+          <Icon className="h-6 w-6" style={{ color: themeColor }} />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm text-gray-800 truncate">{material.title}</p>
-          {material.description && (
-            <p className="text-xs text-muted-foreground truncate">{material.description}</p>
-          )}
-        </div>
-        <Button variant="ghost" size="sm" className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Eye className="h-4 w-4" />
-        </Button>
-      </Card>
+        <p className="font-medium text-sm text-gray-800 leading-tight line-clamp-2">{material.title}</p>
+        <Badge variant="secondary" className="text-[10px] px-2 py-0 opacity-60">
+          {config.label}
+        </Badge>
+      </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -76,7 +67,7 @@ export default function MaterialCard({ material, themeColor }: Props) {
           </DialogHeader>
 
           {material.content_type === "text" && material.content_text && (
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap leading-relaxed text-gray-700 bg-amber-50/50 rounded-lg p-6 border border-amber-100">
+            <div className="prose prose-sm max-w-none whitespace-pre-wrap leading-relaxed text-gray-700 rounded-lg p-6 border" style={{ backgroundColor: `${themeColor}08`, borderColor: `${themeColor}20` }}>
               {material.content_text}
             </div>
           )}
@@ -101,8 +92,8 @@ export default function MaterialCard({ material, themeColor }: Props) {
           )}
 
           {material.content_type === "audio" && material.content_url && (
-            <div className="bg-amber-50/50 rounded-lg p-6 flex flex-col items-center gap-4">
-              <Music className="h-12 w-12 text-amber-600" />
+            <div className="rounded-lg p-6 flex flex-col items-center gap-4" style={{ backgroundColor: `${themeColor}08` }}>
+              <Music className="h-12 w-12" style={{ color: themeColor }} />
               <audio src={material.content_url} controls className="w-full" />
             </div>
           )}

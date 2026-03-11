@@ -59,3 +59,6 @@ verify_jwt = true
 
 [functions.browser-proxy]
 verify_jwt = true
+
+[functions.member-greeting]
+verify_jwt = false
