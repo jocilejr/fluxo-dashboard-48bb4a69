@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Lock, ExternalLink, Sparkles } from "lucide-react";
+import { Lock, Sparkles } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import PaymentFlow from "./PaymentFlow";
 import meirePhoto from "@/assets/meire-rosana.png";
 
 interface Offer {
@@ -13,6 +14,8 @@ interface Offer {
   purchase_url: string;
   price: number | null;
   category_tag: string | null;
+  pix_key?: string | null;
+  card_payment_url?: string | null;
 }
 
 interface MemberProfile {
@@ -29,6 +32,7 @@ interface Props {
   ownedProductNames?: string[];
   firstName?: string;
   memberProfile?: MemberProfile | null;
+  memberPhone?: string;
 }
 
 const CONTEXTUAL_LABELS = [
@@ -45,8 +49,9 @@ function getContextLabel(offer: Offer, index?: number): string {
   return CONTEXTUAL_LABELS[i % CONTEXTUAL_LABELS.length];
 }
 
-export default function LockedOfferCard({ offer, themeColor, ownedProductNames, firstName, memberProfile }: Props) {
+export default function LockedOfferCard({ offer, themeColor, ownedProductNames, firstName, memberProfile, memberPhone }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [aiMessages, setAiMessages] = useState<string[]>([]);
   const [visibleCount, setVisibleCount] = useState(0);
   const [showDots, setShowDots] = useState(false);
@@ -281,15 +286,14 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
             )}
           </div>
 
-          {offer.purchase_url && ctaVisible && (
+          {ctaVisible && (
             <div className="px-4 pb-4 pt-1 bg-white" style={{ animation: "chatBubbleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}>
               <Button
                 className="w-full h-12 rounded-xl font-bold text-white text-sm tracking-wide border-0"
                 style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}dd)`, boxShadow: `0 4px 20px ${themeColor}40` }}
-                onClick={() => window.open(offer.purchase_url, "_blank")}
+                onClick={() => { handleClose(); setPaymentOpen(true); }}
               >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Quero conhecer
+                Quero adquirir
               </Button>
             </div>
           )}
@@ -306,6 +310,14 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
           `}</style>
         </DialogContent>
       </Dialog>
+
+      <PaymentFlow
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        offer={offer}
+        themeColor={themeColor}
+        memberPhone={memberPhone || ""}
+      />
     </>
   );
 }

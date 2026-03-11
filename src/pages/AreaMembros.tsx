@@ -249,6 +249,8 @@ function MemberOffersTab() {
   const [uploading, setUploading] = useState(false);
   const [editingOffer, setEditingOffer] = useState<any>(null);
   const [displayType, setDisplayType] = useState("card");
+  const [pixKey, setPixKey] = useState("");
+  const [cardPaymentUrl, setCardPaymentUrl] = useState("");
 
   const { data: products } = useQuery({
     queryKey: ["delivery-products-for-offers"],
@@ -273,7 +275,7 @@ function MemberOffersTab() {
   };
 
   const resetForm = () => {
-    setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setCategoryTag(""); setImageFile(null); setEditingOffer(null); setUploading(false); setDisplayType("card");
+    setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setCategoryTag(""); setImageFile(null); setEditingOffer(null); setUploading(false); setDisplayType("card"); setPixKey(""); setCardPaymentUrl("");
   };
 
   const openEdit = (offer: any) => {
@@ -284,6 +286,8 @@ function MemberOffersTab() {
     setPrice(offer.price ? String(offer.price) : "");
     setCategoryTag(offer.category_tag || "");
     setDisplayType(offer.display_type || "card");
+    setPixKey(offer.pix_key || "");
+    setCardPaymentUrl(offer.card_payment_url || "");
     setImageFile(null);
     setDialogOpen(true);
   };
@@ -308,6 +312,8 @@ function MemberOffersTab() {
           price: price ? parseFloat(price) : null,
           category_tag: categoryTag || null,
           display_type: displayType,
+          pix_key: pixKey || null,
+          card_payment_url: cardPaymentUrl || null,
         } as any).eq("id", editingOffer.id);
         if (error) throw error;
       } else {
@@ -320,6 +326,8 @@ function MemberOffersTab() {
           price: price ? parseFloat(price) : (product?.value || null),
           category_tag: categoryTag || null,
           display_type: displayType,
+          pix_key: pixKey || null,
+          card_payment_url: cardPaymentUrl || null,
         } as any);
         if (error) throw error;
       }
@@ -388,6 +396,8 @@ function MemberOffersTab() {
                   </SelectContent>
                 </Select>
               </div>
+              <div><Label>Chave PIX (opcional)</Label><Input value={pixKey} onChange={(e) => setPixKey(e.target.value)} placeholder="email@exemplo.com, CPF ou chave aleatória" /></div>
+              <div><Label>Link pagamento cartão (opcional)</Label><Input value={cardPaymentUrl} onChange={(e) => setCardPaymentUrl(e.target.value)} placeholder="https://checkout.exemplo.com/..." /></div>
               <div><Label>URL de Compra (opcional)</Label><Input value={purchaseUrl} onChange={(e) => setPurchaseUrl(e.target.value)} placeholder="https://..." /></div>
               <div><Label>Preço (R$) {editingOffer ? "" : "— usa o valor do produto se vazio"}</Label><Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={selectedProduct?.value ? String(selectedProduct.value) : "0.00"} /></div>
               <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || uploading || (!editingOffer && !selectedProductId)}>

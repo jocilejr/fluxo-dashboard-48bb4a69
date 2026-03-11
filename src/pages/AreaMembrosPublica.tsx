@@ -499,6 +499,7 @@ export default function AreaMembrosPublica() {
                 ownedProductNames={ownedProductNames}
                 firstName={firstName}
                 memberProfile={memberProfile}
+                memberPhone={normalizedPhone}
               />
             );
           });
@@ -510,7 +511,7 @@ export default function AreaMembrosPublica() {
         {showcaseOffers.length > 0 && (
           <div className="space-y-2">
             {showcaseOffers.map((offer: any) => (
-              <PhysicalProductShowcase key={offer.id} offer={offer} themeColor={themeColor} />
+              <PhysicalProductShowcase key={offer.id} offer={offer} themeColor={themeColor} memberPhone={normalizedPhone} />
             ))}
           </div>
         )}
