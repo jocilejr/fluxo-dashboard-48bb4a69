@@ -1,34 +1,33 @@
 
 
-## Plano: Melhorar chat da oferta — visual e animações
+## Problema
 
-### Problemas atuais
-- Fundo cinza claro (`bg-gray-50`) — sem vida, não parece um chat
-- Animação dos 3 pontinhos termina mas a mensagem demora a aparecer (delay de 600ms/1200ms entre mensagens é longo demais)
-- Balões muito claros e sem contraste
-- Layout não se parece com o chat da imagem de referência
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-### Mudanças no `LockedOfferCard.tsx`
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-**Visual do dialog (baseado na imagem de referência):**
-- Fundo escuro (`bg-gray-800/900`) no corpo do chat, como um app de mensagens
-- Header com gradient do themeColor, avatar maior da Meire Rosana, imagem do produto menor no canto
-- Balões com fundo semi-transparente claro, texto branco/claro
-- Bordas arredondadas estilo WhatsApp (rounded-tl menor no primeiro balão)
+## Solução
 
-**Animações corrigidas:**
-- Reduzir delay entre mensagens: 300ms para a primeira, 800ms para as seguintes
-- Os 3 pontinhos devem desaparecer **instantaneamente** quando a mensagem aparece (sem gap visual)
-- Usar transição suave com `opacity` + `translateY` em vez de apenas `animate-fade-in`
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-**Fluxo da animação:**
-1. Dialog abre → mostra dots imediatamente
-2. API retorna → dots somem, primeira mensagem aparece instantaneamente
-3. Após 800ms → dots aparecem brevemente (200ms), segunda mensagem aparece
-4. Após todas as mensagens → botão CTA aparece com fade
+### Alteração em `src/hooks/useTransactions.ts`
 
-**Card externo:** manter como está (minimalista conforme aprovado antes)
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-### Arquivo modificado
-- `src/components/membros/LockedOfferCard.tsx`
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
+
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
