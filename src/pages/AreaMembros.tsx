@@ -191,7 +191,7 @@ function MemberSettingsTab() {
   const [aiPersonaPrompt, setAiPersonaPrompt] = useState("");
 
   useState(() => {
-    if (settings) { setTitle(settings.title || "Área de Membros"); setLogoUrl(settings.logo_url || ""); setWelcomeMessage(settings.welcome_message || ""); setThemeColor(settings.theme_color || "#8B5CF6"); }
+    if (settings) { setTitle(settings.title || "Área de Membros"); setLogoUrl(settings.logo_url || ""); setWelcomeMessage(settings.welcome_message || ""); setThemeColor(settings.theme_color || "#8B5CF6"); setAiPersonaPrompt((settings as any).ai_persona_prompt || ""); }
   });
 
   const saveMutation = useMutation({
