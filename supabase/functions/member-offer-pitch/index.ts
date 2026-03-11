@@ -54,11 +54,10 @@ REGRAS ABSOLUTAS:
 - Fale de forma natural, como uma amiga que conhece a pessoa
 - Baseie-se APENAS no título e descrição da oferta para explicar o que é
 - Use o nome da pessoa
-- Gere EXATAMENTE 2-3 mensagens curtas (como balões de WhatsApp)
+- Gere EXATAMENTE 2 mensagens curtas (como balões de WhatsApp)
 - Cada mensagem deve ter no máximo 2 frases
-- A primeira mensagem deve ser pessoal e acolhedora
-- A segunda deve explicar brevemente o que é o material com base na descrição
-- A terceira (opcional) deve ser um convite gentil, nunca pressão
+- A primeira mensagem deve ser pessoal e acolhedora, e deve mencionar que os materiais que ela já possui são: ${ownedNames}. Diga que ela ainda não contribuiu para receber "${offerName}", de forma carinhosa e sem pressão.
+- A segunda mensagem deve explicar brevemente o que é o material com base na descrição, e convidar com gentileza.
 
 PERFIL DA PESSOA:
 - Nome: ${firstName}
@@ -92,16 +91,16 @@ Gere as mensagens usando a função fornecida.`;
             type: "function",
             function: {
               name: "generate_offer_chat",
-              description: "Generate 2-3 chat messages simulating a personal conversation about the offer.",
+              description: "Generate exactly 2 chat messages simulating a personal conversation about the offer.",
               parameters: {
                 type: "object",
                 properties: {
                   messages: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Array of 2-3 short chat messages, each max 2 sentences.",
+                    description: "Array of exactly 2 short chat messages, each max 2 sentences.",
                     minItems: 2,
-                    maxItems: 3,
+                    maxItems: 2,
                   }
                 },
                 required: ["messages"]

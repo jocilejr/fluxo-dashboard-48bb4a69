@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Lock, ExternalLink, Heart } from "lucide-react";
+import { Lock, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,15 +38,11 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
   const [aiLoading, setAiLoading] = useState(false);
   const pitchCache = useRef<Record<string, string[]>>({});
 
-  // Sequential message reveal
   useEffect(() => {
-    if (aiMessages.length === 0) return;
-    if (visibleCount >= aiMessages.length) return;
-    
+    if (aiMessages.length === 0 || visibleCount >= aiMessages.length) return;
     const timer = setTimeout(() => {
       setVisibleCount(prev => prev + 1);
     }, visibleCount === 0 ? 600 : 1200);
-    
     return () => clearTimeout(timer);
   }, [aiMessages, visibleCount]);
 
@@ -75,7 +71,6 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
         setAiMessages(data.messages);
         pitchCache.current[offer.id] = data.messages;
       } else if (!error && data?.message) {
-        // Fallback for single message
         const msgs = [data.message];
         setAiMessages(msgs);
         pitchCache.current[offer.id] = msgs;
@@ -91,62 +86,50 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
 
   return (
     <>
-      {/* Card externo — mais atrativo */}
+      {/* Card — same style as product cards */}
       <button
-        className="w-full rounded-2xl p-[1px] transition-all duration-300 active:scale-[0.98] hover:shadow-lg"
-        style={{ background: `linear-gradient(135deg, ${themeColor}40, ${themeColor}15)` }}
+        className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 border shadow-sm hover:shadow-md transition-all duration-300 text-left active:scale-[0.98]"
+        style={{ borderColor: `${themeColor}15` }}
         onClick={handleOpen}
       >
-        <div className="flex items-center gap-4 bg-white rounded-2xl p-4">
-          <div className="relative shrink-0">
-            {offer.image_url ? (
-              <img
-                src={offer.image_url}
-                alt={offer.name}
-                className="h-16 w-16 rounded-xl object-cover"
-                style={{ border: `2px solid ${themeColor}30` }}
-              />
-            ) : (
-              <div
-                className="h-16 w-16 rounded-xl flex items-center justify-center"
-                style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
-              >
-                <Heart className="h-6 w-6" style={{ color: themeColor }} />
-              </div>
-            )}
+        <div className="relative shrink-0">
+          {offer.image_url ? (
+            <img
+              src={offer.image_url}
+              alt={offer.name}
+              className="h-16 w-16 rounded-xl object-cover opacity-80 grayscale-[20%]"
+              style={{ border: `2px solid ${themeColor}20` }}
+            />
+          ) : (
             <div
-              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm"
-              style={{ backgroundColor: themeColor }}
+              className="h-16 w-16 rounded-xl flex items-center justify-center"
+              style={{ background: `linear-gradient(135deg, ${themeColor}12, ${themeColor}06)` }}
             >
-              <Lock className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+              <Lock className="h-6 w-6" style={{ color: `${themeColor}80` }} />
             </div>
+          )}
+          <div
+            className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm"
+            style={{ backgroundColor: themeColor }}
+          >
+            <Lock className="h-2.5 w-2.5 text-white" strokeWidth={3} />
           </div>
+        </div>
 
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
-            {offer.category_tag && (
-              <span
-                className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white"
-                style={{ backgroundColor: `${themeColor}cc` }}
-              >
-                {offer.category_tag}
-              </span>
-            )}
-            <span
-              className="flex items-center gap-1.5 mt-1.5 text-[12px] font-semibold"
-              style={{ color: themeColor }}
-            >
-              <Heart className="h-3 w-3" fill={themeColor} />
-              Conheça mais
-            </span>
-          </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
+          <span
+            className="flex items-center gap-1.5 mt-1.5 text-[12px] font-semibold"
+            style={{ color: themeColor }}
+          >
+            🔒 Toque para saber mais
+          </span>
         </div>
       </button>
 
-      {/* Dialog — mini-chat da Meire Rosana */}
+      {/* Dialog — mini-chat */}
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="sm:max-w-md rounded-2xl border-0 p-0 overflow-hidden bg-gray-50 shadow-2xl">
-          {/* Header compacto */}
           <div
             className="flex items-center gap-3 px-5 py-4"
             style={{ background: `linear-gradient(135deg, ${themeColor}12, ${themeColor}06)` }}
@@ -163,7 +146,6 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
                 <p className="text-[11px] font-medium" style={{ color: themeColor }}>digitando...</p>
               )}
             </div>
-            {/* Small product image */}
             {offer.image_url && (
               <img
                 src={offer.image_url}
@@ -173,7 +155,6 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
             )}
           </div>
 
-          {/* Chat area */}
           <div className="px-4 py-4 space-y-2.5 min-h-[180px]">
             {aiLoading && visibleCount === 0 && (
               <div className="flex items-start gap-2">
@@ -205,7 +186,6 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
               </div>
             ))}
 
-            {/* Typing indicator between messages */}
             {visibleCount > 0 && visibleCount < aiMessages.length && (
               <div className="flex items-start gap-2">
                 <div className="h-7 w-7 shrink-0" />
@@ -220,7 +200,6 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
               </div>
             )}
 
-            {/* Fallback if no AI */}
             {!aiLoading && aiMessages.length === 0 && (
               <div className="flex items-start gap-2">
                 <img src={meirePhoto} alt="" className="h-7 w-7 rounded-full object-cover mt-0.5 shrink-0" />
@@ -234,7 +213,6 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
             )}
           </div>
 
-          {/* CTA */}
           {offer.purchase_url && visibleCount >= aiMessages.length && !aiLoading && (
             <div className="px-5 pb-5 pt-1 animate-fade-in">
               <Button
