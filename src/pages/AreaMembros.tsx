@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { toast } from "sonner";
-import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Layout, Eye, ExternalLink, RefreshCw } from "lucide-react";
+import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Layout, Eye, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -374,112 +374,156 @@ function MemberOffersTab() {
   );
 }
 
-// ---- Preview Tab ----
+// ---- Preview Tab (Static Mock) ----
 function MemberPreviewTab() {
-  const [previewPhone, setPreviewPhone] = useState("");
-  const [activePhone, setActivePhone] = useState("");
-  const [iframeKey, setIframeKey] = useState(0);
-
-  const { data: memberProducts } = useQuery({
-    queryKey: ["member-products-preview"],
+  const { data: settings } = useQuery({
+    queryKey: ["member-area-settings"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("member_products")
-        .select("normalized_phone")
-        .eq("is_active", true)
-        .limit(50);
-      const phones = [...new Set((data || []).map((p: any) => p.normalized_phone))];
-      return phones as string[];
+      const { data } = await supabase.from("member_area_settings").select("*").limit(1).maybeSingle();
+      return data;
     },
   });
 
-  const handlePreview = () => {
-    const digits = previewPhone.replace(/\D/g, "");
-    if (digits.length >= 8) {
-      setActivePhone(digits);
-      setIframeKey(k => k + 1);
-    } else {
-      toast.error("Digite um telefone válido");
-    }
-  };
+  const { data: offers } = useQuery({
+    queryKey: ["member-area-offers-preview"],
+    queryFn: async () => {
+      const { data } = await supabase.from("member_area_offers").select("*").eq("is_active", true).order("sort_order").limit(3);
+      return data || [];
+    },
+  });
 
-  const previewUrl = activePhone ? `${window.location.origin}/membro/${activePhone}` : "";
+  const { data: products } = useQuery({
+    queryKey: ["delivery-products-preview"],
+    queryFn: async () => {
+      const { data } = await supabase.from("delivery_products").select("id, name, page_logo").eq("is_active", true).limit(4);
+      return data || [];
+    },
+  });
+
+  const themeColor = settings?.theme_color || "#8B5CF6";
+  const logoUrl = settings?.logo_url || null;
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="p-4 space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground mb-1 block">Telefone do membro para visualizar</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Ex: 89981340810"
-                  value={previewPhone}
-                  onChange={(e) => setPreviewPhone(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handlePreview()}
-                />
-                <Button onClick={handlePreview} className="shrink-0">
-                  <Eye className="h-4 w-4 mr-2" /> Visualizar
-                </Button>
-              </div>
+      <p className="text-sm text-muted-foreground">Pré-visualização estática com dados simulados. Alterações de conteúdo, ofertas e configurações são refletidas aqui automaticamente.</p>
+
+      {/* Phone-sized frame */}
+      <div className="flex justify-center">
+        <div className="w-full max-w-[430px] rounded-2xl border border-border shadow-lg overflow-hidden bg-gray-50">
+          {/* Theme bar */}
+          <div className="h-1" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}90, ${themeColor})` }} />
+
+          {/* Header */}
+          <div className="bg-white border-b border-gray-100 px-5 py-5 flex items-center gap-4">
+            {logoUrl && (
+              <img src={logoUrl} alt="Logo" className="h-14 w-14 rounded-2xl object-cover shrink-0 shadow-sm" style={{ border: `2px solid ${themeColor}20` }} />
+            )}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-bold text-gray-800 tracking-tight">Olá, Maria</h1>
+              <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">
+                {settings?.welcome_message || "Bem-vinda à sua área exclusiva! 🎉"}
+              </p>
             </div>
           </div>
 
-          {/* Quick access to existing members */}
-          {memberProducts && memberProducts.length > 0 && (
-            <div>
-              <Label className="text-xs text-muted-foreground mb-2 block">Acesso rápido</Label>
-              <div className="flex flex-wrap gap-2">
-                {memberProducts.slice(0, 10).map((phone) => (
-                  <Button
-                    key={phone}
-                    variant={activePhone === phone ? "default" : "outline"}
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => {
-                      setPreviewPhone(phone);
-                      setActivePhone(phone);
-                      setIframeKey(k => k + 1);
-                    }}
-                  >
-                    {phone}
-                  </Button>
+          {/* Content */}
+          <div className="px-4 py-4 space-y-3">
+            {/* Product cards */}
+            {products && products.length > 0 ? (
+              products.map((prod, i) => (
+                <div key={prod.id} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                  {prod.page_logo ? (
+                    <div className="relative shrink-0">
+                      <img src={prod.page_logo} alt={prod.name} className="h-16 w-16 rounded-xl object-cover" style={{ border: `2px solid ${themeColor}20` }} />
+                      <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm" style={{ backgroundColor: "#10b981" }}>
+                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}>
+                      <BookOpen className="h-7 w-7" style={{ color: themeColor }} />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{prod.name}</h3>
+                    {i === 0 ? (
+                      <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Liberado recentemente</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-gray-500">✓ Liberado</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <>
+                {[{ name: "Água que Cura", recent: true }, { name: "Guia de Orações", recent: false }].map((mock, i) => (
+                  <div key={i} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                    <div className="h-16 w-16 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${themeColor}15, ${themeColor}08)` }}>
+                      <BookOpen className="h-7 w-7" style={{ color: themeColor }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{mock.name}</h3>
+                      {mock.recent ? (
+                        <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Liberado recentemente</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-gray-500">✓ Liberado</span>
+                      )}
+                    </div>
+                  </div>
                 ))}
+              </>
+            )}
+
+            {/* Offer cards */}
+            {(offers && offers.length > 0 ? offers : [{ id: "mock", name: "Curso Completo de Meditação", image_url: null, category_tag: "Novo", purchase_url: "#" }]).map((offer: any) => (
+              <div key={offer.id} className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+                <div className="relative shrink-0">
+                  {offer.image_url ? (
+                    <img src={offer.image_url} alt={offer.name} className="h-16 w-16 rounded-xl object-cover opacity-70 grayscale-[30%]" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${themeColor}12, ${themeColor}06)` }}>
+                      <Gift className="h-6 w-6" style={{ color: `${themeColor}80` }} />
+                    </div>
+                  )}
+                  <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-amber-500 flex items-center justify-center shadow-sm">
+                    <Crown className="h-2.5 w-2.5 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
+                  {offer.category_tag && (
+                    <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: `${themeColor}cc` }}>
+                      {offer.category_tag}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1 mt-1 text-[11px] font-semibold" style={{ color: themeColor }}>
+                    🔒 Toque para saber mais
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* Daily verse mock */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+              <div className="relative">
+                <span className="absolute -top-1 -left-1 text-gray-100 text-3xl font-serif select-none">"</span>
+                <p className="text-sm text-gray-700 leading-relaxed font-medium pl-4" style={{ fontFamily: "'Georgia', serif" }}>
+                  O Senhor é o meu pastor, nada me faltará.
+                </p>
+                <p className="text-[10px] font-semibold text-gray-400 tracking-wide uppercase mt-2 pl-4">Salmos 23:1</p>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
 
-      {activePhone && (
-        <Card className="overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2 bg-muted/50 border-b">
-            <p className="text-xs text-muted-foreground truncate">{previewUrl}</p>
-            <div className="flex gap-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIframeKey(k => k + 1)}>
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(previewUrl, "_blank")}>
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+          {/* Footer */}
+          <div className="text-center py-4 border-t border-gray-100 bg-white">
+            <p className="text-[11px] text-gray-400">Área exclusiva para membros ✝️</p>
           </div>
-          <div className="bg-gray-100 flex justify-center">
-            <iframe
-              key={iframeKey}
-              src={previewUrl}
-              className="w-full max-w-[430px] border-x border-gray-200 bg-white"
-              style={{ height: "75vh" }}
-              title="Preview da Área de Membros"
-            />
-          </div>
-        </Card>
-      )}
+        </div>
+      </div>
     </div>
   );
 }
-
 // ---- Main Page ----
 export default function AreaMembros() {
   return (
