@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 const typeIcons: Record<string, { icon: typeof FileText; color: string; label: string }> = {
   text: { icon: FileText, color: "#6366f1", label: "Texto" },
@@ -47,7 +48,7 @@ export default function ContentManagement() {
                 <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
-                <span className="font-semibold text-gray-800">{p.name}</span>
+                <span className="font-semibold text-foreground">{p.name}</span>
               </div>
             </Card>
           ))}
@@ -67,7 +68,7 @@ export default function ContentManagement() {
         <Button variant="ghost" size="sm" onClick={() => setSelectedProductId(null)}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
         </Button>
-        <h3 className="font-bold text-lg">{product?.name}</h3>
+        <h3 className="font-bold text-lg text-foreground">{product?.name}</h3>
       </div>
       <ProductContentEditor productId={selectedProductId} />
     </div>
@@ -148,7 +149,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
       {/* Categories */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-bold text-gray-800 flex items-center gap-2">
+          <h4 className="font-bold text-foreground flex items-center gap-2">
             <FolderPlus className="h-4 w-4 text-primary" /> Categorias / Módulos
           </h4>
           <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
@@ -172,13 +173,13 @@ function ProductContentEditor({ productId }: { productId: string }) {
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((cat: any) => (
-              <div key={cat.id} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100 group hover:bg-gray-100/50 transition-colors">
+              <div key={cat.id} className="flex items-center gap-3 bg-muted rounded-xl px-4 py-3 border border-border group hover:bg-muted/80 transition-colors">
                 <span className="text-xl">{cat.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm text-gray-800 truncate">{cat.name}</p>
-                  {cat.description && <p className="text-[10px] text-gray-400 truncate">{cat.description}</p>}
+                  <p className="font-medium text-sm text-foreground truncate">{cat.name}</p>
+                  {cat.description && <p className="text-[10px] text-muted-foreground truncate">{cat.description}</p>}
                 </div>
-                <button onClick={() => deleteCatMutation.mutate(cat.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all">
+                <button onClick={() => deleteCatMutation.mutate(cat.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -190,7 +191,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
       {/* Materials */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-bold text-gray-800 flex items-center gap-2">
+          <h4 className="font-bold text-foreground flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" /> Materiais
           </h4>
           <Dialog open={matDialogOpen} onOpenChange={setMatDialogOpen}>
@@ -240,22 +241,22 @@ function ProductContentEditor({ productId }: { productId: string }) {
               const typeInfo = typeIcons[mat.content_type] || typeIcons.text;
               const TypeIcon = typeInfo.icon;
               return (
-                <div key={mat.id} className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 border border-gray-100 group hover:shadow-sm transition-all">
-                  <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${typeInfo.color}12` }}>
+                <div key={mat.id} className="flex items-center gap-3 bg-card rounded-xl px-4 py-3 border border-border group hover:shadow-sm transition-all">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${typeInfo.color}20` }}>
                     <TypeIcon className="h-4 w-4" style={{ color: typeInfo.color }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-gray-800 truncate">{mat.title}</p>
+                    <p className="font-medium text-sm text-foreground truncate">{mat.title}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `${typeInfo.color}10`, color: typeInfo.color }}>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `${typeInfo.color}20`, color: typeInfo.color }}>
                         {typeInfo.label}
                       </span>
                       {mat.member_product_categories?.name && (
-                        <span className="text-[10px] text-gray-400">📁 {mat.member_product_categories.name}</span>
+                        <span className="text-[10px] text-muted-foreground">📁 {mat.member_product_categories.name}</span>
                       )}
                     </div>
                   </div>
-                  <button onClick={() => deleteMatMutation.mutate(mat.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all p-1">
+                  <button onClick={() => deleteMatMutation.mutate(mat.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>

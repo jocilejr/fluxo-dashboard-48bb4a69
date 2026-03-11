@@ -141,17 +141,17 @@ function MemberProductsTab() {
 
       {/* Stats summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="bg-primary/5 rounded-xl px-4 py-3 border border-primary/10">
+        <div className="bg-primary/10 rounded-xl px-4 py-3 border border-primary/20">
           <p className="text-2xl font-extrabold text-primary">{groupedByPhone.length}</p>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Membros</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Membros</p>
         </div>
-        <div className="bg-emerald-50 rounded-xl px-4 py-3 border border-emerald-100">
-          <p className="text-2xl font-extrabold text-emerald-600">{memberProducts?.filter((p: any) => p.is_active).length || 0}</p>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Acessos Ativos</p>
+        <div className="bg-accent/10 rounded-xl px-4 py-3 border border-accent/20">
+          <p className="text-2xl font-extrabold text-accent-foreground">{memberProducts?.filter((p: any) => p.is_active).length || 0}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Acessos Ativos</p>
         </div>
-        <div className="bg-amber-50 rounded-xl px-4 py-3 border border-amber-100 hidden sm:block">
-          <p className="text-2xl font-extrabold text-amber-600">{memberProducts?.length || 0}</p>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Total Liberados</p>
+        <div className="bg-muted rounded-xl px-4 py-3 border border-border hidden sm:block">
+          <p className="text-2xl font-extrabold text-foreground">{memberProducts?.length || 0}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total Liberados</p>
         </div>
       </div>
 
@@ -320,24 +320,24 @@ export default function AreaMembros() {
             <Crown className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-gray-900">Área de Membros</h1>
-            <p className="text-sm text-gray-500">Gerencie produtos, conteúdos e ofertas exclusivas</p>
+            <h1 className="text-2xl font-extrabold text-foreground">Área de Membros</h1>
+            <p className="text-sm text-muted-foreground">Gerencie produtos, conteúdos e ofertas exclusivas</p>
           </div>
         </div>
       </div>
 
       <Tabs defaultValue="products" className="space-y-4">
-        <TabsList className="flex-wrap bg-gray-100/80 p-1 rounded-xl">
-          <TabsTrigger value="products" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+        <TabsList className="flex-wrap bg-muted p-1 rounded-xl">
+          <TabsTrigger value="products" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
             <Users className="h-4 w-4" /> Membros
           </TabsTrigger>
-          <TabsTrigger value="content" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="content" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
             <BookOpen className="h-4 w-4" /> Conteúdo
           </TabsTrigger>
-          <TabsTrigger value="offers" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="offers" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
             <Gift className="h-4 w-4" /> Ofertas
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger value="settings" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
             <Settings className="h-4 w-4" /> Configurações
           </TabsTrigger>
         </TabsList>
