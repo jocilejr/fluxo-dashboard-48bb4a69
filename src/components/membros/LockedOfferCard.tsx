@@ -133,7 +133,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
       >
         {/* Image or gradient banner */}
         {offer.image_url ? (
-          <div className="relative h-[120px] w-full overflow-hidden">
+          <div className="relative h-[90px] w-full overflow-hidden">
             <img
               src={offer.image_url}
               alt={offer.name}
