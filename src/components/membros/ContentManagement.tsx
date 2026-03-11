@@ -86,6 +86,8 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const [matText, setMatText] = useState("");
   const [matButtonLabel, setMatButtonLabel] = useState("");
   const [matCategoryId, setMatCategoryId] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: categories } = useQuery({
     queryKey: ["admin-categories", productId],
