@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Music, Image, ExternalLink, Download } from "lucide-react";
+import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Image, Download } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 
 const typeIcons: Record<string, { icon: typeof FileText; color: string; label: string }> = {
   text: { icon: FileText, color: "#6366f1", label: "Texto" },
   pdf: { icon: Download, color: "#ef4444", label: "PDF" },
   video: { icon: Video, color: "#8b5cf6", label: "Vídeo" },
-  audio: { icon: Music, color: "#f59e0b", label: "Áudio" },
   image: { icon: Image, color: "#10b981", label: "Imagem" },
-  link: { icon: ExternalLink, color: "#3b82f6", label: "Link" },
 };
 
 export default function ContentManagement() {
@@ -87,6 +84,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const [matType, setMatType] = useState("text");
   const [matUrl, setMatUrl] = useState("");
   const [matText, setMatText] = useState("");
+  const [matButtonLabel, setMatButtonLabel] = useState("");
   const [matCategoryId, setMatCategoryId] = useState<string>("");
 
   const { data: categories } = useQuery({
@@ -123,10 +121,27 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const addMatMutation = useMutation({
     mutationFn: async () => {
       if (!matTitle) throw new Error("Título é obrigatório");
-      const { error } = await supabase.from("member_product_materials").insert({ product_id: productId, category_id: matCategoryId || null, title: matTitle, description: matDesc || null, content_type: matType, content_url: matUrl || null, content_text: matText || null, sort_order: (materials?.length || 0) });
+      const insertData: any = {
+        product_id: productId,
+        category_id: matCategoryId || null,
+        title: matTitle,
+        description: matDesc || null,
+        content_type: matType,
+        content_url: matUrl || null,
+        content_text: matText || null,
+        sort_order: (materials?.length || 0),
+      };
+      if (matType === "text" && matButtonLabel) {
+        insertData.button_label = matButtonLabel;
+      }
+      const { error } = await supabase.from("member_product_materials").insert(insertData);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Material adicionado!"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatCategoryId(""); setMatDialogOpen(false); },
+    onSuccess: () => {
+      toast.success("Material adicionado!");
+      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
+      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatDialogOpen(false);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -136,12 +151,10 @@ function ProductContentEditor({ productId }: { productId: string }) {
   });
 
   const contentTypes = [
-    { value: "text", label: "Texto/Oração" },
+    { value: "text", label: "Texto (com botão opcional)" },
     { value: "pdf", label: "PDF" },
     { value: "video", label: "Vídeo" },
-    { value: "audio", label: "Áudio" },
     { value: "image", label: "Imagem" },
-    { value: "link", label: "Link externo" },
   ];
 
   return (
@@ -223,7 +236,13 @@ function ProductContentEditor({ productId }: { productId: string }) {
                   </Select>
                 </div>
                 {matType === "text" ? (
-                  <div><Label>Conteúdo de texto</Label><Textarea value={matText} onChange={(e) => setMatText(e.target.value)} placeholder="Digite o conteúdo aqui..." rows={8} /></div>
+                  <>
+                    <div><Label>Conteúdo de texto</Label><Textarea value={matText} onChange={(e) => setMatText(e.target.value)} placeholder="Digite o conteúdo aqui..." rows={8} /></div>
+                    <div><Label>URL do botão (opcional)</Label><Input value={matUrl} onChange={(e) => setMatUrl(e.target.value)} placeholder="https://..." /></div>
+                    {matUrl && (
+                      <div><Label>Texto do botão</Label><Input value={matButtonLabel} onChange={(e) => setMatButtonLabel(e.target.value)} placeholder="Acessar" /></div>
+                    )}
+                  </>
                 ) : (
                   <div><Label>URL do conteúdo</Label><Input value={matUrl} onChange={(e) => setMatUrl(e.target.value)} placeholder="https://..." /></div>
                 )}
