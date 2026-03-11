@@ -2,11 +2,12 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
-import { Loader2, Crown, ShoppingBag, Check, Lock } from "lucide-react";
+import { Loader2, Crown, ShoppingBag, Check, Lock, BookOpen, Play } from "lucide-react";
 import DailyVerse from "@/components/membros/DailyVerse";
 import ProductContentViewer from "@/components/membros/ProductContentViewer";
 import LockedOfferCard from "@/components/membros/LockedOfferCard";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 
 interface MemberProduct {
   id: string;
@@ -34,7 +35,24 @@ interface MemberSettings {
 interface AiContext {
   greeting: string;
   tip: string;
+  progressMessage: string;
   offerSuggestion: { offerId: string; message: string };
+}
+
+interface ContentProgress {
+  material_id: string;
+  progress_type: string;
+  current_page: number;
+  total_pages: number;
+  video_seconds: number;
+  video_duration: number;
+  last_accessed_at: string;
+}
+
+interface ProductProgress {
+  materialsAccessed: number;
+  totalMaterials: number;
+  latestProgress: ContentProgress | null;
 }
 
 const AI_CACHE_KEY = "member_ai_context";
@@ -51,6 +69,10 @@ export default function AreaMembrosPublica() {
   const [openProductId, setOpenProductId] = useState<string | null>(null);
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
+  const [progressMap, setProgressMap] = useState<Record<string, ContentProgress[]>>({});
+  const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
+
+  const normalizedPhone = useMemo(() => phone?.replace(/\D/g, "") || "", [phone]);
 
   useEffect(() => {
     if (!phone) return;
@@ -85,11 +107,69 @@ export default function AreaMembrosPublica() {
     );
     const name = customerRes.data?.name || null;
     setCustomerName(name);
+
+    // Load materials and progress
+    const productIds = memberProds.filter(p => p.delivery_products).map(p => p.product_id);
+    const [materialsRes, progressRes] = await Promise.all([
+      supabase.from("member_product_materials").select("id, product_id, title, content_type").in("product_id", productIds),
+      supabase.from("member_content_progress").select("*").in("normalized_phone", variations),
+    ]);
+
+    const matsByProd: Record<string, any[]> = {};
+    (materialsRes.data || []).forEach(m => {
+      if (!matsByProd[m.product_id]) matsByProd[m.product_id] = [];
+      matsByProd[m.product_id].push(m);
+    });
+    setMaterialsByProduct(matsByProd);
+
+    const progByProd: Record<string, ContentProgress[]> = {};
+    const progressData = (progressRes.data || []) as unknown as ContentProgress[];
+    progressData.forEach(p => {
+      // Find which product this material belongs to
+      for (const [prodId, mats] of Object.entries(matsByProd)) {
+        if (mats.some(m => m.id === p.material_id)) {
+          if (!progByProd[prodId]) progByProd[prodId] = [];
+          progByProd[prodId].push(p);
+          break;
+        }
+      }
+    });
+    setProgressMap(progByProd);
+
     setLoading(false);
-    loadAiContext(name, memberProds, memberOffers);
+    loadAiContext(name, memberProds, memberOffers, matsByProd, progressData);
   };
 
-  const loadAiContext = async (name: string | null, prods: MemberProduct[], memberOffers: any[]) => {
+  const getProductProgress = (productId: string): ProductProgress => {
+    const mats = materialsByProduct[productId] || [];
+    const progs = progressMap[productId] || [];
+    const latestProgress = progs.length > 0
+      ? progs.sort((a, b) => new Date(b.last_accessed_at).getTime() - new Date(a.last_accessed_at).getTime())[0]
+      : null;
+    return {
+      materialsAccessed: progs.length,
+      totalMaterials: mats.length,
+      latestProgress,
+    };
+  };
+
+  const getProgressLabel = (progress: ContentProgress | null, productId: string): string | null => {
+    if (!progress) return null;
+    const mats = materialsByProduct[productId] || [];
+    const mat = mats.find(m => m.id === progress.material_id);
+    const matName = mat?.title || "material";
+
+    if (progress.progress_type === "pdf" && progress.total_pages > 0) {
+      return `📖 Parou na pág. ${progress.current_page} de ${progress.total_pages} — "${matName}"`;
+    }
+    if (progress.progress_type === "video" && progress.video_duration > 0) {
+      const pct = Math.round((progress.video_seconds / progress.video_duration) * 100);
+      return `▶️ Assistiu ${pct}% — "${matName}"`;
+    }
+    return `Último acesso: "${matName}"`;
+  };
+
+  const loadAiContext = async (name: string | null, prods: MemberProduct[], memberOffers: any[], matsByProd: Record<string, any[]>, progressData: ContentProgress[]) => {
     const cacheKey = `${AI_CACHE_KEY}_${phone}`;
     try {
       const cached = localStorage.getItem(cacheKey);
@@ -105,23 +185,12 @@ export default function AreaMembrosPublica() {
 
     try {
       const firstName = name?.split(" ")[0] || "Querido(a)";
-      const productIds = prods.filter(p => p.delivery_products).map(p => p.product_id);
-      const { data: materials } = await supabase
-        .from("member_product_materials")
-        .select("product_id, title")
-        .in("product_id", productIds);
-
-      const materialsByProduct: Record<string, string[]> = {};
-      (materials || []).forEach(m => {
-        if (!materialsByProduct[m.product_id]) materialsByProduct[m.product_id] = [];
-        materialsByProduct[m.product_id].push(m.title);
-      });
 
       const productsPayload = prods
         .filter(p => p.delivery_products)
         .map(p => ({
           name: p.delivery_products!.name,
-          materials: materialsByProduct[p.product_id] || [],
+          materials: (matsByProd[p.product_id] || []).map(m => m.title),
         }));
 
       const ownedProductNames = prods
@@ -135,14 +204,32 @@ export default function AreaMembrosPublica() {
         categoryTag: o.category_tag,
       }));
 
+      // Build progress payload for AI
+      const progressPayload = progressData.map(p => {
+        let matName = "material";
+        for (const mats of Object.values(matsByProd)) {
+          const found = mats.find(m => m.id === p.material_id);
+          if (found) { matName = found.title; break; }
+        }
+        return {
+          materialName: matName,
+          type: p.progress_type,
+          currentPage: p.current_page,
+          totalPages: p.total_pages,
+          videoSeconds: p.video_seconds,
+          videoDuration: p.video_duration,
+        };
+      });
+
       const { data, error } = await supabase.functions.invoke("member-ai-context", {
-        body: { firstName, products: productsPayload, offers: offersPayload, ownedProductNames },
+        body: { firstName, products: productsPayload, offers: offersPayload, ownedProductNames, progress: progressPayload },
       });
 
       if (!error && data?.greeting) {
         const ctx: AiContext = {
           greeting: data.greeting,
           tip: data.tip || "",
+          progressMessage: data.progressMessage || "",
           offerSuggestion: data.offerSuggestion || { offerId: "", message: "" },
         };
         setAiContext(ctx);
@@ -164,7 +251,6 @@ export default function AreaMembrosPublica() {
 
   const firstName = customerName?.split(" ")[0] || "Querido(a)";
 
-  // Find the product being viewed in popup
   const openProduct = useMemo(() => {
     if (!openProductId) return null;
     return sortedProducts.find(p => p.id === openProductId) || null;
@@ -203,10 +289,15 @@ export default function AreaMembrosPublica() {
     return diffDays <= 7;
   };
 
-  const renderProductCard = (mp: MemberProduct, index: number) => {
+  const renderProductCard = (mp: MemberProduct) => {
     const product = mp.delivery_products;
     if (!product) return null;
     const recent = isRecent(mp.granted_at);
+    const progress = getProductProgress(mp.product_id);
+    const progressLabel = getProgressLabel(progress.latestProgress, mp.product_id);
+    const progressPct = progress.totalMaterials > 0
+      ? Math.round((progress.materialsAccessed / progress.totalMaterials) * 100)
+      : 0;
 
     return (
       <button
@@ -222,12 +313,22 @@ export default function AreaMembrosPublica() {
               className="h-16 w-16 rounded-xl object-cover"
               style={{ border: `2px solid ${themeColor}20` }}
             />
-            <div
-              className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm"
-              style={{ backgroundColor: "#10b981" }}
-            >
-              <Check className="h-3 w-3 text-white" strokeWidth={3} />
-            </div>
+            {progressPct > 0 && (
+              <div
+                className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full flex items-center justify-center shadow-sm text-[9px] font-bold text-white"
+                style={{ backgroundColor: themeColor }}
+              >
+                {progressPct}%
+              </div>
+            )}
+            {progressPct === 0 && (
+              <div
+                className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full flex items-center justify-center shadow-sm"
+                style={{ backgroundColor: "#10b981" }}
+              >
+                <Check className="h-3 w-3 text-white" strokeWidth={3} />
+              </div>
+            )}
           </div>
         ) : (
           <div
@@ -240,13 +341,35 @@ export default function AreaMembrosPublica() {
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-gray-800 text-[15px] leading-tight truncate">{product.name}</h3>
           {recent ? (
-            <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+            <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
               ✓ Liberado recentemente
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-gray-500">
+            <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-medium text-gray-500">
               ✓ Liberado
             </span>
+          )}
+
+          {/* Progress bar */}
+          {progress.totalMaterials > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${progressPct}%`, backgroundColor: themeColor }}
+                  />
+                </div>
+                <span className="text-[10px] font-semibold text-gray-400 shrink-0">
+                  {progress.materialsAccessed}/{progress.totalMaterials}
+                </span>
+              </div>
+              {progressLabel && (
+                <p className="text-[11px] text-gray-500 leading-tight truncate">
+                  {progressLabel}
+                </p>
+              )}
+            </div>
           )}
         </div>
       </button>
@@ -255,10 +378,8 @@ export default function AreaMembrosPublica() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Theme accent bar */}
       <div className="h-1" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}90, ${themeColor})` }} />
 
-      {/* Header — Clean & light */}
       <header className="bg-white border-b border-gray-100">
         <div className="max-w-2xl mx-auto px-5 py-5 flex items-center gap-4">
           {settings?.logo_url && (
@@ -284,10 +405,33 @@ export default function AreaMembrosPublica() {
       </header>
 
       <main className="max-w-2xl mx-auto px-5 pt-5 pb-20 space-y-3">
-        {/* Products as horizontal cards */}
-        {sortedProducts.length > 0 && renderProductCard(sortedProducts[0], 0)}
+        {/* AI Progress Message */}
+        {aiContext?.progressMessage && (
+          <div
+            className="rounded-2xl p-4 border shadow-sm transition-opacity duration-700"
+            style={{
+              backgroundColor: `${themeColor}08`,
+              borderColor: `${themeColor}20`,
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                style={{ backgroundColor: `${themeColor}15` }}
+              >
+                <BookOpen className="h-4.5 w-4.5" style={{ color: themeColor }} />
+              </div>
+              <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                {aiContext.progressMessage}
+              </p>
+            </div>
+          </div>
+        )}
 
-        {/* AI suggested offer — between first product and rest */}
+        {/* Products */}
+        {sortedProducts.length > 0 && renderProductCard(sortedProducts[0])}
+
+        {/* AI suggested offer */}
         {aiContext?.offerSuggestion?.offerId && aiContext.offerSuggestion.message ? (
           (() => {
             const suggestedOffer = offers.find((o: any) => o.id === aiContext.offerSuggestion.offerId);
@@ -302,7 +446,7 @@ export default function AreaMembrosPublica() {
           })()
         ) : null}
 
-        {/* AI tip — subtle inline */}
+        {/* AI tip */}
         {aiContext?.tip && (
           <p className="text-sm text-gray-500 italic leading-relaxed px-1 transition-opacity duration-700">
             {aiContext.tip}
@@ -310,9 +454,8 @@ export default function AreaMembrosPublica() {
         )}
 
         {/* Remaining products */}
-        {sortedProducts.slice(1).map((mp, i) => renderProductCard(mp, i + 1))}
+        {sortedProducts.slice(1).map((mp) => renderProductCard(mp))}
 
-        {/* Daily Verse */}
         <DailyVerse />
 
         {/* Remaining offers */}
@@ -340,7 +483,7 @@ export default function AreaMembrosPublica() {
 
       {/* Product content popup */}
       <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl bg-white">
           {openProduct?.delivery_products && (
             <>
               <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-5 py-4 flex items-center gap-3">
@@ -358,6 +501,7 @@ export default function AreaMembrosPublica() {
                   productId={openProduct.product_id}
                   productName={openProduct.delivery_products.name}
                   themeColor={themeColor}
+                  phone={normalizedPhone}
                 />
               </div>
             </>
