@@ -194,10 +194,7 @@ export default function AreaMembrosPublica() {
           </div>
         )}
 
-        {/* Daily Verse */}
-        <DailyVerse />
-
-        {/* Products */}
+        {/* Products with DailyVerse between 1st and 2nd */}
         <section>
           <div className="flex items-center gap-3 mb-5">
             <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}12` }}>
@@ -216,45 +213,59 @@ export default function AreaMembrosPublica() {
               const isExpanded = expandedProduct === mp.id;
 
               return (
-                <div key={mp.id} className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
-                  <button
-                    className="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-gray-50/50"
-                    onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
-                  >
-                    {product.page_logo ? (
-                      <img src={product.page_logo} alt={product.name} className="h-12 w-12 rounded-xl object-cover shrink-0 shadow-sm" />
-                    ) : (
-                      <div
-                        className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${themeColor}18, ${themeColor}08)` }}
-                      >
-                        <ShoppingBag className="h-5 w-5" style={{ color: themeColor }} />
+                <div key={mp.id}>
+                  <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
+                    <button
+                      className="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-gray-50/50"
+                      onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
+                    >
+                      {product.page_logo ? (
+                        <img src={product.page_logo} alt={product.name} className="h-12 w-12 rounded-xl object-cover shrink-0 shadow-sm" />
+                      ) : (
+                        <div
+                          className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: `linear-gradient(135deg, ${themeColor}18, ${themeColor}08)` }}
+                        >
+                          <ShoppingBag className="h-5 w-5" style={{ color: themeColor }} />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 text-[15px] truncate">{product.name}</h3>
+                        {index === 0 && (
+                          <span
+                            className="inline-block text-[10px] font-bold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: `${themeColor}12`, color: themeColor }}
+                          >
+                            ✨ Mais recente
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown className={`h-5 w-5 text-gray-300 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-5 pb-5 border-t border-gray-50">
+                        <div className="pt-5">
+                          <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
+                        </div>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 text-[15px] truncate">{product.name}</h3>
-                      {index === 0 && (
-                        <span
-                          className="inline-block text-[10px] font-bold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: `${themeColor}12`, color: themeColor }}
-                        >
-                          ✨ Mais recente
-                        </span>
-                      )}
-                    </div>
-                    <ChevronDown className={`h-5 w-5 text-gray-300 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
-                  </button>
+                  </div>
 
-                  {isExpanded && (
-                    <div className="px-5 pb-5 border-t border-gray-50">
-                      <div className="pt-5">
-                        <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
-                      </div>
+                  {/* DailyVerse between 1st and 2nd product */}
+                  {index === 0 && sortedProducts.length > 1 && (
+                    <div className="mt-4">
+                      <DailyVerse />
                     </div>
                   )}
                 </div>
               );
             })}
+
+            {/* If only 1 product, show verse after it */}
+            {sortedProducts.length === 1 && (
+              <DailyVerse />
+            )}
           </div>
         </section>
 
