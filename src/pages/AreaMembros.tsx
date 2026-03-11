@@ -421,9 +421,7 @@ export default function AreaMembros() {
         <TabsContent value="products"><MemberProductsTab /></TabsContent>
         <TabsContent value="content"><ContentManagement /></TabsContent>
         <TabsContent value="offers"><MemberOffersTab /></TabsContent>
-        <TabsContent value="layout"><LayoutEditor /></TabsContent>
         <TabsContent value="settings"><MemberSettingsTab /></TabsContent>
-        <TabsContent value="preview"><MemberPreviewTab /></TabsContent>
       </Tabs>
     </div>
   );
