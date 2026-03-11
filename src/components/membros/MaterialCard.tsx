@@ -88,7 +88,7 @@ export default function MaterialCard({ material, themeColor }: Props) {
             <h2 className="text-lg font-bold truncate text-foreground">{material.title}</h2>
           </div>
           <iframe
-            src={material.content_url || ""}
+            src={`https://docs.google.com/gview?url=${encodeURIComponent(material.content_url || "")}&embedded=true`}
             className="w-full flex-1 border-0"
             title={material.title}
           />
