@@ -1,33 +1,48 @@
 
 
-## Problema
+## Plano: Card de oferta no estilo da imagem + intercalar com produtos + AI mencionar materiais que a pessoa já tem
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### 1. Redesenhar `LockedOfferCard.tsx` — estilo da imagem
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+O card externo deve ser simples e limpo como na imagem:
+- Fundo branco, bordas arredondadas, sombra sutil
+- Imagem do produto à esquerda (rounded, tamanho similar aos cards de produtos)
+- Nome do produto em negrito
+- Lock icon pequeno + "Toque para saber mais" em cor do tema
+- Remover `category_tag`, `Heart` icon, gradient de fundo — manter minimalista
+- O card deve ter a mesma aparência visual dos cards de produtos adquiridos (mesma altura, padding, estilo)
 
-## Solução
+### 2. Intercalar ofertas com produtos em `AreaMembrosPublica.tsx`
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+Atualmente: produtos primeiro, depois "Descubra mais" com ofertas separadas.
 
-### Alteração em `src/hooks/useTransactions.ts`
+Novo layout:
+- Remover a seção "Descubra mais" separada
+- Criar uma lista unificada que intercala produtos e ofertas
+- Lógica: primeiro produto, depois primeira oferta, demais produtos, demais ofertas
+- O DailyVerse continua no final
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+### 3. Atualizar prompt do `member-offer-pitch` — mencionar materiais da pessoa
 
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
+Adicionar ao prompt:
+- "Informe que ela ainda não contribuiu para receber este material"
+- "Mencione que os materiais dela são: {lista de produtos que possui}"
+- Isso contextualiza a conversa e mostra que a IA conhece a pessoa
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+### 4. Atualizar preview estático em `AreaMembros.tsx`
 
-A deduplicação acontece automaticamente pelo banco.
+Intercalar cards de ofertas com produtos no preview estático, usando o mesmo estilo visual.
 
-### Impacto
+### 5. Corrigir build error
 
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+Verificar e corrigir o erro de build (provavelmente tipos `as any` ou import faltando).
+
+### Arquivos modificados
+
+| Arquivo | Mudança |
+|---|---|
+| `src/components/membros/LockedOfferCard.tsx` | Redesenhar card externo no estilo da imagem (minimalista, lock + "Toque para saber mais") |
+| `src/pages/AreaMembrosPublica.tsx` | Intercalar ofertas com produtos em lista unificada |
+| `supabase/functions/member-offer-pitch/index.ts` | Adicionar instrução para mencionar materiais que a pessoa já tem e que não contribuiu para este |
+| `src/pages/AreaMembros.tsx` | Sincronizar preview com layout intercalado |
 
