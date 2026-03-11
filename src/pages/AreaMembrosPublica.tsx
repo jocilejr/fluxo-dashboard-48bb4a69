@@ -223,8 +223,34 @@ export default function AreaMembrosPublica() {
         };
       });
 
+      // Calculate profile metrics
+      const memberSince = customerProfile?.first_seen_at || prods[0]?.granted_at || null;
+      const totalPaid = customerProfile?.total_paid || 0;
+      const totalTransactions = customerProfile?.total_transactions || 0;
+      const totalProducts = prods.length;
+      
+      // Calculate days since last access from progress data
+      let daysSinceLastAccess: number | null = null;
+      if (progressData.length > 0) {
+        const latestAccess = progressData.reduce((latest, p) => {
+          const d = new Date(p.last_accessed_at).getTime();
+          return d > latest ? d : latest;
+        }, 0);
+        if (latestAccess > 0) {
+          daysSinceLastAccess = Math.floor((Date.now() - latestAccess) / (1000 * 60 * 60 * 24));
+        }
+      }
+
+      const profileData = {
+        memberSince,
+        totalPaid: Number(totalPaid),
+        totalTransactions: Number(totalTransactions),
+        totalProducts,
+        daysSinceLastAccess,
+      };
+
       const { data, error } = await supabase.functions.invoke("member-ai-context", {
-        body: { firstName, products: productsPayload, offers: offersPayload, ownedProductNames, progress: progressPayload },
+        body: { firstName, products: productsPayload, offers: offersPayload, ownedProductNames, progress: progressPayload, profile: profileData },
       });
 
       if (!error && data?.greeting) {
