@@ -271,10 +271,19 @@ export default function AreaMembrosPublica() {
     setAiLoading(false);
   };
 
-  // Filter out offers for products the member already owns
+  // Filter out offers for products the member already owns (by product_id or name match)
   const filteredOffers = useMemo(() => {
     const ownedProductIds = new Set(products.map(p => p.product_id));
-    return offers.filter((offer: any) => !offer.product_id || !ownedProductIds.has(offer.product_id));
+    const ownedProductNames = new Set(
+      products.filter(p => p.delivery_products?.name).map(p => p.delivery_products!.name.toLowerCase().trim())
+    );
+    return offers.filter((offer: any) => {
+      // Filter by product_id match
+      if (offer.product_id && ownedProductIds.has(offer.product_id)) return false;
+      // Filter by name match as fallback
+      if (offer.name && ownedProductNames.has(offer.name.toLowerCase().trim())) return false;
+      return true;
+    });
   }, [offers, products]);
 
   const sortedProducts = useMemo(() => {
