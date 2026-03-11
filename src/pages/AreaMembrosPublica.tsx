@@ -406,11 +406,6 @@ export default function AreaMembrosPublica() {
       <div className="h-1" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}90, ${themeColor})` }} />
 
       <main className="max-w-2xl mx-auto px-5 pt-6 pb-20 space-y-3">
-        {/* Greeting */}
-        <h1 className="text-xl font-bold text-gray-800 tracking-tight px-1">
-          Olá, {firstName}
-        </h1>
-
         {/* Meire Rosana Chat Bubble */}
         <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: `${themeColor}0d`, borderColor: `${themeColor}22` }}>
           <div className="flex items-center gap-2.5 px-4 py-3">
@@ -436,13 +431,8 @@ export default function AreaMembrosPublica() {
                     {aiContext.greeting}
                   </div>
                 )}
-                {aiContext?.progressMessage && (
-                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
-                    {aiContext.progressMessage}
-                  </div>
-                )}
                 {aiContext?.tip && (
-                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-600 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}08` }}>
+                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13px] text-gray-700 leading-relaxed w-fit max-w-[90%]" style={{ backgroundColor: `${themeColor}10` }}>
                     {aiContext.tip}
                   </div>
                 )}
@@ -452,10 +442,7 @@ export default function AreaMembrosPublica() {
         </div>
 
         {/* Products */}
-        {sortedProducts.length > 0 && renderProductCard(sortedProducts[0])}
-
-        {/* Remaining products */}
-        {sortedProducts.slice(1).map((mp) => renderProductCard(mp))}
+        {sortedProducts.map((mp) => renderProductCard(mp))}
 
         <DailyVerse />
 
