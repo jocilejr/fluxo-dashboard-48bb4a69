@@ -253,7 +253,28 @@ function ProductContentEditor({ productId }: { productId: string }) {
               <DialogHeader><DialogTitle>Novo Material</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div><Label>Título</Label><Input value={matTitle} onChange={(e) => setMatTitle(e.target.value)} placeholder="Ex: Oração da Manhã" /></div>
-                <div><Label>Descrição (opcional)</Label><Input value={matDesc} onChange={(e) => setMatDesc(e.target.value)} /></div>
+                <div><Label>Mini texto / Descrição (opcional)</Label><Textarea value={matDesc} onChange={(e) => setMatDesc(e.target.value)} placeholder="Um breve resumo do material..." rows={3} /></div>
+                {/* Cover image upload */}
+                <div className="space-y-2">
+                  <Label>Imagem de capa (opcional)</Label>
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverUpload}
+                    className="hidden"
+                  />
+                  {matCoverUrl ? (
+                    <div className="flex items-center gap-3">
+                      <img src={matCoverUrl} alt="Capa" className="h-16 w-24 rounded-lg object-cover border border-border" />
+                      <Button type="button" size="sm" variant="outline" onClick={() => { setMatCoverUrl(""); if (coverInputRef.current) coverInputRef.current.value = ""; }}>Trocar</Button>
+                    </div>
+                  ) : (
+                    <Button type="button" variant="outline" className="w-full" onClick={() => coverInputRef.current?.click()} disabled={uploadingCover}>
+                      {uploadingCover ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enviando...</> : <><Image className="h-4 w-4 mr-2" /> Selecionar imagem de capa</>}
+                    </Button>
+                  )}
+                </div>
                 <div>
                   <Label>Categoria</Label>
                   <Select value={matCategoryId} onValueChange={setMatCategoryId}>
