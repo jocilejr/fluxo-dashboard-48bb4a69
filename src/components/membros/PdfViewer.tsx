@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import { ChevronLeft, ChevronRight, Loader2, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
@@ -13,18 +14,39 @@ interface Props {
   url: string;
   themeColor: string;
   preloadedPdf?: pdfjsLib.PDFDocumentProxy | null;
+  phone?: string;
+  materialId?: string;
 }
 
-export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
+export default function PdfViewer({ url, themeColor, preloadedPdf, phone, materialId }: Props) {
   const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1); // 1 = fit to width
+  const [zoom, setZoom] = useState(1);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Save progress to DB
+  const saveProgress = useCallback((page: number, total: number) => {
+    if (!phone || !materialId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await supabase.from("member_content_progress").upsert({
+          normalized_phone: phone,
+          material_id: materialId,
+          progress_type: "pdf",
+          current_page: page,
+          total_pages: total,
+          last_accessed_at: new Date().toISOString(),
+        }, { onConflict: "normalized_phone,material_id" });
+      } catch {}
+    }, 1500);
+  }, [phone, materialId]);
 
   useEffect(() => {
     if (preloadedPdf) {
@@ -57,6 +79,13 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
     return () => { cancelled = true; };
   }, [url, preloadedPdf]);
 
+  // Save progress on page change
+  useEffect(() => {
+    if (currentPage && totalPages) {
+      saveProgress(currentPage, totalPages);
+    }
+  }, [currentPage, totalPages, saveProgress]);
+
   const renderPage = useCallback(async (pageNum: number, zoomMultiplier: number) => {
     if (!pdf || !canvasRef.current || !containerRef.current) return;
 
@@ -71,7 +100,6 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
 
     const baseViewport = page.getViewport({ scale: 1 });
     const fitScale = containerWidth / baseViewport.width;
-
     const userScale = fitScale * zoomMultiplier;
     const dpr = window.devicePixelRatio || 1;
     const renderScale = userScale * dpr;
@@ -96,7 +124,6 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
     if (pdf && currentPage) renderPage(currentPage, zoom);
   }, [pdf, currentPage, zoom, renderPage]);
 
-  // Pinch-to-zoom handlers
   const getTouchDistance = (t1: React.Touch, t2: React.Touch) => {
     const dx = t1.clientX - t2.clientX;
     const dy = t1.clientY - t2.clientY;
@@ -125,7 +152,6 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
     pinchRef.current = null;
   }, []);
 
-  // Wheel zoom (Ctrl+scroll or trackpad pinch)
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -142,7 +168,7 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-400">
         <Loader2 className="h-10 w-10 animate-spin" style={{ color: themeColor }} />
         <p className="text-lg font-medium">Carregando PDF...</p>
       </div>
@@ -151,7 +177,7 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
 
   if (error) {
     return (
-      <div className="flex-1 flex items-center justify-center text-destructive text-lg font-medium p-8 text-center">
+      <div className="flex-1 flex items-center justify-center text-red-500 text-lg font-medium p-8 text-center">
         {error}
       </div>
     );
@@ -161,8 +187,7 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      {/* Toolbar */}
-      <div className="flex items-center justify-center gap-2 sm:gap-4 py-2 px-3 border-b border-border bg-muted/30 shrink-0 flex-wrap">
+      <div className="flex items-center justify-center gap-2 sm:gap-4 py-2 px-3 border-b border-gray-200 bg-gray-50/50 shrink-0 flex-wrap">
         {totalPages > 1 && (
           <>
             <Button
@@ -192,56 +217,35 @@ export default function PdfViewer({ url, themeColor, preloadedPdf }: Props) {
         )}
 
         {totalPages > 1 && (
-          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+          <div className="w-px h-6 bg-gray-200 mx-1 hidden sm:block" />
         )}
 
         <div className="flex items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={zoom <= MIN_ZOOM}
-            onClick={zoomOut}
-            className="h-10 w-10 p-0"
-            title="Diminuir zoom"
-          >
+          <Button variant="outline" size="sm" disabled={zoom <= MIN_ZOOM} onClick={zoomOut} className="h-10 w-10 p-0" title="Diminuir zoom">
             <ZoomOut className="h-4 w-4" />
           </Button>
           <button
             onClick={resetZoom}
-            className="text-xs font-bold min-w-[50px] text-center rounded-md px-2 py-1.5 hover:bg-muted transition-colors"
+            className="text-xs font-bold min-w-[50px] text-center rounded-md px-2 py-1.5 hover:bg-gray-100 transition-colors"
             title="Restaurar zoom"
             style={{ color: themeColor }}
           >
             {zoomPercent}%
           </button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={zoom >= MAX_ZOOM}
-            onClick={zoomIn}
-            className="h-10 w-10 p-0"
-            title="Aumentar zoom"
-          >
+          <Button variant="outline" size="sm" disabled={zoom >= MAX_ZOOM} onClick={zoomIn} className="h-10 w-10 p-0" title="Aumentar zoom">
             <ZoomIn className="h-4 w-4" />
           </Button>
           {zoom !== 1 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={resetZoom}
-              className="h-10 w-10 p-0"
-              title="Restaurar tamanho original"
-            >
+            <Button variant="ghost" size="sm" onClick={resetZoom} className="h-10 w-10 p-0" title="Restaurar tamanho original">
               <RotateCcw className="h-4 w-4" />
             </Button>
           )}
         </div>
       </div>
 
-      {/* PDF canvas */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto flex justify-center items-start p-4 bg-muted/20 touch-none"
+        className="flex-1 overflow-auto flex justify-center items-start p-4 bg-gray-50/30 touch-none"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}

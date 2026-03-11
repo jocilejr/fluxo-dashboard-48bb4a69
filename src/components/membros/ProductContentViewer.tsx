@@ -11,9 +11,10 @@ interface Props {
   productId: string;
   productName: string;
   themeColor: string;
+  phone?: string;
 }
 
-export default function ProductContentViewer({ productId, productName, themeColor }: Props) {
+export default function ProductContentViewer({ productId, productName, themeColor, phone }: Props) {
   const [preloadedPdf, setPreloadedPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const preloadedPdfIdRef = useRef<string | null>(null);
 
@@ -41,7 +42,6 @@ export default function ProductContentViewer({ productId, productName, themeColo
     },
   });
 
-  // Pre-load the most recent PDF in background
   const allMaterials = materials || [];
   const mostRecentPdf = [...allMaterials]
     .reverse()
@@ -61,9 +61,7 @@ export default function ProductContentViewer({ productId, productName, themeColo
       .promise.then((doc) => {
         setPreloadedPdf(doc);
       })
-      .catch(() => {
-        // Silently fail — user will load on demand
-      });
+      .catch(() => {});
   }, [mostRecentPdf?.id, mostRecentPdf?.content_url]);
 
   if (loadingCats || loadingMats) {
@@ -99,6 +97,7 @@ export default function ProductContentViewer({ productId, productName, themeColo
       material={mat}
       themeColor={themeColor}
       preloadedPdf={mostRecentPdf?.id === mat.id ? preloadedPdf : undefined}
+      phone={phone}
     />
   );
 
