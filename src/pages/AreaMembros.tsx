@@ -634,10 +634,6 @@ function MemberPreviewTab() {
               );
             })}
 
-            {/* AI tip mock */}
-            <p className="text-sm text-gray-500 italic leading-relaxed px-1">
-              Maria, você tem dois materiais poderosos em mãos — está conseguindo aplicar o passo a passo? 🙏
-            </p>
 
             {/* Offer cards */}
             {(offers && offers.length > 0 ? offers : [{ id: "mock", name: "Curso Completo de Meditação", image_url: null, category_tag: "Novo", purchase_url: "#" }]).map((offer: any) => (
