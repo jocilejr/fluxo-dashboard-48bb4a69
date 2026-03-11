@@ -271,6 +271,12 @@ export default function AreaMembrosPublica() {
     setAiLoading(false);
   };
 
+  // Filter out offers for products the member already owns
+  const filteredOffers = useMemo(() => {
+    const ownedProductIds = new Set(products.map(p => p.product_id));
+    return offers.filter((offer: any) => !offer.product_id || !ownedProductIds.has(offer.product_id));
+  }, [offers, products]);
+
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());
   }, [products]);
@@ -459,7 +465,7 @@ export default function AreaMembrosPublica() {
         {(() => {
           const interleaved: ({ type: "product"; data: MemberProduct } | { type: "offer"; data: any })[] = [];
           // Cards use all offers except the last one (reserved for floating bar)
-          const cardOffers = offers.length > 1 ? offers.slice(0, -1) : offers;
+          const cardOffers = filteredOffers.length > 1 ? filteredOffers.slice(0, -1) : filteredOffers;
           let offerIdx = 0;
 
           for (let i = 0; i < sortedProducts.length; i++) {
@@ -495,8 +501,8 @@ export default function AreaMembrosPublica() {
       </main>
 
       {/* Floating offer bar for secondary offer */}
-      {offers.length > 1 && (() => {
-        const floatingOffer = offers[offers.length - 1];
+      {filteredOffers.length > 1 && (() => {
+        const floatingOffer = filteredOffers[filteredOffers.length - 1];
         return (
           <FloatingOfferBar
             offer={floatingOffer}
