@@ -1,61 +1,33 @@
 
 
-## Redesign Completo da Área de Membros — Visual Profissional e Legível
+## Problema
 
-### Problema
-O design atual é genérico, sem hierarquia visual clara, sem espaçamento adequado e com cards simples demais que não ajudam na leitura. Tanto a página admin (`/area-membros`) quanto a pública (`/membros/:phone`) precisam de upgrade visual.
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-### Mudanças
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-**1. Admin — `MemberClientCard.tsx`**
-- Card com borda lateral colorida (accent) para destaque visual
-- Avatar com iniciais do cliente (círculo colorido)
-- Seção de URL com background mais contrastante e ícone de link destacado
-- Produtos listados como chips/tags coloridos em vez de bullet points
-- Histórico de compras em mini-tabela com cores de status mais vibrantes
-- Espaçamento e tipografia melhorados (font sizes, line heights, padding)
+## Solução
 
-**2. Admin — `ContentManagement.tsx`**
-- Cards de produto com ícone decorativo, descrição e hover elevado
-- Categorias como cards ao invés de badges inline
-- Materiais em lista com ícones coloridos por tipo, preview do conteúdo e informações visuais
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-**3. Admin — `AreaMembros.tsx`**
-- Header da página com gradiente sutil e stats resumidos (total membros, produtos liberados)
-- Tabs com ícones maiores e estilo pill/segmented
+### Alteração em `src/hooks/useTransactions.ts`
 
-**4. Pública — `AreaMembrosPublica.tsx`**
-- Header com padrão decorativo mais elaborado, sombra interna e tipografia premium
-- Card de saudação IA com gradiente sutil e borda accent
-- Produtos com cards maiores, thumbnails e contagem de materiais visível
-- Melhor espaçamento entre seções com títulos decorados
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-**5. Pública — `ProductContentViewer.tsx`**
-- Separadores de categoria com fundo colorido sutil e ícone em destaque
-- Grid de materiais com gap maior
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
 
-**6. Pública — `MaterialCard.tsx`**
-- Cards com sombra suave, borda esquerda colorida por tipo
-- Descrição visível (quando houver) abaixo do título
-- Hover com elevação e scale sutil
-- Dialog de conteúdo com header colorido
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-**7. `DailyVerse.tsx`**
-- Visual com fundo gradiente dourado, tipografia serifada para o versículo, decoração com aspas estilizadas
+A deduplicação acontece automaticamente pelo banco.
 
-**8. `LockedOfferCard.tsx`**
-- Efeito glassmorphism no overlay do cadeado
-- Gradiente no botão de compra com animação hover
+### Impacto
 
-### Arquivos editados
-- `src/components/membros/MemberClientCard.tsx`
-- `src/components/membros/ContentManagement.tsx`
-- `src/components/membros/MaterialCard.tsx`
-- `src/components/membros/ProductContentViewer.tsx`
-- `src/components/membros/DailyVerse.tsx`
-- `src/components/membros/LockedOfferCard.tsx`
-- `src/pages/AreaMembros.tsx`
-- `src/pages/AreaMembrosPublica.tsx`
-
-Nenhuma mudança de banco de dados.
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 

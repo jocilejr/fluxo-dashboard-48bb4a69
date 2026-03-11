@@ -3,8 +3,6 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { Loader2, Crown, ShoppingBag, ChevronDown, Sparkles } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import DailyVerse from "@/components/membros/DailyVerse";
 import ProductContentViewer from "@/components/membros/ProductContentViewer";
 import LockedOfferCard from "@/components/membros/LockedOfferCard";
@@ -32,7 +30,7 @@ interface MemberSettings {
 }
 
 const GREETING_CACHE_KEY = "member_ai_greeting";
-const GREETING_TTL = 24 * 60 * 60 * 1000; // 24h
+const GREETING_TTL = 24 * 60 * 60 * 1000;
 
 export default function AreaMembrosPublica() {
   const { phone } = useParams<{ phone: string }>();
@@ -77,11 +75,9 @@ export default function AreaMembrosPublica() {
     const name = customerRes.data?.name || null;
     setCustomerName(name);
 
-    // Expand the most recent product
     const sorted = [...memberProds].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());
     if (sorted.length > 0) setExpandedProduct(sorted[0].id);
 
-    // Load AI greeting
     loadAiGreeting(name, memberProds);
     setLoading(false);
   };
@@ -126,10 +122,10 @@ export default function AreaMembrosPublica() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-50 via-white to-amber-50/30">
         <div className="text-center space-y-4">
-          <Loader2 className="h-10 w-10 animate-spin text-gray-400 mx-auto" />
-          <p className="text-gray-400">Preparando sua área...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-amber-500/60 mx-auto" />
+          <p className="text-gray-400 text-sm">Preparando sua área...</p>
         </div>
       </div>
     );
@@ -137,11 +133,13 @@ export default function AreaMembrosPublica() {
 
   if (notFound) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4">
-        <div className="text-center space-y-4 max-w-md">
-          <Crown className="h-16 w-16 text-gray-300 mx-auto" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-stone-50 via-white to-amber-50/30 p-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto">
+            <Crown className="h-10 w-10 text-gray-300" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-800">Área não encontrada</h1>
-          <p className="text-gray-500">Não encontramos produtos liberados para este número.</p>
+          <p className="text-gray-500 text-sm leading-relaxed">Não encontramos produtos liberados para este número.</p>
         </div>
       </div>
     );
@@ -150,33 +148,53 @@ export default function AreaMembrosPublica() {
   const themeColor = settings?.theme_color || "#8B5CF6";
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-stone-50 to-white">
       {/* Header */}
-      <header className="relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}cc)` }}>
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.3'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/svg%3E\")" }} />
-        <div className="relative max-w-4xl mx-auto px-4 py-10 sm:py-14 text-center text-white">
+      <header className="relative overflow-hidden">
+        {/* Background layers */}
+        <div className="absolute inset-0" style={{ background: `linear-gradient(160deg, ${themeColor}, ${themeColor}dd, ${themeColor}aa)` }} />
+        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: `radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)`, backgroundSize: '40px 40px, 60px 60px' }} />
+        
+        <div className="relative max-w-3xl mx-auto px-5 py-12 sm:py-16 text-center text-white">
           {settings?.logo_url && (
-            <img src={settings.logo_url} alt="Logo" className="h-16 w-16 rounded-2xl mx-auto mb-4 shadow-lg border-2 border-white/30" />
+            <div className="mb-5">
+              <img src={settings.logo_url} alt="Logo" className="h-16 w-16 rounded-2xl mx-auto shadow-xl border-2 border-white/20 object-cover" />
+            </div>
           )}
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">{settings?.title || "Área de Membros"}</h1>
-          <p className="text-white/90 text-lg">
-            Olá, <span className="font-semibold">{firstName}</span>! {settings?.welcome_message}
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight mb-2">
+            {settings?.title || "Área de Membros"}
+          </h1>
+          <p className="text-white/85 text-base sm:text-lg max-w-md mx-auto leading-relaxed">
+            Olá, <span className="font-bold">{firstName}</span>! {settings?.welcome_message}
           </p>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-gray-50 to-transparent" />
+        
+        {/* Curved bottom */}
+        <div className="absolute -bottom-1 left-0 right-0">
+          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
+            <path d="M0 60V20C360 0 720 0 1080 20C1260 30 1380 45 1440 60H0Z" fill="url(#bg-gradient)" />
+            <defs>
+              <linearGradient id="bg-gradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#fafaf9" />
+                <stop offset="1" stopColor="white" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 -mt-2 pb-16 space-y-6">
+      <main className="max-w-3xl mx-auto px-5 pb-20 space-y-8 -mt-1">
         {/* AI Greeting */}
         {aiGreeting && (
-          <Card className="border-0 shadow-sm bg-white/80 backdrop-blur">
-            <CardContent className="flex items-start gap-3 p-4">
-              <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${themeColor}15` }}>
-                <Sparkles className="h-4 w-4" style={{ color: themeColor }} />
-              </div>
-              <p className="text-sm text-gray-700 leading-relaxed pt-1">{aiGreeting}</p>
-            </CardContent>
-          </Card>
+          <div className="flex items-start gap-3.5 rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-4">
+            <div
+              className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+              style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
+            >
+              <Sparkles className="h-4 w-4" style={{ color: themeColor }} />
+            </div>
+            <p className="text-sm text-gray-600 leading-relaxed pt-1.5">{aiGreeting}</p>
+          </div>
         )}
 
         {/* Daily Verse */}
@@ -184,48 +202,60 @@ export default function AreaMembrosPublica() {
 
         {/* Products */}
         <section>
-          <div className="flex items-center gap-2 mb-4">
-            <Crown className="h-5 w-5" style={{ color: themeColor }} />
-            <h2 className="text-lg font-bold text-gray-800">Seus Conteúdos</h2>
-            <Badge variant="secondary" className="ml-auto text-xs">{products.length}</Badge>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}12` }}>
+              <Crown className="h-4 w-4" style={{ color: themeColor }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Seus Conteúdos</h2>
+              <p className="text-xs text-gray-400">{products.length} {products.length === 1 ? 'produto liberado' : 'produtos liberados'}</p>
+            </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {sortedProducts.map((mp, index) => {
               const product = mp.delivery_products;
               if (!product) return null;
               const isExpanded = expandedProduct === mp.id;
 
               return (
-                <Card key={mp.id} className="overflow-hidden border-0 shadow-sm">
+                <div key={mp.id} className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
                   <button
-                    className="w-full p-4 flex items-center gap-3 text-left hover:bg-gray-50/50 transition-colors"
+                    className="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-gray-50/50"
                     onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
                   >
                     {product.page_logo ? (
-                      <img src={product.page_logo} alt={product.name} className="h-11 w-11 rounded-xl object-cover shrink-0" />
+                      <img src={product.page_logo} alt={product.name} className="h-12 w-12 rounded-xl object-cover shrink-0 shadow-sm" />
                     ) : (
-                      <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${themeColor}12` }}>
+                      <div
+                        className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${themeColor}18, ${themeColor}08)` }}
+                      >
                         <ShoppingBag className="h-5 w-5" style={{ color: themeColor }} />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-800 text-sm truncate">{product.name}</h3>
+                      <h3 className="font-bold text-gray-900 text-[15px] truncate">{product.name}</h3>
                       {index === 0 && (
-                        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: themeColor }}>Mais recente</span>
+                        <span
+                          className="inline-block text-[10px] font-bold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: `${themeColor}12`, color: themeColor }}
+                        >
+                          ✨ Mais recente
+                        </span>
                       )}
                     </div>
-                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`h-5 w-5 text-gray-300 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
                   </button>
 
                   {isExpanded && (
-                    <CardContent className="px-4 pb-4 pt-0 border-t border-gray-100">
-                      <div className="pt-4">
+                    <div className="px-5 pb-5 border-t border-gray-50">
+                      <div className="pt-5">
                         <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
                       </div>
-                    </CardContent>
+                    </div>
                   )}
-                </Card>
+                </div>
               );
             })}
           </div>
@@ -234,12 +264,16 @@ export default function AreaMembrosPublica() {
         {/* Locked Offers */}
         {offers.length > 0 && (
           <section>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-lg">🔒</span>
-              <h2 className="text-lg font-bold text-gray-800">Conteúdos Exclusivos</h2>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                <span className="text-base">🔒</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Conteúdos Exclusivos</h2>
+                <p className="text-xs text-gray-400">Descubra mais conteúdos para sua jornada</p>
+              </div>
             </div>
-            <p className="text-sm text-gray-500 mb-4">Descubra mais conteúdos para enriquecer sua jornada:</p>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               {offers.map((offer: any) => (
                 <LockedOfferCard key={offer.id} offer={offer} themeColor={themeColor} />
               ))}
@@ -248,8 +282,8 @@ export default function AreaMembrosPublica() {
         )}
       </main>
 
-      <footer className="text-center py-6 text-sm text-gray-400 border-t border-gray-100">
-        <p>Área exclusiva para membros ✝️</p>
+      <footer className="text-center py-8 border-t border-gray-100">
+        <p className="text-xs text-gray-400">Área exclusiva para membros ✝️</p>
       </footer>
     </div>
   );

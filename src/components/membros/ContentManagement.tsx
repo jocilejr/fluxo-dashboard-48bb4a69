@@ -2,15 +2,23 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, FolderPlus, FileText, ArrowLeft } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Music, Image, ExternalLink, Download } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+
+const typeIcons: Record<string, { icon: typeof FileText; color: string; label: string }> = {
+  text: { icon: FileText, color: "#6366f1", label: "Texto" },
+  pdf: { icon: Download, color: "#ef4444", label: "PDF" },
+  video: { icon: Video, color: "#8b5cf6", label: "Vídeo" },
+  audio: { icon: Music, color: "#f59e0b", label: "Áudio" },
+  image: { icon: Image, color: "#10b981", label: "Imagem" },
+  link: { icon: ExternalLink, color: "#3b82f6", label: "Link" },
+};
 
 export default function ContentManagement() {
   const queryClient = useQueryClient();
@@ -32,12 +40,14 @@ export default function ContentManagement() {
           {products?.map((p) => (
             <Card
               key={p.id}
-              className="p-4 cursor-pointer hover:shadow-md transition-shadow hover:border-primary"
+              className="p-5 cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 border-l-4 border-l-primary/30 hover:border-l-primary group"
               onClick={() => setSelectedProductId(p.id)}
             >
               <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-primary shrink-0" />
-                <span className="font-medium">{p.name}</span>
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <span className="font-semibold text-gray-800">{p.name}</span>
               </div>
             </Card>
           ))}
@@ -57,7 +67,7 @@ export default function ContentManagement() {
         <Button variant="ghost" size="sm" onClick={() => setSelectedProductId(null)}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
         </Button>
-        <h3 className="font-semibold">{product?.name}</h3>
+        <h3 className="font-bold text-lg">{product?.name}</h3>
       </div>
       <ProductContentEditor productId={selectedProductId} />
     </div>
@@ -81,11 +91,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const { data: categories } = useQuery({
     queryKey: ["admin-categories", productId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("member_product_categories")
-        .select("*")
-        .eq("product_id", productId)
-        .order("sort_order");
+      const { data } = await supabase.from("member_product_categories").select("*").eq("product_id", productId).order("sort_order");
       return data || [];
     },
   });
@@ -93,11 +99,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const { data: materials } = useQuery({
     queryKey: ["admin-materials", productId],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("member_product_materials")
-        .select("*, member_product_categories(name)")
-        .eq("product_id", productId)
-        .order("sort_order");
+      const { data } = await supabase.from("member_product_materials").select("*, member_product_categories(name)").eq("product_id", productId).order("sort_order");
       return data || [];
     },
   });
@@ -105,67 +107,31 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const addCatMutation = useMutation({
     mutationFn: async () => {
       if (!catName) throw new Error("Nome é obrigatório");
-      const { error } = await supabase.from("member_product_categories").insert({
-        product_id: productId,
-        name: catName,
-        icon: catIcon || "📖",
-        description: catDesc || null,
-        sort_order: (categories?.length || 0),
-      });
+      const { error } = await supabase.from("member_product_categories").insert({ product_id: productId, name: catName, icon: catIcon || "📖", description: catDesc || null, sort_order: (categories?.length || 0) });
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success("Categoria criada!");
-      queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] });
-      setCatName(""); setCatIcon("📖"); setCatDesc(""); setCatDialogOpen(false);
-    },
+    onSuccess: () => { toast.success("Categoria criada!"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); setCatName(""); setCatIcon("📖"); setCatDesc(""); setCatDialogOpen(false); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteCatMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("member_product_categories").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Categoria removida");
-      queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] });
-      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-    },
+    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_categories").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Categoria removida"); queryClient.invalidateQueries({ queryKey: ["admin-categories", productId] }); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
   });
 
   const addMatMutation = useMutation({
     mutationFn: async () => {
       if (!matTitle) throw new Error("Título é obrigatório");
-      const { error } = await supabase.from("member_product_materials").insert({
-        product_id: productId,
-        category_id: matCategoryId || null,
-        title: matTitle,
-        description: matDesc || null,
-        content_type: matType,
-        content_url: matUrl || null,
-        content_text: matText || null,
-        sort_order: (materials?.length || 0),
-      });
+      const { error } = await supabase.from("member_product_materials").insert({ product_id: productId, category_id: matCategoryId || null, title: matTitle, description: matDesc || null, content_type: matType, content_url: matUrl || null, content_text: matText || null, sort_order: (materials?.length || 0) });
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success("Material adicionado!");
-      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatCategoryId(""); setMatDialogOpen(false);
-    },
+    onSuccess: () => { toast.success("Material adicionado!"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatCategoryId(""); setMatDialogOpen(false); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMatMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("member_product_materials").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Material removido");
-      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-    },
+    mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_materials").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Material removido"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
   });
 
   const contentTypes = [
@@ -178,12 +144,12 @@ function ProductContentEditor({ productId }: { productId: string }) {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Categories Section */}
+    <div className="space-y-8">
+      {/* Categories */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="font-medium flex items-center gap-2">
-            <FolderPlus className="h-4 w-4" /> Categorias / Módulos
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-bold text-gray-800 flex items-center gap-2">
+            <FolderPlus className="h-4 w-4 text-primary" /> Categorias / Módulos
           </h4>
           <Dialog open={catDialogOpen} onOpenChange={setCatDialogOpen}>
             <DialogTrigger asChild>
@@ -202,26 +168,30 @@ function ProductContentEditor({ productId }: { productId: string }) {
         </div>
 
         {!categories?.length ? (
-          <p className="text-sm text-muted-foreground">Nenhuma categoria. Materiais ficarão sem agrupamento.</p>
+          <p className="text-sm text-muted-foreground py-2">Nenhuma categoria. Materiais ficarão sem agrupamento.</p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {categories.map((cat: any) => (
-              <Badge key={cat.id} variant="secondary" className="gap-1 py-1 px-3">
-                {cat.icon} {cat.name}
-                <button onClick={() => deleteCatMutation.mutate(cat.id)} className="ml-1 text-destructive hover:text-destructive/80">
-                  <Trash2 className="h-3 w-3" />
+              <div key={cat.id} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-100 group hover:bg-gray-100/50 transition-colors">
+                <span className="text-xl">{cat.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-gray-800 truncate">{cat.name}</p>
+                  {cat.description && <p className="text-[10px] text-gray-400 truncate">{cat.description}</p>}
+                </div>
+                <button onClick={() => deleteCatMutation.mutate(cat.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all">
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
-              </Badge>
+              </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Materials Section */}
+      {/* Materials */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="font-medium flex items-center gap-2">
-            <FileText className="h-4 w-4" /> Materiais
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="font-bold text-gray-800 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" /> Materiais
           </h4>
           <Dialog open={matDialogOpen} onOpenChange={setMatDialogOpen}>
             <DialogTrigger asChild>
@@ -238,9 +208,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
                     <SelectTrigger><SelectValue placeholder="Sem categoria" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">Sem categoria</SelectItem>
-                      {categories?.map((c: any) => (
-                        <SelectItem key={c.id} value={c.id}>{c.icon} {c.name}</SelectItem>
-                      ))}
+                      {categories?.map((c: any) => (<SelectItem key={c.id} value={c.id}>{c.icon} {c.name}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -249,9 +217,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
                   <Select value={matType} onValueChange={setMatType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {contentTypes.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                      ))}
+                      {contentTypes.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -267,27 +233,34 @@ function ProductContentEditor({ productId }: { productId: string }) {
         </div>
 
         {!materials?.length ? (
-          <p className="text-sm text-muted-foreground text-center py-6">Nenhum material cadastrado</p>
+          <p className="text-sm text-muted-foreground text-center py-8">Nenhum material cadastrado</p>
         ) : (
           <div className="space-y-2">
-            {materials.map((mat: any) => (
-              <Card key={mat.id} className="p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs shrink-0">{mat.content_type}</Badge>
-                      <span className="font-medium text-sm truncate">{mat.title}</span>
-                    </div>
-                    {mat.member_product_categories?.name && (
-                      <p className="text-xs text-muted-foreground mt-0.5">📁 {mat.member_product_categories.name}</p>
-                    )}
+            {materials.map((mat: any) => {
+              const typeInfo = typeIcons[mat.content_type] || typeIcons.text;
+              const TypeIcon = typeInfo.icon;
+              return (
+                <div key={mat.id} className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 border border-gray-100 group hover:shadow-sm transition-all">
+                  <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${typeInfo.color}12` }}>
+                    <TypeIcon className="h-4 w-4" style={{ color: typeInfo.color }} />
                   </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0" onClick={() => deleteMatMutation.mutate(mat.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-800 truncate">{mat.title}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `${typeInfo.color}10`, color: typeInfo.color }}>
+                        {typeInfo.label}
+                      </span>
+                      {mat.member_product_categories?.name && (
+                        <span className="text-[10px] text-gray-400">📁 {mat.member_product_categories.name}</span>
+                      )}
+                    </div>
+                  </div>
+                  <button onClick={() => deleteMatMutation.mutate(mat.id)} className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all p-1">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-              </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
