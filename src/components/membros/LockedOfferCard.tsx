@@ -183,7 +183,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
         )}
 
         {/* Bottom section */}
-        <div className="px-3.5 py-3 bg-white flex items-center justify-between gap-2">
+        <div className="px-3 py-2 bg-white flex items-center justify-between gap-2">
           {offer.description ? (
             <p className="text-[12px] text-gray-500 leading-snug truncate flex-1">
               {offer.description}
