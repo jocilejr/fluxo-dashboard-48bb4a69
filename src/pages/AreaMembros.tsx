@@ -14,8 +14,9 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2 } from "lucide-react";
+import { Trash2, BookOpen } from "lucide-react";
 import MemberClientCard from "@/components/membros/MemberClientCard";
+import ContentManagement from "@/components/membros/ContentManagement";
 
 // ---- Member Products Tab ----
 function MemberProductsTab() {
