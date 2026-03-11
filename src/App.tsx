@@ -84,8 +84,12 @@ const App = () => {
             <Route path="links-uteis" element={<LinksUteis />} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="grupos" element={<Grupos />} />
+            <Route path="area-membros" element={<AreaMembros />} />
             <Route path="perfil" element={<Dashboard />} />
           </Route>
+
+          {/* Public routes */}
+          <Route path="/membros/:phone" element={<Suspense fallback={<PageLoader />}><AreaMembrosPublica /></Suspense>} />
 
           {/* Public route */}
           <Route path="/e/:slug" element={<Suspense fallback={<PageLoader />}><EntregaPublica /></Suspense>} />
