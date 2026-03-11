@@ -395,12 +395,6 @@ export default function AreaMembrosPublica() {
             <h1 className="text-xl font-bold text-gray-800 tracking-tight">
               Olá, {firstName}
             </h1>
-            <p
-              className="text-sm text-gray-500 mt-0.5 leading-relaxed line-clamp-2 transition-opacity duration-700"
-              style={{ opacity: aiContext?.greeting ? 1 : 0.7 }}
-            >
-              {greetingText}
-            </p>
           </div>
         </div>
       </header>
