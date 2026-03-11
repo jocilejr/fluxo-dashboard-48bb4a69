@@ -446,6 +446,8 @@ export type Database = {
           delivery_webhook_url: string | null
           id: string
           is_active: boolean | null
+          member_cover_image: string | null
+          member_description: string | null
           name: string
           page_logo: string | null
           page_message: string | null
@@ -463,6 +465,8 @@ export type Database = {
           delivery_webhook_url?: string | null
           id?: string
           is_active?: boolean | null
+          member_cover_image?: string | null
+          member_description?: string | null
           name: string
           page_logo?: string | null
           page_message?: string | null
@@ -480,6 +484,8 @@ export type Database = {
           delivery_webhook_url?: string | null
           id?: string
           is_active?: boolean | null
+          member_cover_image?: string | null
+          member_description?: string | null
           name?: string
           page_logo?: string | null
           page_message?: string | null
