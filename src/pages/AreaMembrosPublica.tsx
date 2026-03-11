@@ -36,7 +36,6 @@ interface MemberSettings {
 interface AiContext {
   greeting: string;
   tip: string;
-  progressMessage: string;
 }
 
 interface MemberProfile {
