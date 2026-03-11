@@ -78,7 +78,6 @@ export default function AreaMembrosPublica() {
   const [aiContext, setAiContext] = useState<AiContext | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
   const [visibleMessages, setVisibleMessages] = useState(0);
-  const [showTypingAfterFirst, setShowTypingAfterFirst] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<string, ContentProgress[]>>({});
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
