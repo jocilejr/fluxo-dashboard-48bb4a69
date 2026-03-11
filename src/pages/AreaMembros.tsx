@@ -307,7 +307,8 @@ function MemberOffersTab() {
           purchase_url: purchaseUrl || "",
           price: price ? parseFloat(price) : null,
           category_tag: categoryTag || null,
-        }).eq("id", editingOffer.id);
+          display_type: displayType,
+        } as any).eq("id", editingOffer.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("member_area_offers").insert({
