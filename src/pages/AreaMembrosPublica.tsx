@@ -279,13 +279,14 @@ export default function AreaMembrosPublica() {
       products.filter(p => p.delivery_products?.name).map(p => p.delivery_products!.name.toLowerCase().trim())
     );
     return offers.filter((offer: any) => {
-      // Filter by product_id match
       if (offer.product_id && ownedProductIds.has(offer.product_id)) return false;
-      // Filter by name match as fallback
       if (offer.name && ownedProductNames.has(offer.name.toLowerCase().trim())) return false;
       return true;
     });
   }, [offers, products]);
+
+  const cardOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type !== "bottom_page"), [filteredOffers]);
+  const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());
