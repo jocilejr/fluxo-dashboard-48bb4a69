@@ -909,6 +909,53 @@ export type Database = {
         }
         Relationships: []
       }
+      member_content_progress: {
+        Row: {
+          created_at: string | null
+          current_page: number | null
+          id: string
+          last_accessed_at: string | null
+          material_id: string
+          normalized_phone: string
+          progress_type: string
+          total_pages: number | null
+          video_duration: number | null
+          video_seconds: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_page?: number | null
+          id?: string
+          last_accessed_at?: string | null
+          material_id: string
+          normalized_phone: string
+          progress_type?: string
+          total_pages?: number | null
+          video_duration?: number | null
+          video_seconds?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          current_page?: number | null
+          id?: string
+          last_accessed_at?: string | null
+          material_id?: string
+          normalized_phone?: string
+          progress_type?: string
+          total_pages?: number | null
+          video_duration?: number | null
+          video_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_content_progress_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "member_product_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_product_categories: {
         Row: {
           created_at: string
