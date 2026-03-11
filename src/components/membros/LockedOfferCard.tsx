@@ -142,7 +142,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
             <div
               className="absolute inset-0"
               style={{
-                background: `linear-gradient(to top, ${themeColor}dd 0%, ${themeColor}40 50%, transparent 100%)`,
+                background: `linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)`,
               }}
             />
             <div className="absolute bottom-0 left-0 right-0 p-3.5">
