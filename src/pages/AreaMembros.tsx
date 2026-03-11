@@ -545,7 +545,7 @@ function MemberPreviewTab() {
           {/* Content */}
           <div className="px-4 py-4 space-y-3">
             {/* Meire Rosana Chat Bubble Mock */}
-            <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: `${themeColor}06`, borderColor: `${themeColor}18` }}>
+            <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ backgroundColor: `${themeColor}0d`, borderColor: `${themeColor}22` }}>
               <div className="flex items-center gap-2.5 px-4 py-3">
                 <img src={meirePhoto} alt="Meire Rosana" className="h-9 w-9 rounded-full object-cover shadow-sm" style={{ border: `2px solid ${themeColor}40` }} />
                 <p className="text-[13px] font-semibold text-gray-800 leading-tight">Meire Rosana</p>
