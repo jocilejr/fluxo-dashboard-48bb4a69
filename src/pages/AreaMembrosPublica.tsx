@@ -427,7 +427,7 @@ export default function AreaMembrosPublica() {
             <img src={meirePhoto} alt="Meire Rosana" className="h-9 w-9 rounded-full object-cover shadow-sm" style={{ border: `2px solid ${themeColor}40` }} />
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-semibold text-gray-800 leading-tight">Meire Rosana</p>
-              {(aiLoading || showTypingAfterFirst) && (
+              {aiLoading && (
                 <p className="text-[11px] font-medium" style={{ color: themeColor }}>digitando...</p>
               )}
             </div>
