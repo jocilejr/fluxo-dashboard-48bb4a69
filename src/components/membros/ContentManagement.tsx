@@ -372,11 +372,11 @@ function ProductContentEditor({ productId }: { productId: string }) {
                   <div><Label>URL do vídeo</Label><Input value={matUrl} onChange={(e) => setMatUrl(e.target.value)} placeholder="https://youtube.com/..." /></div>
                 ) : (
                   <div className="space-y-2">
-                    <Label>{matType === "pdf" ? "Arquivo PDF" : "Arquivo de Imagem"}</Label>
+                    <Label>{matType === "pdf" ? "Arquivo PDF" : matType === "audio" ? "Arquivo de Áudio" : "Arquivo de Imagem"}</Label>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept={matType === "pdf" ? ".pdf" : "image/*"}
+                      accept={matType === "pdf" ? ".pdf" : matType === "audio" ? "audio/*" : "image/*"}
                       onChange={handleFileUpload}
                       className="hidden"
                     />

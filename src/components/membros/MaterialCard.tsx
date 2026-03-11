@@ -198,6 +198,26 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
                 )}
               </div>
             )}
+
+            {material.content_type === "audio" && material.content_url && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 bg-gray-50">
+                  <div className="h-12 w-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${config.accent}15` }}>
+                    <Music className="h-6 w-6" style={{ color: config.accent }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-800 truncate">{material.title}</p>
+                    {material.description && <p className="text-xs text-gray-500 truncate">{material.description}</p>}
+                  </div>
+                </div>
+                <audio
+                  src={material.content_url}
+                  controls
+                  className="w-full"
+                  controlsList="nodownload"
+                />
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
