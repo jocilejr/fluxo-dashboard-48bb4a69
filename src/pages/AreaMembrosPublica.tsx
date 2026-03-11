@@ -6,6 +6,7 @@ import { Loader2, Crown, ShoppingBag, Check, Lock, BookOpen, Play } from "lucide
 import DailyVerse from "@/components/membros/DailyVerse";
 import ProductContentViewer from "@/components/membros/ProductContentViewer";
 import LockedOfferCard from "@/components/membros/LockedOfferCard";
+import BottomPageOffer from "@/components/membros/BottomPageOffer";
 import FloatingOfferBar from "@/components/membros/FloatingOfferBar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
