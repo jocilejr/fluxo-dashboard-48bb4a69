@@ -182,85 +182,89 @@ export default function AreaMembrosPublica() {
       </header>
 
       <main className="max-w-3xl mx-auto px-5 pb-20 space-y-8 -mt-1">
-        {(settings?.layout_order || ["greeting", "content", "verse", "offers"]).map((section: string) => {
+        {(settings?.layout_order || ["greeting", "recent_product", "verse", "other_products", "offers"]).map((section: string) => {
+          const renderProductCard = (mp: MemberProduct, badge?: string) => {
+            const product = mp.delivery_products;
+            if (!product) return null;
+            const isExpanded = expandedProduct === mp.id;
+            return (
+              <div key={mp.id} className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
+                <button
+                  className="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-gray-50/50"
+                  onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
+                >
+                  {product.page_logo ? (
+                    <img src={product.page_logo} alt={product.name} className="h-12 w-12 rounded-xl object-cover shrink-0 shadow-sm" />
+                  ) : (
+                    <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, ${themeColor}18, ${themeColor}08)` }}>
+                      <ShoppingBag className="h-5 w-5" style={{ color: themeColor }} />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-900 text-[15px] truncate">{product.name}</h3>
+                    {badge && (
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full" style={{ backgroundColor: `${themeColor}12`, color: themeColor }}>
+                        {badge}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronDown className={`h-5 w-5 text-gray-300 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {isExpanded && (
+                  <div className="px-5 pb-5 border-t border-gray-50">
+                    <div className="pt-5">
+                      <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          };
+
           switch (section) {
             case "greeting":
               return aiGreeting ? (
                 <div key="greeting" className="flex items-start gap-3.5 rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-4">
-                  <div
-                    className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                    style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}
-                  >
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: `linear-gradient(135deg, ${themeColor}20, ${themeColor}08)` }}>
                     <Sparkles className="h-4 w-4" style={{ color: themeColor }} />
                   </div>
                   <p className="text-sm text-gray-600 leading-relaxed pt-1.5">{aiGreeting}</p>
                 </div>
               ) : null;
 
-            case "content":
-              return (
-                <section key="content">
+            case "recent_product":
+              return sortedProducts.length > 0 ? (
+                <section key="recent_product">
                   <div className="flex items-center gap-3 mb-5">
                     <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}12` }}>
                       <Crown className="h-4 w-4" style={{ color: themeColor }} />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-gray-900">Seus Conteúdos</h2>
-                      <p className="text-xs text-gray-400">{products.length} {products.length === 1 ? 'produto liberado' : 'produtos liberados'}</p>
+                      <h2 className="text-lg font-bold text-gray-900">Produto Recente</h2>
+                      <p className="text-xs text-gray-400">Seu conteúdo mais recente</p>
                     </div>
                   </div>
+                  {renderProductCard(sortedProducts[0], "✨ Mais recente")}
+                </section>
+              ) : null;
 
+            case "other_products":
+              return sortedProducts.length > 1 ? (
+                <section key="other_products">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}12` }}>
+                      <ShoppingBag className="h-4 w-4" style={{ color: themeColor }} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">Demais Produtos</h2>
+                      <p className="text-xs text-gray-400">{sortedProducts.length - 1} {sortedProducts.length - 1 === 1 ? 'produto' : 'produtos'}</p>
+                    </div>
+                  </div>
                   <div className="space-y-4">
-                    {sortedProducts.map((mp, index) => {
-                      const product = mp.delivery_products;
-                      if (!product) return null;
-                      const isExpanded = expandedProduct === mp.id;
-
-                      return (
-                        <div key={mp.id}>
-                          <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
-                            <button
-                              className="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-gray-50/50"
-                              onClick={() => setExpandedProduct(isExpanded ? null : mp.id)}
-                            >
-                              {product.page_logo ? (
-                                <img src={product.page_logo} alt={product.name} className="h-12 w-12 rounded-xl object-cover shrink-0 shadow-sm" />
-                              ) : (
-                                <div
-                                  className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
-                                  style={{ background: `linear-gradient(135deg, ${themeColor}18, ${themeColor}08)` }}
-                                >
-                                  <ShoppingBag className="h-5 w-5" style={{ color: themeColor }} />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-gray-900 text-[15px] truncate">{product.name}</h3>
-                                {index === 0 && (
-                                  <span
-                                    className="inline-block text-[10px] font-bold uppercase tracking-wider mt-0.5 px-2 py-0.5 rounded-full"
-                                    style={{ backgroundColor: `${themeColor}12`, color: themeColor }}
-                                  >
-                                    ✨ Mais recente
-                                  </span>
-                                )}
-                              </div>
-                              <ChevronDown className={`h-5 w-5 text-gray-300 transition-transform duration-300 shrink-0 ${isExpanded ? "rotate-180" : ""}`} />
-                            </button>
-
-                            {isExpanded && (
-                              <div className="px-5 pb-5 border-t border-gray-50">
-                                <div className="pt-5">
-                                  <ProductContentViewer productId={mp.product_id} productName={product.name} themeColor={themeColor} />
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {sortedProducts.slice(1).map((mp) => renderProductCard(mp))}
                   </div>
                 </section>
-              );
+              ) : null;
 
             case "verse":
               return <DailyVerse key="verse" />;
@@ -281,6 +285,25 @@ export default function AreaMembrosPublica() {
                     {offers.map((offer: any) => (
                       <LockedOfferCard key={offer.id} offer={offer} themeColor={themeColor} />
                     ))}
+                  </div>
+                </section>
+              ) : null;
+
+            // Backward compatibility with old "content" layout
+            case "content":
+              return sortedProducts.length > 0 ? (
+                <section key="content">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="h-8 w-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}12` }}>
+                      <Crown className="h-4 w-4" style={{ color: themeColor }} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">Seus Conteúdos</h2>
+                      <p className="text-xs text-gray-400">{products.length} {products.length === 1 ? 'produto liberado' : 'produtos liberados'}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    {sortedProducts.map((mp, idx) => renderProductCard(mp, idx === 0 ? "✨ Mais recente" : undefined))}
                   </div>
                 </section>
               ) : null;
