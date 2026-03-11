@@ -16,6 +16,7 @@ const typeIcons: Record<string, { icon: typeof FileText; color: string; label: s
   pdf: { icon: Download, color: "#ef4444", label: "PDF" },
   video: { icon: Video, color: "#8b5cf6", label: "Vídeo" },
   image: { icon: Image, color: "#10b981", label: "Imagem" },
+  audio: { icon: Music, color: "#f59e0b", label: "Áudio" },
 };
 
 export default function ContentManagement() {
