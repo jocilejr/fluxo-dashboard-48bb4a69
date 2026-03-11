@@ -248,6 +248,7 @@ function MemberOffersTab() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [editingOffer, setEditingOffer] = useState<any>(null);
+  const [displayType, setDisplayType] = useState("card");
 
   const { data: products } = useQuery({
     queryKey: ["delivery-products-for-offers"],
