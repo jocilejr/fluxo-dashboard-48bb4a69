@@ -139,7 +139,7 @@ export default function AreaMembrosPublica() {
     setProgressMap(progByProd);
 
     setLoading(false);
-    loadAiContext(name, memberProds, memberOffers, matsByProd, progressData);
+    loadAiContext(name, memberProds, memberOffers, matsByProd, progressData, customerProfile);
   };
 
   const getProductProgress = (productId: string): ProductProgress => {
