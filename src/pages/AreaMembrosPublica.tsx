@@ -7,6 +7,7 @@ import DailyVerse from "@/components/membros/DailyVerse";
 import ProductContentViewer from "@/components/membros/ProductContentViewer";
 import LockedOfferCard from "@/components/membros/LockedOfferCard";
 import BottomPageOffer from "@/components/membros/BottomPageOffer";
+import PhysicalProductShowcase from "@/components/membros/PhysicalProductShowcase";
 import FloatingOfferBar from "@/components/membros/FloatingOfferBar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -285,8 +286,9 @@ export default function AreaMembrosPublica() {
     });
   }, [offers, products]);
 
-  const cardOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type !== "bottom_page"), [filteredOffers]);
+  const cardOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase"), [filteredOffers]);
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
+  const showcaseOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "showcase"), [filteredOffers]);
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());
@@ -501,6 +503,15 @@ export default function AreaMembrosPublica() {
             );
           });
         })()}
+
+        {/* Showcase offers (physical products) */}
+        {showcaseOffers.length > 0 && (
+          <div className="space-y-6 pt-4">
+            {showcaseOffers.map((offer: any) => (
+              <PhysicalProductShowcase key={offer.id} offer={offer} themeColor={themeColor} />
+            ))}
+          </div>
+        )}
 
         <DailyVerse />
 
