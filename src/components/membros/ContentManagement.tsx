@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Image, Download, Upload, Loader2 } from "lucide-react";
+import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Image, Download, Upload, Loader2, Music } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ const typeIcons: Record<string, { icon: typeof FileText; color: string; label: s
   pdf: { icon: Download, color: "#ef4444", label: "PDF" },
   video: { icon: Video, color: "#8b5cf6", label: "Vídeo" },
   image: { icon: Image, color: "#10b981", label: "Imagem" },
+  audio: { icon: Music, color: "#f59e0b", label: "Áudio" },
 };
 
 export default function ContentManagement() {
@@ -221,6 +222,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
     { value: "pdf", label: "PDF (upload)" },
     { value: "video", label: "Vídeo (URL)" },
     { value: "image", label: "Imagem (upload)" },
+    { value: "audio", label: "Áudio (upload)" },
   ];
 
   return (
@@ -370,11 +372,11 @@ function ProductContentEditor({ productId }: { productId: string }) {
                   <div><Label>URL do vídeo</Label><Input value={matUrl} onChange={(e) => setMatUrl(e.target.value)} placeholder="https://youtube.com/..." /></div>
                 ) : (
                   <div className="space-y-2">
-                    <Label>{matType === "pdf" ? "Arquivo PDF" : "Arquivo de Imagem"}</Label>
+                    <Label>{matType === "pdf" ? "Arquivo PDF" : matType === "audio" ? "Arquivo de Áudio" : "Arquivo de Imagem"}</Label>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept={matType === "pdf" ? ".pdf" : "image/*"}
+                      accept={matType === "pdf" ? ".pdf" : matType === "audio" ? "audio/*" : "image/*"}
                       onChange={handleFileUpload}
                       className="hidden"
                     />

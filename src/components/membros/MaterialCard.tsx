@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, lazy, Suspense } from "react";
-import { FileText, Video, Image, Download, ExternalLink, ArrowLeft, Loader2 } from "lucide-react";
+import { FileText, Video, Image, Download, ExternalLink, ArrowLeft, Loader2, Music } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type * as pdfjsLib from "pdfjs-dist";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +30,7 @@ const typeConfig: Record<string, { icon: typeof FileText; label: string; accent:
   pdf: { icon: Download, label: "PDF", accent: "#ef4444" },
   video: { icon: Video, label: "Vídeo", accent: "#8b5cf6" },
   image: { icon: Image, label: "Imagem", accent: "#10b981" },
+  audio: { icon: Music, label: "Áudio", accent: "#f59e0b" },
 };
 
 export default function MaterialCard({ material, themeColor, preloadedPdf, phone }: Props) {
@@ -195,6 +196,26 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
                     onTimeUpdate={handleVideoTimeUpdate}
                   />
                 )}
+              </div>
+            )}
+
+            {material.content_type === "audio" && material.content_url && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 bg-gray-50">
+                  <div className="h-12 w-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${config.accent}15` }}>
+                    <Music className="h-6 w-6" style={{ color: config.accent }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-gray-800 truncate">{material.title}</p>
+                    {material.description && <p className="text-xs text-gray-500 truncate">{material.description}</p>}
+                  </div>
+                </div>
+                <audio
+                  src={material.content_url}
+                  controls
+                  className="w-full"
+                  controlsList="nodownload"
+                />
               </div>
             )}
           </div>
