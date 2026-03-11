@@ -283,6 +283,7 @@ function MemberOffersTab() {
     setPurchaseUrl(offer.purchase_url || "");
     setPrice(offer.price ? String(offer.price) : "");
     setCategoryTag(offer.category_tag || "");
+    setDisplayType(offer.display_type || "card");
     setImageFile(null);
     setDialogOpen(true);
   };
