@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,8 +11,23 @@ serve(async (req) => {
 
   try {
     const { firstName, products, offers } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // Fetch OpenAI API key from openai_settings table
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: settings, error: settingsError } = await supabase
+      .from("openai_settings")
+      .select("api_key")
+      .limit(1)
+      .maybeSingle();
+
+    if (settingsError || !settings?.api_key) {
+      throw new Error("OpenAI API key not configured. Add it in Configurações > OpenAI.");
+    }
+
+    const OPENAI_API_KEY = settings.api_key;
 
     const productList = (products || [])
       .map((p: { name: string; materials: string[] }) => 
@@ -42,14 +58,14 @@ Produtos que a pessoa possui:
 Ofertas disponíveis para sugestão:
 - ${offerList || "Nenhuma oferta disponível"}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -83,12 +99,10 @@ Ofertas disponíveis para sugestão:
                         description: "Personalized message explaining why this offer complements their journey."
                       }
                     },
-                    required: ["offerId", "message"],
-                    additionalProperties: false
+                    required: ["offerId", "message"]
                   }
                 },
-                required: ["greeting", "tip", "offerSuggestion"],
-                additionalProperties: false
+                required: ["greeting", "tip", "offerSuggestion"]
               }
             }
           }
@@ -98,26 +112,16 @@ Ofertas disponíveis para sugestão:
     });
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required" }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error("AI gateway error");
+      console.error("OpenAI API error:", response.status, t);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     
     if (!toolCall?.function?.arguments) {
-      throw new Error("No tool call response from AI");
+      throw new Error("No tool call response from OpenAI");
     }
 
     const result = JSON.parse(toolCall.function.arguments);
