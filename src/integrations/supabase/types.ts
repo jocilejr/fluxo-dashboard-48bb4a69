@@ -1457,6 +1457,33 @@ export type Database = {
         }
         Relationships: []
       }
+      psalms: {
+        Row: {
+          created_at: string
+          id: string
+          psalm_number: number
+          reference: string
+          text: string
+          verse_number: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          psalm_number: number
+          reference: string
+          text: string
+          verse_number: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          psalm_number?: number
+          reference?: string
+          text?: string
+          verse_number?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
