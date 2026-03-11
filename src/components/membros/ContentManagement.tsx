@@ -146,7 +146,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
     onSuccess: () => {
       toast.success("Material adicionado!");
       queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatDialogOpen(false);
+      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatCoverUrl(""); setMatDialogOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
