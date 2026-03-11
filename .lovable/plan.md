@@ -1,33 +1,25 @@
 
 
-## Problema
+## Abrir PDF em popup de tela cheia com visualização simples
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+Atualmente, ao clicar num material PDF, o sistema abre numa nova aba (`window.open`). A mudança é exibir o PDF dentro de um Dialog quase tela cheia, com um botão grande "Voltar" no topo — interface simplificada para público idoso.
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+### Mudanças em `src/components/membros/MaterialCard.tsx`
 
-## Solução
+1. **Remover o `window.open` para PDFs** — agora PDFs também abrem o Dialog (`setOpen(true)`)
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+2. **Dialog de PDF em tela quase cheia**:
+   - `DialogContent` com classes `w-[98vw] max-w-[98vw] h-[95vh]` para ocupar quase toda a tela
+   - Header fixo com botão grande "← Voltar" (texto grande, padding generoso) + título do material
+   - Corpo com `<iframe src={url} />` ocupando 100% do espaço restante para renderizar o PDF nativamente no navegador
 
-### Alteração em `src/hooks/useTransactions.ts`
+3. **Separar o Dialog do PDF** dos outros tipos — usar um Dialog dedicado com estilo fullscreen apenas para PDFs, mantendo o Dialog padrão para texto/vídeo/imagem
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+### UI para o público de 60+ anos
+- Botão "Voltar" com `text-base` ou `text-lg`, ícone `ArrowLeft` grande
+- Sem elementos visuais desnecessários — só o PDF e o botão de voltar
+- Padding confortável no header
 
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
-
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Arquivo
+- `src/components/membros/MaterialCard.tsx`
 
