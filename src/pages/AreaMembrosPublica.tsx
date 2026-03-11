@@ -465,7 +465,7 @@ export default function AreaMembrosPublica() {
         {(() => {
           const interleaved: ({ type: "product"; data: MemberProduct } | { type: "offer"; data: any })[] = [];
           // Cards use all offers except the last one (reserved for floating bar)
-          const cardOffers = offers.length > 1 ? offers.slice(0, -1) : offers;
+          const cardOffers = filteredOffers.length > 1 ? filteredOffers.slice(0, -1) : filteredOffers;
           let offerIdx = 0;
 
           for (let i = 0; i < sortedProducts.length; i++) {
