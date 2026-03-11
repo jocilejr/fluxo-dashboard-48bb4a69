@@ -10,9 +10,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { firstName, products, offers } = await req.json();
+    const { firstName, products, offers, ownedProductNames } = await req.json();
 
-    // Fetch OpenAI API key from openai_settings table
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -39,23 +38,27 @@ serve(async (req) => {
         `[ID: ${o.id}] "${o.name}"${o.description ? ` - ${o.description}` : ""}${o.categoryTag ? ` (categoria: ${o.categoryTag})` : ""}`)
       .join("\n- ");
 
+    const ownedNames = (ownedProductNames || []).join(", ") || "nenhum produto identificado";
+
     const systemPrompt = `Você é um assistente espiritual personalizado para uma área de membros cristã. Você deve gerar 3 blocos de conteúdo em uma única resposta usando a função fornecida.
 
 REGRAS IMPORTANTES:
 1. SAUDAÇÃO (greeting): Máximo 2 frases. Pessoal, acolhedora. Mencione um produto/material específico que a pessoa possui e sugira retomar de onde parou. Tom religioso sutil. Use 1-2 emojis.
 
-2. DICA CONTEXTUAL (tip): Uma dica ESPECÍFICA e prática relacionada ao material que a pessoa está praticando. Não seja genérico. Exemplo: "Ao estudar o Salmo 23, experimente meditar em cada verso por 5 minutos antes de dormir". Máximo 2 frases.
+2. MENSAGEM PESSOAL (tip): Uma mensagem CONVERSACIONAL e DIRETA, como se fosse de um amigo próximo. NÃO pareça uma dica genérica. Fale diretamente com a pessoa pelo nome, mencione os materiais específicos que ela está praticando e faça uma pergunta ou comentário pessoal. Exemplo: "${firstName}, você está praticando dois materiais incríveis, está conseguindo seguir o passo a passo certinho?" Máximo 2 frases. Tom íntimo e pessoal.
 
-3. SUGESTÃO DE OFERTA (offerSuggestion): Analise os produtos que a pessoa JÁ TEM e sugira UMA oferta que COMPLEMENTE a jornada dela. A mensagem deve explicar POR QUE esse material específico é o próximo passo natural. Se não houver ofertas ou nenhuma fizer sentido, retorne offerId vazio e message vazia.
+3. SUGESTÃO DE OFERTA (offerSuggestion): Analise os produtos que a pessoa JÁ TEM e sugira UMA oferta que COMPLEMENTE a jornada dela. A mensagem DEVE mencionar explicitamente os nomes dos produtos que a pessoa já contribuiu (${ownedNames}) e explicar que este novo material é especial mas ela ainda não contribuiu para recebê-lo. Exemplo: "Você já contribuiu com [Produto A] e [Produto B], que são incríveis! Este material complementa perfeitamente sua jornada..." Se não houver ofertas ou nenhuma fizer sentido, retorne offerId vazio e message vazia.
 
 NUNCA seja genérico. Cada resposta deve parecer que foi escrita por alguém que conhece a pessoa.`;
 
     const userPrompt = `Nome: ${firstName || "Querido(a)"}
 
-Produtos que a pessoa possui:
+Produtos que a pessoa já contribuiu e possui:
 - ${productList || "Nenhum produto específico"}
 
-Ofertas disponíveis para sugestão:
+Nomes dos produtos adquiridos: ${ownedNames}
+
+Ofertas disponíveis para sugestão (produtos que ela AINDA NÃO tem):
 - ${offerList || "Nenhuma oferta disponível"}`;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -85,7 +88,7 @@ Ofertas disponíveis para sugestão:
                   },
                   tip: {
                     type: "string",
-                    description: "Specific contextual tip about the material the person is practicing."
+                    description: "Conversational personal message (NOT a generic tip), mentioning the person by name and their specific materials."
                   },
                   offerSuggestion: {
                     type: "object",
@@ -96,7 +99,7 @@ Ofertas disponíveis para sugestão:
                       },
                       message: {
                         type: "string",
-                        description: "Personalized message explaining why this offer complements their journey."
+                        description: "Personalized message mentioning the products they already own and explaining why this new offer complements their journey."
                       }
                     },
                     required: ["offerId", "message"]
