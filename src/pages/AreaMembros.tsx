@@ -275,7 +275,7 @@ function MemberOffersTab() {
   };
 
   const resetForm = () => {
-    setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setCategoryTag(""); setImageFile(null); setEditingOffer(null); setUploading(false); setDisplayType("card");
+    setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setCategoryTag(""); setImageFile(null); setEditingOffer(null); setUploading(false); setDisplayType("card"); setPixKey(""); setCardPaymentUrl("");
   };
 
   const openEdit = (offer: any) => {
