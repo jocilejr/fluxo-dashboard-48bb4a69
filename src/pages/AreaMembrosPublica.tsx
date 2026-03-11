@@ -458,12 +458,6 @@ export default function AreaMembrosPublica() {
           })()
         ) : null}
 
-        {/* AI tip */}
-        {aiContext?.tip && (
-          <p className="text-sm text-gray-500 italic leading-relaxed px-1 transition-opacity duration-700">
-            {aiContext.tip}
-          </p>
-        )}
 
         {/* Remaining products */}
         {sortedProducts.slice(1).map((mp) => renderProductCard(mp))}
