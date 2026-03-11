@@ -248,6 +248,7 @@ function MemberOffersTab() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [editingOffer, setEditingOffer] = useState<any>(null);
+  const [displayType, setDisplayType] = useState("card");
 
   const { data: products } = useQuery({
     queryKey: ["delivery-products-for-offers"],
@@ -272,7 +273,7 @@ function MemberOffersTab() {
   };
 
   const resetForm = () => {
-    setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setCategoryTag(""); setImageFile(null); setEditingOffer(null); setUploading(false);
+    setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setCategoryTag(""); setImageFile(null); setEditingOffer(null); setUploading(false); setDisplayType("card");
   };
 
   const openEdit = (offer: any) => {
@@ -282,6 +283,7 @@ function MemberOffersTab() {
     setPurchaseUrl(offer.purchase_url || "");
     setPrice(offer.price ? String(offer.price) : "");
     setCategoryTag(offer.category_tag || "");
+    setDisplayType(offer.display_type || "card");
     setImageFile(null);
     setDialogOpen(true);
   };
@@ -305,7 +307,8 @@ function MemberOffersTab() {
           purchase_url: purchaseUrl || "",
           price: price ? parseFloat(price) : null,
           category_tag: categoryTag || null,
-        }).eq("id", editingOffer.id);
+          display_type: displayType,
+        } as any).eq("id", editingOffer.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from("member_area_offers").insert({
@@ -316,7 +319,8 @@ function MemberOffersTab() {
           purchase_url: purchaseUrl || "",
           price: price ? parseFloat(price) : (product?.value || null),
           category_tag: categoryTag || null,
-        });
+          display_type: displayType,
+        } as any);
         if (error) throw error;
       }
     },
@@ -373,6 +377,16 @@ function MemberOffersTab() {
                 <p className="text-xs text-muted-foreground mt-1">Tamanho recomendado: 600×200px (formato banner horizontal)</p>
               </div>
               <div><Label>Tag de categoria (opcional)</Label><Input value={categoryTag} onChange={(e) => setCategoryTag(e.target.value)} placeholder="Ex: Material complementar" /></div>
+              <div>
+                <Label>Tipo de exibição</Label>
+                <Select value={displayType} onValueChange={setDisplayType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="card">Oferta Card</SelectItem>
+                    <SelectItem value="bottom_page">Oferta Fim da Página</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div><Label>URL de Compra (opcional)</Label><Input value={purchaseUrl} onChange={(e) => setPurchaseUrl(e.target.value)} placeholder="https://..." /></div>
               <div><Label>Preço (R$) {editingOffer ? "" : "— usa o valor do produto se vazio"}</Label><Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder={selectedProduct?.value ? String(selectedProduct.value) : "0.00"} /></div>
               <Button className="w-full" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || uploading || (!editingOffer && !selectedProductId)}>
@@ -402,6 +416,7 @@ function MemberOffersTab() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       {offer.price && <span>R$ {Number(offer.price).toFixed(2).replace(".", ",")}</span>}
                       {offer.delivery_products?.name && <Badge variant="secondary" className="text-[10px]">{offer.delivery_products.name}</Badge>}
+                      <Badge variant="outline" className="text-[10px]">{(offer as any).display_type === "bottom_page" ? "Fim da página" : "Card"}</Badge>
                     </div>
                   </div>
                 </div>
