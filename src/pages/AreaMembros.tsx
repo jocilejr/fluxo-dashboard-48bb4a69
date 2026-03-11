@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { toast } from "sonner";
-import { Crown, Plus, Trash2, Search, Settings, Gift, Users, Copy } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Crown, Plus, Search, Settings, Gift, Users } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Trash2 } from "lucide-react";
+import MemberClientCard from "@/components/membros/MemberClientCard";
 
 // ---- Member Products Tab ----
 function MemberProductsTab() {
@@ -49,6 +52,53 @@ function MemberProductsTab() {
     },
   });
 
+  // Get unique phones and fetch customer names
+  const uniquePhones = useMemo(() => {
+    if (!memberProducts) return [];
+    const phones = new Set(memberProducts.map((mp: any) => mp.normalized_phone));
+    return Array.from(phones);
+  }, [memberProducts]);
+
+  const { data: customers } = useQuery({
+    queryKey: ["member-customers", uniquePhones],
+    queryFn: async () => {
+      if (!uniquePhones.length) return [];
+      // Generate all variations for all phones
+      const allVariations = uniquePhones.flatMap((p) => generatePhoneVariations(p));
+      const unique = [...new Set(allVariations)];
+      const { data } = await supabase
+        .from("customers")
+        .select("normalized_phone, name")
+        .in("normalized_phone", unique);
+      return data || [];
+    },
+    enabled: uniquePhones.length > 0,
+  });
+
+  // Map phone -> customer name
+  const phoneToName = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (!customers) return map;
+    for (const phone of uniquePhones) {
+      const variations = new Set(generatePhoneVariations(phone));
+      const customer = customers.find((c: any) => variations.has(c.normalized_phone));
+      if (customer?.name) map[phone] = customer.name;
+    }
+    return map;
+  }, [customers, uniquePhones]);
+
+  // Group member_products by phone
+  const groupedByPhone = useMemo(() => {
+    if (!memberProducts) return [];
+    const map = new Map<string, any[]>();
+    for (const mp of memberProducts) {
+      const phone = mp.normalized_phone;
+      if (!map.has(phone)) map.set(phone, []);
+      map.get(phone)!.push(mp);
+    }
+    return Array.from(map.entries()).map(([phone, prods]) => ({ phone, products: prods }));
+  }, [memberProducts]);
+
   const addMutation = useMutation({
     mutationFn: async () => {
       const digits = newPhone.replace(/\D/g, "");
@@ -62,6 +112,7 @@ function MemberProductsTab() {
     onSuccess: () => {
       toast.success("Produto liberado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["member-products"] });
+      queryClient.invalidateQueries({ queryKey: ["member-customers"] });
       setNewPhone("");
       setNewProductId("");
       setDialogOpen(false);
@@ -80,14 +131,9 @@ function MemberProductsTab() {
     },
   });
 
-  const getMemberUrl = (phone: string) => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/membros/${phone}`;
-  };
-
-  const copyLink = (phone: string) => {
-    navigator.clipboard.writeText(getMemberUrl(phone));
-    toast.success("Link copiado!");
+  const handleAddForPhone = (phone: string) => {
+    setNewPhone(phone);
+    setDialogOpen(true);
   };
 
   return (
@@ -150,42 +196,22 @@ function MemberProductsTab() {
 
       {isLoading ? (
         <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-      ) : !memberProducts?.length ? (
+      ) : !groupedByPhone.length ? (
         <div className="text-center py-12 text-muted-foreground">
           <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
           <p>Nenhum produto liberado ainda</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {memberProducts.map((mp: any) => (
-            <Card key={mp.id} className="p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{mp.normalized_phone}</span>
-                    <Badge variant={mp.is_active ? "default" : "secondary"}>
-                      {mp.is_active ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {mp.delivery_products?.name || "Produto removido"}
-                  </p>
-                </div>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => copyLink(mp.normalized_phone)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive"
-                    onClick={() => deleteMutation.mutate(mp.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
+        <div className="space-y-3">
+          {groupedByPhone.map(({ phone, products: prods }) => (
+            <MemberClientCard
+              key={phone}
+              phone={phone}
+              products={prods}
+              customerName={phoneToName[phone] || null}
+              onDeleteProduct={(id) => deleteMutation.mutate(id)}
+              onAddProduct={handleAddForPhone}
+            />
           ))}
         </div>
       )}

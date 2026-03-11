@@ -1,53 +1,33 @@
 
 
-## Melhorar Aba Membros: Agrupamento por Cliente + URL + Histórico
+## Problema
 
-### Problema
-Atualmente, cada `member_product` aparece como um card separado. O admin não vê o nome do cliente, a URL para enviar, nem o histórico de compras. Quando libera 2 produtos para o mesmo telefone, aparecem 2 cards desconectados.
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-### Solução
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-Reformular o `MemberProductsTab` em `src/pages/AreaMembros.tsx`:
+## Solução
 
-**1. Agrupar por telefone** — Usar os `memberProducts` já carregados e agrupá-los por `normalized_phone`. Cada grupo vira um card de cliente.
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-**2. Buscar nome do cliente** — Adicionar uma query a `customers` para trazer o nome associado a cada telefone.
+### Alteração em `src/hooks/useTransactions.ts`
 
-**3. Exibir URL copiável** — Cada card mostra a URL completa (`seusite.com/membros/TELEFONE`) com botão de copiar em destaque.
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-**4. Histórico de compras expandível** — Usar `Collapsible` para mostrar transações do cliente (lazy-loaded ao expandir), com valor, status, data e produto.
-
-### Layout do card
-
-```text
-┌──────────────────────────────────────────────────┐
-│ 👤 Maria da Silva                                │
-│ 📱 89981340810  [Ativo]                          │
-│                                                  │
-│ 🔗 https://site.com/membros/89981340810   [📋]   │
-│                                                  │
-│ Produtos liberados:                              │
-│  • Santo Antônio   [🗑]                          │
-│  • Oração da Manhã [🗑]                          │
-│                                                  │
-│ [+ Liberar outro produto]                        │
-│                                                  │
-│ ▼ Histórico de Compras (clique para expandir)    │
-│  ┌────────────────────────────────────────────┐  │
-│  │ Santo Antônio | R$ 62,00 | Pago | 11/03   │  │
-│  │ Oração       | R$ 30,00 | Gerado | 10/03  │  │
-│  └────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────┘
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
 ```
 
-### Alterações em `src/pages/AreaMembros.tsx`
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-- **Agrupar** `memberProducts` por `normalized_phone` (client-side, usando Map)
-- **Nova query** para buscar `customers` (nome) — já temos RLS que permite leitura autenticada
-- **Nova query** lazy para `transactions` ao expandir um cliente (usando `generatePhoneVariations`)
-- **Botão "Liberar outro produto"** dentro do card do cliente, que pre-preenche o telefone no dialog
-- **URL em destaque** com texto clicável + botão copiar
-- Importar `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` e `ChevronDown`
+A deduplicação acontece automaticamente pelo banco.
 
-Nenhuma mudança de banco de dados necessária.
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
