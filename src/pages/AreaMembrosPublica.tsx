@@ -171,7 +171,7 @@ export default function AreaMembrosPublica() {
     return `Último acesso: "${matName}"`;
   };
 
-  const loadAiContext = async (name: string | null, prods: MemberProduct[], memberOffers: any[], matsByProd: Record<string, any[]>, progressData: ContentProgress[]) => {
+  const loadAiContext = async (name: string | null, prods: MemberProduct[], memberOffers: any[], matsByProd: Record<string, any[]>, progressData: ContentProgress[], customerProfile: any) => {
     const cacheKey = `${AI_CACHE_KEY}_${phone}`;
     try {
       const cached = localStorage.getItem(cacheKey);
