@@ -428,8 +428,7 @@ function MemberOffersTab() {
 // ---- Main Page ----
 export default function AreaMembros() {
   return (
-    <PageTransition>
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div className="flex items-center gap-3">
           <Crown className="h-6 w-6 text-violet-600" />
           <div>
