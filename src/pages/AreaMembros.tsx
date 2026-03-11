@@ -417,7 +417,7 @@ function MemberOffersTab() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       {offer.price && <span>R$ {Number(offer.price).toFixed(2).replace(".", ",")}</span>}
                       {offer.delivery_products?.name && <Badge variant="secondary" className="text-[10px]">{offer.delivery_products.name}</Badge>}
-                      <Badge variant="outline" className="text-[10px]">{(offer as any).display_type === "bottom_page" ? "Fim da página" : "Card"}</Badge>
+                      <Badge variant="outline" className="text-[10px]">{(offer as any).display_type === "bottom_page" ? "Fim da página" : (offer as any).display_type === "showcase" ? "Produto Físico" : "Card"}</Badge>
                     </div>
                   </div>
                 </div>

@@ -285,8 +285,9 @@ export default function AreaMembrosPublica() {
     });
   }, [offers, products]);
 
-  const cardOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type !== "bottom_page"), [filteredOffers]);
+  const cardOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase"), [filteredOffers]);
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
+  const showcaseOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "showcase"), [filteredOffers]);
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());
