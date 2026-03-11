@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { FileText, Video, Image, Download, ExternalLink, ArrowLeft } from "lucide-react";
+import { useState, lazy, Suspense } from "react";
+import { FileText, Video, Image, Download, ExternalLink, ArrowLeft, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+const PdfViewer = lazy(() => import("./PdfViewer"));
 import { Button } from "@/components/ui/button";
 
 interface Material {
