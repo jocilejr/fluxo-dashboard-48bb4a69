@@ -1,33 +1,55 @@
 
 
-## Problema
+## Redesign: Chat da Meire Rosana + Header Simplificado
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### O que muda
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+**Header**: Remove a frase/saudação do header. Fica apenas "Olá, {nome}" sem subtítulo.
 
-## Solução
+**Novo componente de chat**: Abaixo do header, um mini-chat simulando uma conversa com "Meire Rosana":
+- Avatar circular com a foto enviada (salva em `src/assets/meire-rosana.png`)
+- Nome "Meire Rosana" ao lado do avatar
+- Balão de mensagem estilo WhatsApp com a mensagem da IA (greeting + progressMessage + tip combinados)
+- Enquanto a IA carrega: animação "digitando..." com 3 pontinhos pulsantes
+- Estilo: fundo levemente colorido no balão, cantos arredondados, sombra suave
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+### Arquivos a modificar
 
-### Alteração em `src/hooks/useTransactions.ts`
+| Arquivo | Mudança |
+|---|---|
+| `src/assets/meire-rosana.png` | Copiar foto enviada |
+| `src/pages/AreaMembrosPublica.tsx` | Remover subtítulo do header, substituir bloco de AI progress por chat bubble da Meire Rosana com "digitando..." |
+| `src/pages/AreaMembros.tsx` (MemberPreviewTab) | Espelhar as mesmas mudanças no preview estático |
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+### Layout do chat bubble
 
+```text
+┌─────────────────────────────────────┐
+│  Olá, Maria                        │  ← header simples
+├─────────────────────────────────────┤
+│  (●) Meire Rosana                   │
+│  ┌────────────────────────────┐     │
+│  │ Maria, você parou na pág   │     │
+│  │ 12 do "Água que Cura"...   │     │
+│  │ Continue de onde parou! 💪 │     │
+│  └────────────────────────────┘     │
+│                                     │
+│  [Product cards...]                 │
+└─────────────────────────────────────┘
 ```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
+
+Enquanto carrega:
+```text
+│  (●) Meire Rosana                   │
+│  ┌──────────────┐                   │
+│  │ digitando... │  ← dots animados  │
+│  └──────────────┘                   │
 ```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+### Detalhes técnicos
 
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+- A foto será importada via `import meirePhoto from "@/assets/meire-rosana.png"`
+- O balão combina `aiContext.greeting`, `aiContext.progressMessage` e `aiContext.tip` em mensagens separadas (como múltiplas mensagens no chat)
+- Animação de "digitando" usa CSS keyframes com 3 dots que pulsam
+- No preview (AreaMembros.tsx), mostra mensagem mock fixa no mesmo estilo de chat
 
