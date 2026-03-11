@@ -244,8 +244,10 @@ function MemberOffersTab() {
   const [description, setDescription] = useState("");
   const [purchaseUrl, setPurchaseUrl] = useState("");
   const [price, setPrice] = useState("");
+  const [categoryTag, setCategoryTag] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [editingOffer, setEditingOffer] = useState<any>(null);
 
   const { data: products } = useQuery({
     queryKey: ["delivery-products-for-offers"],
@@ -269,31 +271,59 @@ function MemberOffersTab() {
     return urlData.publicUrl;
   };
 
-  const addMutation = useMutation({
+  const resetForm = () => {
+    setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setCategoryTag(""); setImageFile(null); setEditingOffer(null); setUploading(false);
+  };
+
+  const openEdit = (offer: any) => {
+    setEditingOffer(offer);
+    setSelectedProductId(offer.product_id || "");
+    setDescription(offer.description || "");
+    setPurchaseUrl(offer.purchase_url || "");
+    setPrice(offer.price ? String(offer.price) : "");
+    setCategoryTag(offer.category_tag || "");
+    setImageFile(null);
+    setDialogOpen(true);
+  };
+
+  const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedProductId) throw new Error("Selecione um produto");
+      if (!editingOffer && !selectedProductId) throw new Error("Selecione um produto");
       setUploading(true);
       const product = products?.find(p => p.id === selectedProductId);
-      let imageUrl: string | null = null;
+      let imageUrl: string | null = editingOffer?.image_url || null;
       if (imageFile) {
         imageUrl = await uploadImage(imageFile);
-      } else if (product?.page_logo) {
+      } else if (!editingOffer && product?.page_logo) {
         imageUrl = product.page_logo;
       }
-      const { error } = await supabase.from("member_area_offers").insert({
-        name: product?.name || "Oferta",
-        product_id: selectedProductId,
-        description: description || null,
-        image_url: imageUrl,
-        purchase_url: purchaseUrl || "",
-        price: price ? parseFloat(price) : (product?.value || null),
-      });
-      if (error) throw error;
+
+      if (editingOffer) {
+        const { error } = await supabase.from("member_area_offers").update({
+          description: description || null,
+          image_url: imageUrl,
+          purchase_url: purchaseUrl || "",
+          price: price ? parseFloat(price) : null,
+          category_tag: categoryTag || null,
+        }).eq("id", editingOffer.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("member_area_offers").insert({
+          name: product?.name || "Oferta",
+          product_id: selectedProductId,
+          description: description || null,
+          image_url: imageUrl,
+          purchase_url: purchaseUrl || "",
+          price: price ? parseFloat(price) : (product?.value || null),
+          category_tag: categoryTag || null,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Oferta adicionada!");
+      toast.success(editingOffer ? "Oferta atualizada!" : "Oferta adicionada!");
       queryClient.invalidateQueries({ queryKey: ["member-area-offers"] });
-      setSelectedProductId(""); setDescription(""); setPurchaseUrl(""); setPrice(""); setImageFile(null); setDialogOpen(false); setUploading(false);
+      resetForm(); setDialogOpen(false);
     },
     onError: (err: Error) => { toast.error(err.message); setUploading(false); },
   });
