@@ -93,6 +93,19 @@ export default function AreaMembrosPublica() {
 
   const normalizedPhone = useMemo(() => phone?.replace(/\D/g, "") || "", [phone]);
 
+  // Session tracking
+  const sessionActive = !loading && !notFound && !!normalizedPhone;
+  const { updateActivity } = useMemberSession(normalizedPhone, sessionActive);
+
+  // Expose updateActivity for child components via callback
+  const handleActivityChange = useCallback((activity: string, productName?: string, materialName?: string) => {
+    updateActivity({
+      current_activity: activity,
+      current_product_name: productName || null,
+      current_material_name: materialName || null,
+    });
+  }, [updateActivity]);
+
   useEffect(() => {
     if (!phone) return;
     loadMemberData();
