@@ -18,7 +18,7 @@ serve(async (req) => {
 
     const [openaiRes, settingsRes] = await Promise.all([
       supabase.from("openai_settings").select("api_key").limit(1).maybeSingle(),
-      supabase.from("member_area_settings").select("ai_persona_prompt").limit(1).maybeSingle(),
+      supabase.from("member_area_settings").select("ai_persona_prompt, offer_prompt").limit(1).maybeSingle(),
     ]);
 
     if (openaiRes.error || !openaiRes.data?.api_key) {
