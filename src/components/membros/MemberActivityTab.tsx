@@ -43,8 +43,15 @@ function isOnline(session: MemberSession): boolean {
   return diff < 90;
 }
 
-function SessionDuration({ startedAt, endedAt }: { startedAt: string; endedAt: string | null }) {
-  const end = endedAt ? new Date(endedAt) : new Date();
+function SessionDuration({ startedAt, endedAt, lastHeartbeatAt }: { startedAt: string; endedAt: string | null; lastHeartbeatAt: string }) {
+  let end: Date;
+  if (endedAt) {
+    end = new Date(endedAt);
+  } else {
+    // If offline (heartbeat > 90s ago), use last heartbeat as effective end
+    const hbAge = differenceInSeconds(new Date(), new Date(lastHeartbeatAt));
+    end = hbAge > 90 ? new Date(lastHeartbeatAt) : new Date();
+  }
   const mins = differenceInMinutes(end, new Date(startedAt));
   if (mins < 1) return <span>{"< 1min"}</span>;
   if (mins < 60) return <span>{mins}min</span>;
