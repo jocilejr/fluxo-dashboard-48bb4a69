@@ -340,11 +340,22 @@ export default function AreaMembrosPublica() {
   useEffect(() => {
     if (!normalizedPhone || shownOfferIds.length === 0 || impressionsRegisteredRef.current) return;
     impressionsRegisteredRef.current = true;
+    
+    // Increment global impression counts
+    shownOfferIds.forEach((offerId: string) => {
+      supabase
+        .from("member_area_offers")
+        .update({ total_impressions: (globalImpressions[offerId] || 0) + 1 } as any)
+        .eq("id", offerId)
+        .then(() => {});
+    });
+
+    // Also track per-user impression
     const upserts = shownOfferIds.map((offerId: string) => ({
       normalized_phone: normalizedPhone,
       offer_id: offerId,
-      impression_count: (offerImpressions[offerId]?.impression_count || 0) + 1,
-      clicked: offerImpressions[offerId]?.clicked || false,
+      impression_count: 1,
+      clicked: false,
       last_shown_at: new Date().toISOString(),
     }));
     supabase
