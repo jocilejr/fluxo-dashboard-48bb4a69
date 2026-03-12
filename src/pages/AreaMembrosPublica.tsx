@@ -179,6 +179,7 @@ export default function AreaMembrosPublica() {
       gMap[o.id] = o.total_impressions || 0;
     });
     setGlobalImpressions(gMap);
+    setOfferMetricsReady(true);
 
     setLoading(false);
     loadAiContext(name, memberProds, memberOffers, matsByProd, progressData, customerProfile);
