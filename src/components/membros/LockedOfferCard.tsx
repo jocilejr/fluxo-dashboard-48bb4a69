@@ -96,6 +96,26 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
 
     setAiLoading(true);
     try {
+      // Fetch materials for this offer's product to enrich the pitch
+      let offerMaterialNames: string[] = [];
+      if (offer.product_id) {
+        const [catsRes, matsRes] = await Promise.all([
+          supabase.from("member_product_categories").select("id, name").eq("product_id", offer.product_id).order("sort_order"),
+          supabase.from("member_product_materials").select("title, category_id").eq("product_id", offer.product_id).order("sort_order"),
+        ]);
+        const cats = catsRes.data || [];
+        const mats = matsRes.data || [];
+        // Group materials by category for a structured list
+        const catMap = new Map(cats.map(c => [c.id, c.name]));
+        const grouped: Record<string, string[]> = {};
+        mats.forEach(m => {
+          const catName = m.category_id ? (catMap.get(m.category_id) || "Outros") : "Outros";
+          if (!grouped[catName]) grouped[catName] = [];
+          grouped[catName].push(m.title);
+        });
+        offerMaterialNames = Object.entries(grouped).map(([cat, titles]) => `${cat}: ${titles.join(", ")}`);
+      }
+
       const { data, error } = await supabase.functions.invoke("member-offer-pitch", {
         body: {
           firstName: firstName || "Querido(a)",
@@ -103,6 +123,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
           offerDescription: offer.description,
           ownedProductNames,
           profile: memberProfile,
+          offerMaterials: offerMaterialNames,
         },
       });
 
