@@ -247,7 +247,7 @@ export default function MemberActivityTab() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-muted-foreground">
-                      <SessionDuration startedAt={session.started_at} endedAt={null} />
+                      <SessionDuration startedAt={session.started_at} endedAt={null} lastHeartbeatAt={session.last_heartbeat_at} />
                     </p>
                   </div>
                 </div>
