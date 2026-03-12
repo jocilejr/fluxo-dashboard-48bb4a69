@@ -355,6 +355,22 @@ function MemberOffersTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["member-area-offers"] }),
   });
 
+  const handleExtractKnowledge = async (productId: string) => {
+    if (!productId) { toast.error("Esta oferta não tem produto vinculado"); return; }
+    setExtractingKnowledge(productId);
+    try {
+      const { data, error } = await supabase.functions.invoke("member-extract-knowledge", {
+        body: { product_id: productId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Resumo gerado! ${(data?.key_topics || []).length} tópicos extraídos`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar resumo");
+    }
+    setExtractingKnowledge(null);
+  };
+
   const selectedProduct = products?.find(p => p.id === selectedProductId);
 
   return (
