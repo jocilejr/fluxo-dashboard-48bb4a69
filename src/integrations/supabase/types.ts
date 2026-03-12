@@ -1962,6 +1962,11 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_offer_click: { Args: { offer_id: string }; Returns: undefined }
+      increment_offer_impression: {
+        Args: { offer_id: string }
+        Returns: undefined
+      }
       normalize_phone: { Args: { phone: string }; Returns: string }
       refresh_customer_stats: {
         Args: { customer_normalized_phone?: string }
