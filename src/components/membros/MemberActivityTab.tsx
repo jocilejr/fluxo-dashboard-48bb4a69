@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
-import { Activity, Users, Clock, Wifi, WifiOff } from "lucide-react";
+import { Activity, Clock, Wifi, WifiOff } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDistanceToNow, format, differenceInMinutes, differenceInSeconds } from "date-fns";
+import { format, differenceInMinutes, differenceInSeconds } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
@@ -39,7 +39,7 @@ function getActivityLabel(session: MemberSession): string {
 function isOnline(session: MemberSession): boolean {
   if (session.ended_at) return false;
   const diff = differenceInSeconds(new Date(), new Date(session.last_heartbeat_at));
-  return diff < 90; // 90s tolerance (heartbeat every 30s)
+  return diff < 90;
 }
 
 function SessionDuration({ startedAt, endedAt }: { startedAt: string; endedAt: string | null }) {
@@ -55,19 +55,16 @@ function SessionDuration({ startedAt, endedAt }: { startedAt: string; endedAt: s
 export default function MemberActivityTab() {
   const [now, setNow] = useState(new Date());
 
-  // Refresh "now" every 15s to update online indicators
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 15_000);
     return () => clearInterval(interval);
   }, []);
 
-  // Recent sessions (last 24h)
   const { data: sessions, refetch } = useQuery({
     queryKey: ["member-sessions-recent"],
     queryFn: async () => {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { data } = await supabase
-        .from("member_sessions")
+      const { data } = await (supabase.from("member_sessions" as any) as any)
         .select("*")
         .gte("started_at", since)
         .order("started_at", { ascending: false })
@@ -77,27 +74,10 @@ export default function MemberActivityTab() {
     refetchInterval: 30_000,
   });
 
-  // Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel("member-sessions-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "member_sessions" }, (payload) => {
-        refetch();
-        // Toast when someone leaves
-        if (payload.eventType === "UPDATE" && (payload.new as any)?.ended_at && !(payload.old as any)?.ended_at) {
-          const phone = (payload.new as any)?.normalized_phone || "";
-          const name = phoneNameMap[phone] || phone;
-          toast.info(`${name} saiu da área de membros`);
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [refetch]);
-
-  // Get customer names for phones
+  // Get customer names
   const uniquePhones = useMemo(() => {
     if (!sessions) return [];
-    return [...new Set(sessions.map(s => s.normalized_phone))];
+    return [...new Set(sessions.map((s: MemberSession) => s.normalized_phone))];
   }, [sessions]);
 
   const { data: customers } = useQuery({
@@ -123,21 +103,36 @@ export default function MemberActivityTab() {
     return map;
   }, [customers, uniquePhones]);
 
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel("member-sessions-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_sessions" }, (payload) => {
+        refetch();
+        if (payload.eventType === "UPDATE" && (payload.new as any)?.ended_at && !(payload.old as any)?.ended_at) {
+          const phone = (payload.new as any)?.normalized_phone || "";
+          const name = phoneNameMap[phone] || phone;
+          toast.info(`${name} saiu da área de membros`);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [refetch, phoneNameMap]);
+
   const onlineSessions = useMemo(() => (sessions || []).filter(isOnline), [sessions, now]);
   const todaySessions = sessions || [];
-  const uniqueVisitorsToday = useMemo(() => new Set(todaySessions.map(s => s.normalized_phone)).size, [todaySessions]);
+  const uniqueVisitorsToday = useMemo(() => new Set(todaySessions.map((s: MemberSession) => s.normalized_phone)).size, [todaySessions]);
 
   const avgDurationMins = useMemo(() => {
-    const ended = todaySessions.filter(s => s.ended_at);
+    const ended = todaySessions.filter((s: MemberSession) => s.ended_at);
     if (!ended.length) return 0;
-    const total = ended.reduce((sum, s) => sum + differenceInMinutes(new Date(s.ended_at!), new Date(s.started_at)), 0);
+    const total = ended.reduce((sum, s: MemberSession) => sum + differenceInMinutes(new Date(s.ended_at!), new Date(s.started_at)), 0);
     return Math.round(total / ended.length);
   }, [todaySessions]);
 
-  // Access count per phone
   const accessCountMap = useMemo(() => {
     const map: Record<string, number> = {};
-    (sessions || []).forEach(s => { map[s.normalized_phone] = (map[s.normalized_phone] || 0) + 1; });
+    (sessions || []).forEach((s: MemberSession) => { map[s.normalized_phone] = (map[s.normalized_phone] || 0) + 1; });
     return map;
   }, [sessions]);
 
@@ -147,8 +142,8 @@ export default function MemberActivityTab() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <p className="text-2xl font-bold text-emerald-600">{onlineSessions.length}</p>
+            <div className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
+            <p className="text-2xl font-bold text-primary">{onlineSessions.length}</p>
           </div>
           <p className="text-xs text-muted-foreground">Online agora</p>
         </Card>
@@ -171,12 +166,12 @@ export default function MemberActivityTab() {
         <Card>
           <CardContent className="p-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-              <Wifi className="h-4 w-4 text-emerald-500" /> Membros Online
+              <Wifi className="h-4 w-4 text-primary" /> Membros Online
             </h3>
             <div className="space-y-2">
-              {onlineSessions.map(session => (
-                <div key={session.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-emerald-50/50 border border-emerald-100">
-                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              {onlineSessions.map((session: MemberSession) => (
+                <div key={session.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/10">
+                  <div className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
                       {phoneNameMap[session.normalized_phone] || session.normalized_phone}
@@ -221,7 +216,7 @@ export default function MemberActivityTab() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {todaySessions.map(session => {
+                  {todaySessions.map((session: MemberSession) => {
                     const online = isOnline(session);
                     return (
                       <TableRow key={session.id}>
@@ -230,8 +225,8 @@ export default function MemberActivityTab() {
                         </TableCell>
                         <TableCell>
                           {online ? (
-                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
-                              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <Badge className="bg-primary/10 text-primary border-primary/20 gap-1">
+                              <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                               Online
                             </Badge>
                           ) : (

@@ -567,6 +567,9 @@ export default function AreaMembros() {
           <TabsTrigger value="offers" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Gift className="h-4 w-4" /> Ofertas
           </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
+            <Activity className="h-4 w-4" /> Atividade
+          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2 rounded-md data-[state=active]:bg-card data-[state=active]:shadow-sm text-sm">
             <Settings className="h-4 w-4" /> Configurações
           </TabsTrigger>
@@ -575,6 +578,7 @@ export default function AreaMembros() {
         <TabsContent value="products"><MemberProductsTab /></TabsContent>
         <TabsContent value="content"><ContentManagement /></TabsContent>
         <TabsContent value="offers"><MemberOffersTab /></TabsContent>
+        <TabsContent value="activity"><MemberActivityTab /></TabsContent>
         <TabsContent value="settings"><MemberSettingsTab /></TabsContent>
       </Tabs>
     </div>
