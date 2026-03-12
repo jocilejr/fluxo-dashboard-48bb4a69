@@ -67,8 +67,13 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [visibleCount, showDots]);
+    const el = scrollRef.current;
+    if (!el) return;
+    // Use requestAnimationFrame to ensure DOM has rendered new content
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }, [visibleCount, showDots, aiLoading]);
 
   // Reveal bubbles one by one with 10s delay
   useEffect(() => {
