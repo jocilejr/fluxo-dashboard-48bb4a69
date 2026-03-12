@@ -220,7 +220,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white w-fit mb-2" style={{ backgroundColor: themeColor }}>
               <Sparkles className="h-3 w-3" /> {label}
             </span>
-            <h3 className="font-extrabold text-gray-800 text-lg leading-tight uppercase tracking-wide line-clamp-2">{offer.name}</h3>
+            <h3 className="font-black text-gray-800 text-xl leading-tight uppercase tracking-wide line-clamp-2">{offer.name}</h3>
           </div>
         )}
 

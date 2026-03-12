@@ -455,7 +455,7 @@ export default function AreaMembrosPublica() {
               <Check className="h-3 w-3" strokeWidth={3} />
               {recent ? "Liberado recentemente" : "Liberado"}
             </span>
-            <h3 className="font-extrabold text-gray-800 text-lg leading-tight uppercase tracking-wide line-clamp-2">
+            <h3 className="font-black text-gray-800 text-xl leading-tight uppercase tracking-wide line-clamp-2">
               {product.name}
             </h3>
           </div>
