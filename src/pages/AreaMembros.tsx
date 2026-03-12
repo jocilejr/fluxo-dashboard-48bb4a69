@@ -221,11 +221,12 @@ function MemberSettingsTab() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const payload = { title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor, ai_persona_prompt: aiPersonaPrompt || null, greeting_prompt: greetingPrompt || null, offer_prompt: offerPrompt || null } as any;
       if (settings?.id) {
-        const { error } = await supabase.from("member_area_settings").update({ title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor, ai_persona_prompt: aiPersonaPrompt || null } as any).eq("id", settings.id);
+        const { error } = await supabase.from("member_area_settings").update(payload).eq("id", settings.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("member_area_settings").insert({ title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor, ai_persona_prompt: aiPersonaPrompt || null } as any);
+        const { error } = await supabase.from("member_area_settings").insert(payload);
         if (error) throw error;
       }
     },
