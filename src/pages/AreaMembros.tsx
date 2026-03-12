@@ -204,9 +204,19 @@ function MemberSettingsTab() {
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [themeColor, setThemeColor] = useState("#8B5CF6");
   const [aiPersonaPrompt, setAiPersonaPrompt] = useState("");
+  const [greetingPrompt, setGreetingPrompt] = useState("");
+  const [offerPrompt, setOfferPrompt] = useState("");
 
   useState(() => {
-    if (settings) { setTitle(settings.title || "Área de Membros"); setLogoUrl(settings.logo_url || ""); setWelcomeMessage(settings.welcome_message || ""); setThemeColor(settings.theme_color || "#8B5CF6"); setAiPersonaPrompt((settings as any).ai_persona_prompt || ""); }
+    if (settings) {
+      setTitle(settings.title || "Área de Membros");
+      setLogoUrl(settings.logo_url || "");
+      setWelcomeMessage(settings.welcome_message || "");
+      setThemeColor(settings.theme_color || "#8B5CF6");
+      setAiPersonaPrompt((settings as any).ai_persona_prompt || "");
+      setGreetingPrompt((settings as any).greeting_prompt || "");
+      setOfferPrompt((settings as any).offer_prompt || "");
+    }
   });
 
   const saveMutation = useMutation({
