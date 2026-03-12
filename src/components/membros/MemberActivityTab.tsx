@@ -82,7 +82,22 @@ export default function MemberActivityTab() {
         console.error("[MemberActivity] Failed to load sessions:", error);
         toast.error("Erro ao carregar sessões");
       }
-      return (data || []) as MemberSession[];
+      const rows = (data || []) as MemberSession[];
+
+      // Auto-close orphaned sessions (no heartbeat for 5+ min, no ended_at)
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const orphaned = rows.filter(s => !s.ended_at && new Date(s.last_heartbeat_at) < fiveMinAgo);
+      if (orphaned.length > 0) {
+        for (const s of orphaned) {
+          supabase.from("member_sessions")
+            .update({ ended_at: s.last_heartbeat_at })
+            .eq("id", s.id)
+            .then(({ error: e }) => { if (e) console.error("[MemberActivity] Failed to close orphan:", e); });
+          s.ended_at = s.last_heartbeat_at;
+        }
+      }
+
+      return rows;
     },
     refetchInterval: 30_000,
   });
