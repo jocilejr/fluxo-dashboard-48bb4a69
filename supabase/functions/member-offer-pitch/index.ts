@@ -44,6 +44,29 @@ serve(async (req) => {
       }
     }
 
+    // Fetch product image from the offer's linked product
+    let productImageUrl: string | null = null;
+    // We need to find the offer's product_id to get the product image
+    // The offerName is passed, let's look up the offer to get product_id and then the product image
+    const { data: offerData } = await supabase
+      .from("member_area_offers")
+      .select("product_id")
+      .eq("name", offerName)
+      .limit(1)
+      .maybeSingle();
+
+    if (offerData?.product_id) {
+      const { data: productData } = await supabase
+        .from("delivery_products")
+        .select("member_cover_image, page_logo")
+        .eq("id", offerData.product_id)
+        .single();
+
+      if (productData) {
+        productImageUrl = productData.member_cover_image || productData.page_logo || null;
+      }
+    }
+
     const prof = profile || {};
     let memberDays = 0;
     if (prof.memberSince) {
@@ -62,7 +85,7 @@ serve(async (req) => {
       : `SUA PERSONALIDADE:\nVocê é uma mulher cristã de 57 anos, líder de uma comunidade de orações. Você age de forma cristã e nunca tenta vender algo — você oferece com carinho algo que pode fazer sentido para a pessoa, e pede uma contribuição caso a pessoa possa contribuir.`;
 
     const knowledgeBlock = knowledgeContext
-      ? `\nCONHECIMENTO QUE A PESSOA JÁ ADQUIRIU (dos materiais que ela já possui):\n${knowledgeContext}\n\n→ Na PRIMEIRA mensagem, faça referência ao que a pessoa já aprendeu/estudou (use os tópicos acima de forma natural). Isso cria conexão e mostra que você conhece a jornada dela. Exemplo: "Você já estudou sobre oração intercessora e adoração..." Depois, introduza o novo material como uma continuidade natural dessa jornada.`
+      ? `\nCONHECIMENTO QUE A PESSOA JÁ ADQUIRIU (dos materiais que ela já possui):\n${knowledgeContext}\n\n→ No SEGUNDO balão, faça referência ao que a pessoa já aprendeu/estudou (use os tópicos acima de forma natural). Isso cria conexão e mostra que você conhece a jornada dela. Exemplo: "Você já estudou sobre oração intercessora e adoração..." Depois, introduza o novo material como uma continuidade natural dessa jornada.`
       : "";
 
     const systemPrompt = `Você vai gerar mensagens de chat simulando uma conversa pessoal sobre um material que a pessoa demonstrou interesse.
@@ -75,10 +98,17 @@ REGRAS ABSOLUTAS:
 - Fale de forma natural, como uma amiga que conhece a pessoa
 - Baseie-se APENAS no título e descrição da oferta para explicar o que é
 - Use o nome da pessoa
-- Gere EXATAMENTE 2 mensagens curtas (como balões de WhatsApp)
-- Cada mensagem deve ter no máximo 2 frases
-- A primeira mensagem deve ser pessoal e acolhedora${knowledgeContext ? ", referenciando o conhecimento que a pessoa já adquiriu (veja seção CONHECIMENTO abaixo)" : `, e deve mencionar que os materiais que ela já possui são: ${ownedNames}`}. Diga que ela ainda não contribuiu para receber "${offerName}", de forma carinhosa e sem pressão.
-- A segunda mensagem deve explicar brevemente o que é o material com base na descrição, e convidar com gentileza.
+- Gere EXATAMENTE 3 mensagens (balão 1, balão 2 e balão 4 — o balão 3 será uma imagem enviada automaticamente)
+- Cada mensagem deve ter no máximo 2-3 frases curtas
+
+ESTRUTURA DOS 3 BALÕES DE TEXTO:
+
+**Balão 1 (primeiro):** Cumprimente a pessoa pelo nome e informe que ela já adquiriu os seguintes materiais: ${ownedNames}. Diga que ela ainda não contribuiu para receber "${offerName}", de forma carinhosa e sem pressão.
+
+**Balão 2 (segundo):** ${knowledgeContext ? "Faça um breve resumo do que ela já aprendeu com os materiais que possui (use a seção CONHECIMENTO abaixo). Depois, explique como o novo material '${offerName}' complementa e expande esse conhecimento, como um próximo passo natural." : "Explique brevemente o que é o material '${offerName}' com base na descrição, e como ele pode ajudar a pessoa na sua jornada."}
+
+**Balão 4 (terceiro texto, após a imagem):** Liste especificamente o que contém dentro do material, mencionando os módulos e conteúdos que ela vai receber. Convide com gentileza.
+
 ${knowledgeBlock}
 PERFIL DA PESSOA:
 - Nome: ${firstName}
@@ -92,7 +122,7 @@ ${profileCategory === "fiel" ? "→ É fiel e comprometida. Reconheça isso." : 
 MATERIAL CLICADO:
 - Nome: "${offerName}"
 - Descrição: "${offerDescription || 'Material especial preparado com muito carinho.'}"
-${(offerMaterials && offerMaterials.length > 0) ? `\nCONTEÚDO QUE A PESSOA VAI RECEBER:\n${offerMaterials.join("\n")}\n\n→ Na segunda mensagem, mencione ESPECIFICAMENTE alguns dos materiais/módulos que ela vai receber (use os nomes reais listados acima). Isso torna a oferta concreta e tangível.` : ""}
+${(offerMaterials && offerMaterials.length > 0) ? `\nCONTEÚDO QUE A PESSOA VAI RECEBER (use no Balão 4):\n${offerMaterials.join("\n")}\n\n→ No Balão 4, mencione ESPECIFICAMENTE alguns dos materiais/módulos que ela vai receber (use os nomes reais listados acima). Isso torna a oferta concreta e tangível.` : ""}
 
 Gere as mensagens usando a função fornecida.`;
 
@@ -106,23 +136,23 @@ Gere as mensagens usando a função fornecida.`;
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Gere as mensagens de chat para ${firstName} sobre "${offerName}".` },
+          { role: "user", content: `Gere as 3 mensagens de chat para ${firstName} sobre "${offerName}".` },
         ],
         tools: [
           {
             type: "function",
             function: {
               name: "generate_offer_chat",
-              description: "Generate exactly 2 chat messages simulating a personal conversation about the offer.",
+              description: "Generate exactly 3 chat text messages (balloon 1, 2, and 4). Balloon 3 is an image sent automatically.",
               parameters: {
                 type: "object",
                 properties: {
                   messages: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Array of exactly 2 short chat messages, each max 2 sentences.",
-                    minItems: 2,
-                    maxItems: 2,
+                    description: "Array of exactly 3 short chat messages: balloon 1 (greeting + owned products), balloon 2 (knowledge summary + bridge), balloon 4 (content listing + invitation).",
+                    minItems: 3,
+                    maxItems: 3,
                   }
                 },
                 required: ["messages"]
@@ -149,7 +179,7 @@ Gere as mensagens usando a função fornecida.`;
 
     const result = JSON.parse(toolCall.function.arguments);
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({ ...result, productImageUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
