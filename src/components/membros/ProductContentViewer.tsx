@@ -77,6 +77,11 @@ export default function ProductContentViewer({ productId, productName, themeColo
       .catch(() => {});
   }, [mostRecentPdf?.id, mostRecentPdf?.content_url]);
 
+  // Track product view activity
+  useEffect(() => {
+    onActivityChange?.("viewing_product", productName);
+  }, [productId]);
+
   if (loadingCats || loadingMats) {
     return (
       <div className="flex items-center justify-center py-10">
