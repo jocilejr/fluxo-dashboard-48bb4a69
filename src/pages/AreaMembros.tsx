@@ -98,6 +98,22 @@ function MemberProductsTab() {
     mutationFn: async () => {
       const digits = newPhone.replace(/\D/g, "");
       if (!digits || !newProductId) throw new Error("Preencha todos os campos");
+      
+      // Check if access already exists by last 8 digits
+      const last8 = digits.slice(-8);
+      const { data: existing } = await supabase
+        .from("member_products")
+        .select("id, normalized_phone")
+        .eq("product_id", newProductId);
+      
+      const match = existing?.find(mp => mp.normalized_phone.slice(-8) === last8);
+      if (match) {
+        // Reactivate if inactive
+        await supabase.from("member_products").update({ is_active: true, granted_at: new Date().toISOString() }).eq("id", match.id);
+        toast.info("Este cliente já possui acesso a este produto.");
+        return;
+      }
+      
       const { error } = await supabase.from("member_products").insert({ normalized_phone: digits, product_id: newProductId });
       if (error) throw error;
     },
