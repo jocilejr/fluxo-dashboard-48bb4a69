@@ -233,7 +233,15 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
 
             {/* PIX Key */}
             <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-              <p className="text-xs text-gray-500 font-medium">Chave PIX</p>
+              <p className="text-xs text-gray-500 font-medium">
+                Chave PIX ({
+                  offer.pix_key_type === "cpf" ? "CPF" :
+                  offer.pix_key_type === "email" ? "E-mail" :
+                  offer.pix_key_type === "cnpj" ? "CNPJ" :
+                  offer.pix_key_type === "aleatoria" ? "Chave aleatória" :
+                  "Telefone"
+                })
+              </p>
               <div className="flex items-center gap-2">
                 <code className="flex-1 text-sm text-gray-800 font-mono bg-white px-3 py-2 rounded-lg border break-all">
                   {offer.pix_key}
