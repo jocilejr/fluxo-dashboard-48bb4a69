@@ -250,6 +250,7 @@ function MemberOffersTab() {
   const [editingOffer, setEditingOffer] = useState<any>(null);
   const [displayType, setDisplayType] = useState("card");
   const [pixKey, setPixKey] = useState("");
+  const [pixKeyType, setPixKeyType] = useState("telefone");
   const [cardPaymentUrl, setCardPaymentUrl] = useState("");
 
   const { data: products } = useQuery({
