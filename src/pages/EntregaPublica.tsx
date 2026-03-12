@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { firePixels, type PixelInfo } from "@/lib/pixelFiring";
 
 interface ProductInfo {
   name: string;
@@ -10,26 +11,6 @@ interface ProductInfo {
   page_logo: string | null;
   redirect_delay: number;
   value: number;
-}
-
-interface PixelInfo {
-  platform: string;
-  pixel_id: string;
-  event_name: string;
-}
-
-// Declare global window types for pixels
-declare global {
-  interface Window {
-    fbq: any;
-    _fbq: any;
-    ttq: any;
-    TiktokAnalyticsObject: string;
-    gtag: any;
-    dataLayer: any[];
-    pintrk: any;
-    _tfa: any[];
-  }
 }
 
 const EntregaPublica = () => {
@@ -45,249 +26,6 @@ const EntregaPublica = () => {
   const [alreadyAccessed, setAlreadyAccessed] = useState(false);
   const [pixelsFired, setPixelsFired] = useState(false);
   const pixelsRef = useRef<PixelInfo[]>([]);
-
-  // Format phone for Meta Advanced Matching (digits only with country code)
-  const formatPhoneForMeta = (phone: string | null): string | null => {
-    if (!phone) return null;
-    
-    // Remove all non-digit characters
-    let digits = phone.replace(/\D/g, '');
-    
-    // Add country code 55 if not present
-    if (digits.length >= 10 && digits.length <= 11) {
-      digits = '55' + digits;
-    }
-    
-    // Must be at least 12 digits for valid Brazilian phone with country code
-    if (digits.length < 12) return null;
-    
-    return digits;
-  };
-
-  // Load and fire Meta Pixel using official IIFE implementation with Advanced Matching
-  const loadMetaPixel = (pixelId: string, eventName: string, value: number, phone: string | null) => {
-    const formattedPhone = formatPhoneForMeta(phone);
-    console.log(`[Pixel] Loading Meta Pixel: ${pixelId}, event: ${eventName}, value: ${value}`);
-    
-    // Usar o código oficial do Meta Pixel via IIFE
-    (function(f: any, b: any, e: any, v: any, n?: any, t?: any, s?: any) {
-      if (f.fbq) return; // Já existe, não recarregar
-      n = f.fbq = function() {
-        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-      };
-      if (!f._fbq) f._fbq = n;
-      n.push = n;
-      n.loaded = !0;
-      n.version = '2.0';
-      n.queue = [];
-      t = b.createElement(e);
-      t.async = !0;
-      t.src = v;
-      s = b.getElementsByTagName(e)[0];
-      s.parentNode.insertBefore(t, s);
-    })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
-
-    // Preparar dados de Advanced Matching
-    const advancedMatchingData: { ph?: string; external_id?: string } = {};
-    if (formattedPhone) {
-      advancedMatchingData.ph = formattedPhone;
-      advancedMatchingData.external_id = formattedPhone;
-    }
-
-    // Enfileirar os comandos (serão processados quando o script carregar)
-    window.fbq('init', pixelId, advancedMatchingData);
-    window.fbq('track', 'PageView');
-    window.fbq('track', eventName || 'Purchase', {
-      value: value,
-      currency: 'BRL',
-      content_type: 'product',
-    });
-    
-    console.log(`[Pixel] Meta ${eventName} queued for ${pixelId}`);
-  };
-
-  // Load and fire TikTok Pixel
-  const loadTikTokPixel = (pixelId: string, eventName: string, value: number) => {
-    console.log(`[Pixel] Loading TikTok Pixel: ${pixelId}`);
-    
-    // Initialize ttq
-    if (!window.ttq) {
-      window.TiktokAnalyticsObject = 'ttq';
-      const ttq: any = window.ttq = window.ttq || [];
-      ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie"];
-      ttq.setAndDefer = function(t: any, e: string) {
-        t[e] = function() {
-          t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
-        };
-      };
-      for (let i = 0; i < ttq.methods.length; i++) {
-        ttq.setAndDefer(ttq, ttq.methods[i]);
-      }
-      ttq.instance = function(t: string) {
-        const e = ttq._i[t] || [];
-        for (let n = 0; n < ttq.methods.length; n++) {
-          ttq.setAndDefer(e, ttq.methods[n]);
-        }
-        return e;
-      };
-      ttq.load = function(e: string, n?: any) {
-        const i = "https://analytics.tiktok.com/i18n/pixel/events.js";
-        ttq._i = ttq._i || {};
-        ttq._i[e] = [];
-        ttq._i[e]._u = i;
-        ttq._t = ttq._t || {};
-        ttq._t[e] = +new Date();
-        ttq._o = ttq._o || {};
-        ttq._o[e] = n || {};
-        const o = document.createElement("script");
-        o.type = "text/javascript";
-        o.async = true;
-        o.src = i + "?sdkid=" + e + "&lib=" + 'ttq';
-        const a = document.getElementsByTagName("script")[0];
-        a.parentNode?.insertBefore(o, a);
-      };
-    }
-
-    window.ttq.load(pixelId);
-    window.ttq.page();
-    
-    // Fire event after a small delay to ensure script is loaded
-    setTimeout(() => {
-      window.ttq.track(eventName || 'CompletePayment', {
-        value: value,
-        currency: 'BRL',
-      });
-      console.log(`[Pixel] TikTok ${eventName} fired with value ${value}`);
-    }, 1000);
-  };
-
-  // Load and fire Google Tag
-  const loadGoogleTag = (tagId: string, eventName: string, value: number) => {
-    console.log(`[Pixel] Loading Google Tag: ${tagId}`);
-    
-    // Initialize dataLayer and gtag
-    window.dataLayer = window.dataLayer || [];
-    if (!window.gtag) {
-      window.gtag = function() {
-        window.dataLayer.push(arguments);
-      };
-      window.gtag('js', new Date());
-    }
-
-    // Load script
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${tagId}`;
-    script.onload = () => {
-      console.log(`[Pixel] Google script loaded`);
-      window.gtag('config', tagId);
-      window.gtag('event', 'conversion', {
-        send_to: tagId,
-        value: value,
-        currency: 'BRL',
-      });
-      console.log(`[Pixel] Google conversion fired with value ${value}`);
-    };
-    script.onerror = () => {
-      console.error(`[Pixel] Failed to load Google script`);
-    };
-    document.head.appendChild(script);
-  };
-
-  // Load and fire Pinterest Tag
-  const loadPinterestTag = (tagId: string, eventName: string, value: number) => {
-    console.log(`[Pixel] Loading Pinterest Tag: ${tagId}`);
-    
-    // Initialize pintrk
-    if (!window.pintrk) {
-      window.pintrk = function() {
-        window.pintrk.queue.push(Array.prototype.slice.call(arguments));
-      };
-      const n: any = window.pintrk;
-      n.queue = [];
-      n.version = "3.0";
-    }
-
-    // Load script
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = 'https://s.pinimg.com/ct/core.js';
-    script.onload = () => {
-      console.log(`[Pixel] Pinterest script loaded`);
-      window.pintrk('load', tagId);
-      window.pintrk('page');
-      window.pintrk('track', eventName || 'checkout', {
-        value: value,
-        currency: 'BRL',
-      });
-      console.log(`[Pixel] Pinterest ${eventName} fired with value ${value}`);
-    };
-    script.onerror = () => {
-      console.error(`[Pixel] Failed to load Pinterest script`);
-    };
-    document.head.appendChild(script);
-  };
-
-  // Load and fire Taboola Pixel
-  const loadTaboolaPixel = (pixelId: string, eventName: string, value: number) => {
-    console.log(`[Pixel] Loading Taboola Pixel: ${pixelId}`);
-    
-    // Initialize _tfa
-    window._tfa = window._tfa || [];
-    window._tfa.push({ notify: 'event', name: 'page_view', id: pixelId });
-
-    // Load script
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = `//cdn.taboola.com/libtrc/unip/${pixelId}/tfa.js`;
-    script.onload = () => {
-      console.log(`[Pixel] Taboola script loaded`);
-      window._tfa.push({ 
-        notify: 'event', 
-        name: eventName || 'purchase',
-        id: pixelId,
-        revenue: value,
-      });
-      console.log(`[Pixel] Taboola ${eventName} fired with value ${value}`);
-    };
-    script.onerror = () => {
-      console.error(`[Pixel] Failed to load Taboola script`);
-    };
-    document.head.appendChild(script);
-  };
-
-  // Fire all tracking pixels with dynamic loading
-  const firePixels = (pixels: PixelInfo[], value: number, phone: string | null) => {
-    console.log(`[Pixel] Firing ${pixels.length} pixels with value ${value}`);
-    
-    pixels.forEach((pixel) => {
-      try {
-        switch (pixel.platform) {
-          case "meta":
-            loadMetaPixel(pixel.pixel_id, pixel.event_name, value, phone);
-            break;
-          case "tiktok":
-            loadTikTokPixel(pixel.pixel_id, pixel.event_name, value);
-            break;
-          case "google":
-            loadGoogleTag(pixel.pixel_id, pixel.event_name, value);
-            break;
-          case "pinterest":
-            loadPinterestTag(pixel.pixel_id, pixel.event_name, value);
-            break;
-          case "taboola":
-            loadTaboolaPixel(pixel.pixel_id, pixel.event_name, value);
-            break;
-          default:
-            console.warn(`[Pixel] Unknown platform: ${pixel.platform}`);
-        }
-      } catch (err) {
-        console.error(`[Pixel] Error firing ${pixel.platform} pixel:`, err);
-      }
-    });
-    
-    setPixelsFired(true);
-  };
 
   useEffect(() => {
     if (!slug || !telefone) {
@@ -313,7 +51,6 @@ const EntregaPublica = () => {
         setAlreadyAccessed(data.already_accessed);
         setCountdown(data.product.redirect_delay || 3);
 
-        // Store pixels for firing
         if (!data.already_accessed && data.pixels?.length > 0) {
           pixelsRef.current = data.pixels;
         }
@@ -332,9 +69,9 @@ const EntregaPublica = () => {
   // Fire pixels after component is mounted and ready
   useEffect(() => {
     if (!loading && !error && product && pixelsRef.current.length > 0 && !pixelsFired) {
-      // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
         firePixels(pixelsRef.current, product.value || 0, telefone);
+        setPixelsFired(true);
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -343,12 +80,9 @@ const EntregaPublica = () => {
   // Countdown and redirect
   useEffect(() => {
     if (!loading && !error && redirectUrl && countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
+      const timer = setTimeout(() => setCountdown((prev) => prev - 1), 1000);
       return () => clearTimeout(timer);
     }
-
     if (countdown === 0 && redirectUrl) {
       window.location.href = redirectUrl;
     }
@@ -381,34 +115,21 @@ const EntregaPublica = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="text-center space-y-6 max-w-md">
         {product?.page_logo && (
-          <img
-            src={product.page_logo}
-            alt={product.name}
-            className="h-20 w-auto mx-auto object-contain"
-          />
+          <img src={product.page_logo} alt={product.name} className="h-20 w-auto mx-auto object-contain" />
         )}
-
         <div className="space-y-2">
           <CheckCircle className="h-16 w-16 text-success mx-auto" />
           <h1 className="text-2xl font-bold">{product?.page_title || "Preparando sua entrega..."}</h1>
-          <p className="text-muted-foreground">
-            {product?.page_message || "Você será redirecionado em instantes"}
-          </p>
+          <p className="text-muted-foreground">{product?.page_message || "Você será redirecionado em instantes"}</p>
         </div>
-
         <div className="space-y-2">
           <div className="text-4xl font-bold text-primary">{countdown}</div>
           <p className="text-sm text-muted-foreground">
-            {alreadyAccessed
-              ? "Redirecionando para o WhatsApp..."
-              : "Preparando sua entrega..."}
+            {alreadyAccessed ? "Redirecionando para o WhatsApp..." : "Preparando sua entrega..."}
           </p>
         </div>
-
         <div className="pt-4">
-          <p className="text-xs text-muted-foreground">
-            Produto: {product?.name}
-          </p>
+          <p className="text-xs text-muted-foreground">Produto: {product?.name}</p>
         </div>
       </div>
     </div>
