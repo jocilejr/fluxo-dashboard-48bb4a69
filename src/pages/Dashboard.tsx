@@ -15,6 +15,9 @@ import {
   Wallet,
   Megaphone,
   RefreshCw,
+  Eye,
+  MousePointerClick,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GroupStatsCards } from "@/components/dashboard/GroupStatsCards";
@@ -113,6 +116,40 @@ const Dashboard = () => {
     enabled: isRealAdmin === true,
   });
 
+  // Offer metrics
+  const { data: offerMetrics } = useQuery({
+    queryKey: ["offer-metrics-dashboard"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("member_area_offers")
+        .select("id, name, total_impressions, total_clicks, product_id")
+        .eq("is_active", true);
+      const offers = data || [];
+      const totalImpressions = offers.reduce((s: number, o: any) => s + (o.total_impressions || 0), 0);
+      const totalClicks = offers.reduce((s: number, o: any) => s + (o.total_clicks || 0), 0);
+
+      // Count conversions (members who have the offer's product)
+      const productIds = offers.filter((o: any) => o.product_id).map((o: any) => o.product_id);
+      let totalConversions = 0;
+      if (productIds.length > 0) {
+        const { count } = await supabase
+          .from("member_products")
+          .select("id", { count: "exact", head: true })
+          .in("product_id", productIds)
+          .eq("is_active", true);
+        totalConversions = count || 0;
+      }
+
+      return {
+        totalImpressions,
+        totalClicks,
+        totalConversions,
+        ctr: totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(1) : "0",
+      };
+    },
+    enabled: isRealAdmin === true,
+  });
+
   // Transactions are already filtered by date range from the hook
   const filteredTransactions = transactions;
 
@@ -192,6 +229,13 @@ const Dashboard = () => {
             <StatCard title={`Imposto${stats.taxRate > 0 ? ` (${stats.taxRate}%)` : ''}`} value={stats.taxRate > 0 ? `-${formatCurrency(stats.taxAmount)}` : "R$ 0,00"} subtitle={stats.taxRate > 0 ? "Dedução fiscal" : "Não configurado"} icon={Percent} variant="warning" delay={350} isLoading={isLoading} />
             <StatCard title="Meta Ads" value={stats.adsSpend > 0 ? `-${formatCurrency(stats.adsSpend)}` : "R$ 0,00"} subtitle={stats.adsSpend > 0 ? "Gasto em ads" : "Não configurado"} icon={Megaphone} variant="warning" delay={375} isLoading={isLoading} />
             <StatCard title="Líquido" value={formatCurrency(stats.netRevenue)} subtitle={stats.taxRate > 0 || stats.adsSpend > 0 ? "Após deduções" : "Receita total"} icon={Wallet} variant="success" delay={400} isLoading={isLoading} />
+          </div>
+
+          {/* Offer Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+            <StatCard title="Ofertas — Views" value={(offerMetrics?.totalImpressions || 0).toLocaleString("pt-BR")} subtitle="Impressões totais" icon={Eye} variant="info" delay={420} isLoading={!offerMetrics} />
+            <StatCard title="Ofertas — Cliques" value={(offerMetrics?.totalClicks || 0).toLocaleString("pt-BR")} subtitle={`${offerMetrics?.ctr || "0"}% CTR`} icon={MousePointerClick} variant="info" delay={440} isLoading={!offerMetrics} />
+            <StatCard title="Ofertas — Vendas" value={(offerMetrics?.totalConversions || 0).toLocaleString("pt-BR")} subtitle="Conversões" icon={ShoppingBag} variant="success" delay={460} isLoading={!offerMetrics} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">

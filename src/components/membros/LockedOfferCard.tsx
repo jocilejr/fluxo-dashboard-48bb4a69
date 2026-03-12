@@ -105,7 +105,22 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
     setCtaVisible(false);
     setShowDots(true);
 
-    // Register click in offer impressions for strategic rotation
+    // Increment global total_clicks
+    supabase
+      .from("member_area_offers")
+      .select("total_clicks")
+      .eq("id", offer.id)
+      .single()
+      .then(({ data }) => {
+        const current = (data as any)?.total_clicks || 0;
+        supabase
+          .from("member_area_offers")
+          .update({ total_clicks: current + 1 } as any)
+          .eq("id", offer.id)
+          .then(() => {});
+      });
+
+    // Also track per-user click
     if (memberPhone) {
       supabase
         .from("member_offer_impressions")

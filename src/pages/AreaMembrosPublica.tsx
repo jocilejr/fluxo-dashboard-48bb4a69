@@ -85,7 +85,7 @@ export default function AreaMembrosPublica() {
   const [progressMap, setProgressMap] = useState<Record<string, ContentProgress[]>>({});
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
-  const [offerImpressions, setOfferImpressions] = useState<Record<string, { impression_count: number; clicked: boolean }>>({});
+  const [globalImpressions, setGlobalImpressions] = useState<Record<string, number>>({});
   const impressionsRegisteredRef = useRef(false);
   const pixelFramesFiredRef = useRef(false);
 
@@ -167,16 +167,16 @@ export default function AreaMembrosPublica() {
     });
     setProgressMap(progByProd);
 
-    // Load offer impressions for rotation
-    const impressionsRes = await supabase
-      .from("member_offer_impressions")
-      .select("offer_id, impression_count, clicked")
-      .eq("normalized_phone", digits);
-    const impMap: Record<string, { impression_count: number; clicked: boolean }> = {};
-    (impressionsRes.data || []).forEach((imp: any) => {
-      impMap[imp.offer_id] = { impression_count: imp.impression_count, clicked: imp.clicked };
+    // Load global offer impressions for rotation
+    const globalImpRes = await supabase
+      .from("member_area_offers")
+      .select("id, total_impressions")
+      .eq("is_active", true);
+    const gMap: Record<string, number> = {};
+    (globalImpRes.data || []).forEach((o: any) => {
+      gMap[o.id] = o.total_impressions || 0;
     });
-    setOfferImpressions(impMap);
+    setGlobalImpressions(gMap);
 
     setLoading(false);
     loadAiContext(name, memberProds, memberOffers, matsByProd, progressData, customerProfile);
@@ -314,37 +314,19 @@ export default function AreaMembrosPublica() {
     });
   }, [offers, products]);
 
-  // Strategic rotation: pick 1 card offer to show at a time
+  // Strategic rotation: pick 1 card offer — prioritize fewest global impressions
   const cardOffers = useMemo(() => {
     const allCards = filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase");
     if (allCards.length <= 1) return allCards;
 
-    const getPriority = (offer: any): number => {
-      const imp = offerImpressions[offer.id];
-      if (!imp || imp.impression_count === 0) return 0; // Never seen — highest
-      if (imp.impression_count === 1 && !imp.clicked) return 1; // Seen once, no click
-      if (imp.clicked) return 2; // Clicked — interested
-      return 3; // Seen 2x+ without click — lowest
-    };
-
-    // If all exhausted (seen 2x+ without click), pick the LEAST seen one to rotate
-    const allExhausted = allCards.every((o: any) => {
-      const imp = offerImpressions[o.id];
-      return imp && imp.impression_count >= 2 && !imp.clicked;
+    // Always pick the offer with fewest global impressions
+    const sorted = [...allCards].sort((a: any, b: any) => {
+      const aCount = globalImpressions[a.id] || 0;
+      const bCount = globalImpressions[b.id] || 0;
+      return aCount - bCount;
     });
-    if (allExhausted) {
-      // Pick the one with fewest impressions to ensure rotation
-      const sorted = [...allCards].sort((a: any, b: any) => {
-        const aCount = offerImpressions[a.id]?.impression_count || 0;
-        const bCount = offerImpressions[b.id]?.impression_count || 0;
-        return aCount - bCount;
-      });
-      return [sorted[0]];
-    }
-
-    const sorted = [...allCards].sort((a: any, b: any) => getPriority(a) - getPriority(b));
     return [sorted[0]];
-  }, [filteredOffers, offerImpressions]);
+  }, [filteredOffers, globalImpressions]);
 
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
   const showcaseOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "showcase"), [filteredOffers]);
@@ -358,11 +340,22 @@ export default function AreaMembrosPublica() {
   useEffect(() => {
     if (!normalizedPhone || shownOfferIds.length === 0 || impressionsRegisteredRef.current) return;
     impressionsRegisteredRef.current = true;
+    
+    // Increment global impression counts
+    shownOfferIds.forEach((offerId: string) => {
+      supabase
+        .from("member_area_offers")
+        .update({ total_impressions: (globalImpressions[offerId] || 0) + 1 } as any)
+        .eq("id", offerId)
+        .then(() => {});
+    });
+
+    // Also track per-user impression
     const upserts = shownOfferIds.map((offerId: string) => ({
       normalized_phone: normalizedPhone,
       offer_id: offerId,
-      impression_count: (offerImpressions[offerId]?.impression_count || 0) + 1,
-      clicked: offerImpressions[offerId]?.clicked || false,
+      impression_count: 1,
+      clicked: false,
       last_shown_at: new Date().toISOString(),
     }));
     supabase
