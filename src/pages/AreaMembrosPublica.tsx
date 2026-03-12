@@ -125,7 +125,7 @@ export default function AreaMembrosPublica() {
 
     if (!finalProductsData || finalProductsData.length === 0) { setNotFound(true); setLoading(false); return; }
 
-    const memberProds = productsRes.data as unknown as MemberProduct[];
+    const memberProds = finalProductsData as unknown as MemberProduct[];
     const memberOffers = (offersRes.data || []) as any[];
     setProducts(memberProds);
     setOffers(memberOffers);
