@@ -13,6 +13,7 @@ interface Offer {
   description: string | null;
   price: number | null;
   pix_key?: string | null;
+  pix_key_type?: string | null;
   card_payment_url?: string | null;
   purchase_url?: string;
 }
