@@ -1,33 +1,13 @@
 
 
-## Problema
+## Situação Atual
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+A base de conhecimento (`product_knowledge_summaries`) já está populada para 13 dos 16 produtos. Os 3 restantes (443 Letras, Milagre das 7 Manhãs, Terço e Quaresma do Arcanjo Miguel) não possuem materiais cadastrados, então não há conteúdo para extrair.
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+Nenhuma alteração de código é necessária neste momento. O sistema já está configurado para:
+1. A edge function `member-offer-pitch` buscar os resumos da tabela `product_knowledge_summaries` pelos `ownedProductIds`
+2. Usar esses resumos para personalizar o Balão 2 com o conhecimento que a pessoa já adquiriu
+3. Gerar automaticamente novos resumos quando materiais são adicionados a um produto
 
-## Solução
-
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
-
-### Alteração em `src/hooks/useTransactions.ts`
-
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
-
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+Para os 3 produtos sem materiais, basta adicionar os materiais na área de membros e o resumo será gerado automaticamente.
 
