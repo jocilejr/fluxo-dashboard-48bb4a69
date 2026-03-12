@@ -86,6 +86,7 @@ export default function AreaMembrosPublica() {
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
   const [globalImpressions, setGlobalImpressions] = useState<Record<string, number>>({});
+  const [offerMetricsReady, setOfferMetricsReady] = useState(false);
   const impressionsRegisteredRef = useRef(false);
   const pixelFramesFiredRef = useRef(false);
 
