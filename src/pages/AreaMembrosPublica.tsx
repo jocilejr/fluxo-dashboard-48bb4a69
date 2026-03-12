@@ -501,6 +501,7 @@ export default function AreaMembrosPublica() {
                 offer={item.data}
                 themeColor={themeColor}
                 ownedProductNames={ownedProductNames}
+                ownedProductIds={ownedProductIds}
                 firstName={firstName}
                 memberProfile={memberProfile}
                 memberPhone={normalizedPhone}
