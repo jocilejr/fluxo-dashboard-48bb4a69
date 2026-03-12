@@ -204,7 +204,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
             <img src={offer.image_url} alt={offer.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             <div className="absolute top-3 right-3">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white/90 bg-black/40 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white bg-red-600/90 backdrop-blur-sm">
                 <Lock className="h-3 w-3" /> EXCLUSIVO
               </span>
             </div>
@@ -218,7 +218,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
         ) : (
           <div className="relative h-[140px] w-full flex flex-col justify-end p-4" style={{ background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)` }}>
             <div className="absolute top-3 right-3 flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-500">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-red-100 text-red-600">
                 <Lock className="h-3 w-3" /> EXCLUSIVO
               </span>
             </div>
