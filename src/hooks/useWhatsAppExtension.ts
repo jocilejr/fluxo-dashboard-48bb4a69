@@ -84,9 +84,10 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
       const handleResponse = (event: MessageEvent) => {
         // Verifica se é uma resposta para este comando
         const isResponse = event.data?.type === "WHATSAPP_EXTENSION_RESPONSE" || event.data?.type === "WHATSAPP_RESPONSE";
-        const matchesRequestId = event.data?.requestId === requestId;
+        // Accept response if requestId matches OR if response has no requestId (extension bridge compatibility)
+        const matchesRequest = !event.data?.requestId || event.data?.requestId === requestId;
         
-        if (isResponse && matchesRequestId) {
+        if (isResponse && matchesRequest) {
           console.log("[WhatsApp Extension] Response matched:", event.data);
           window.removeEventListener("message", handleResponse);
           const success = event.data.success === true || event.data.payload?.success === true;
