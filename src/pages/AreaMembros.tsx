@@ -464,7 +464,18 @@ function MemberOffersTab() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  {offer.product_id && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Gerar resumo de conhecimento (IA)"
+                      disabled={extractingKnowledge === offer.product_id}
+                      onClick={() => handleExtractKnowledge(offer.product_id)}
+                    >
+                      {extractingKnowledge === offer.product_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+                    </Button>
+                  )}
                   <Switch checked={offer.is_active} onCheckedChange={(checked) => toggleMutation.mutate({ id: offer.id, active: checked })} />
                   <Button variant="ghost" size="icon" onClick={() => openEdit(offer)}><Edit className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(offer.id)}><Trash2 className="h-4 w-4" /></Button>
