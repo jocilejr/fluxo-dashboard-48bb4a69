@@ -422,66 +422,66 @@ export default function AreaMembrosPublica() {
       >
         {/* Banner */}
         {coverSrc ? (
-          <div className="relative h-[90px] w-full overflow-hidden">
+          <div className="relative h-[160px] w-full overflow-hidden">
             <img
               src={coverSrc}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-3.5">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white mb-1.5 bg-emerald-500">
-                <Check className="h-2.5 w-2.5" strokeWidth={3} />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white mb-2 bg-emerald-500">
+                <Check className="h-3 w-3" strokeWidth={3} />
                 {recent ? "Liberado recentemente" : "Liberado"}
               </span>
-              <h3 className="font-extrabold text-white text-[15px] leading-tight drop-shadow-sm truncate">
+              <h3 className="font-extrabold text-white text-lg leading-tight drop-shadow-sm uppercase tracking-wide line-clamp-2">
                 {product.name}
               </h3>
             </div>
           </div>
         ) : (
           <div
-            className="relative h-[80px] w-full flex flex-col justify-end p-3"
+            className="relative h-[140px] w-full flex flex-col justify-end p-4"
             style={{ background: `linear-gradient(135deg, ${themeColor}20 0%, ${themeColor}08 50%, ${themeColor}18 100%)` }}
           >
             {mats.length > 0 && mats[0]?.content_type === "video" ? (
-              <Play className="absolute top-3 right-3 h-8 w-8 opacity-10" style={{ color: themeColor }} />
+              <Play className="absolute top-3 right-3 h-10 w-10 opacity-10" style={{ color: themeColor }} />
             ) : mats.length > 0 && mats[0]?.content_type === "pdf" ? (
-              <BookOpen className="absolute top-3 right-3 h-8 w-8 opacity-10" style={{ color: themeColor }} />
+              <BookOpen className="absolute top-3 right-3 h-10 w-10 opacity-10" style={{ color: themeColor }} />
             ) : (
-              <ShoppingBag className="absolute top-3 right-3 h-8 w-8 opacity-10" style={{ color: themeColor }} />
+              <ShoppingBag className="absolute top-3 right-3 h-10 w-10 opacity-10" style={{ color: themeColor }} />
             )}
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white w-fit mb-1.5 bg-emerald-500">
-              <Check className="h-2.5 w-2.5" strokeWidth={3} />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white w-fit mb-2 bg-emerald-500">
+              <Check className="h-3 w-3" strokeWidth={3} />
               {recent ? "Liberado recentemente" : "Liberado"}
             </span>
-            <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">
+            <h3 className="font-extrabold text-gray-800 text-lg leading-tight uppercase tracking-wide line-clamp-2">
               {product.name}
             </h3>
           </div>
         )}
 
         {/* Bottom section */}
-        <div className="px-3.5 py-2.5 bg-white">
+        <div className="px-4 py-3.5 bg-white">
           {progress.totalMaterials > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{ width: `${progressPct}%`, backgroundColor: themeColor }}
                   />
                 </div>
-                <span className="text-[10px] font-semibold text-gray-400 shrink-0">
+                <span className="text-[11px] font-semibold text-gray-400 shrink-0">
                   {progress.materialsAccessed}/{progress.totalMaterials}
                 </span>
               </div>
               {progressLabel && (
-                <p className="text-[11px] text-gray-500 leading-tight truncate">{progressLabel}</p>
+                <p className="text-xs text-gray-500 leading-tight truncate">{progressLabel}</p>
               )}
             </div>
           ) : (
-            <p className="text-[12px] text-gray-500 leading-snug truncate">
+            <p className="text-[13px] text-gray-500 leading-snug truncate">
               Toque para acessar seu material
             </p>
           )}
