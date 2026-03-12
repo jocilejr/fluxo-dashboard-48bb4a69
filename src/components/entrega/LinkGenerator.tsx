@@ -59,7 +59,8 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const cleanPhone = phone.replace(/\D/g, "");
   const normalizedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
   const baseUrl = customDomain ? `https://${customDomain}` : window.location.origin;
-  const generatedUrl = cleanPhone ? `${baseUrl}/membros/${normalizedPhone}` : "";
+  const linkPhone = resolvedPhone || normalizedPhone;
+  const generatedUrl = cleanPhone ? `${baseUrl}/membros/${linkPhone}` : "";
 
   const handleGenerate = async () => {
     if (!cleanPhone) {
