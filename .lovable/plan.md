@@ -2,30 +2,32 @@
 
 ## Problema
 
-A duração das sessões está mostrando 1h+ porque:
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-1. O `endSession` usa `fetch` com `keepalive` para setar `ended_at`, mas esse PATCH provavelmente falha silenciosamente (o anon user pode não ter permissão de UPDATE via REST direto, ou o `beforeunload` não completa).
-2. `SessionDuration` calcula `new Date() - started_at` quando `ended_at` é `null`. Sessões offline sem `ended_at` mostram duração crescendo infinitamente.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-## Correções
+## Solução
 
-### 1. Corrigir cálculo de duração para sessões offline
-**Arquivo:** `src/components/membros/MemberActivityTab.tsx`
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-- Alterar `SessionDuration` para receber `lastHeartbeatAt` como prop
-- Quando `endedAt` é null E a sessão está offline (heartbeat > 90s), usar `lastHeartbeatAt` como fim em vez de `now()`
-- Isso garante que sessões "abandonadas" mostrem a duração real de uso
+### Alteração em `src/hooks/useTransactions.ts`
 
-### 2. Adicionar limpeza automática de sessões órfãs
-**Arquivo:** `src/components/membros/MemberActivityTab.tsx`
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-- Na query de sessões, após carregar, marcar automaticamente sessões com heartbeat > 5min e sem `ended_at` como encerradas (update `ended_at = last_heartbeat_at`)
-- Isso corrige sessões que nunca receberam o `ended_at` por falha no `beforeunload`
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
 
-### 3. Passar `last_heartbeat_at` no componente de duração
-Atualizar as chamadas de `SessionDuration` na tabela e na seção "Online" para incluir o novo prop.
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/membros/MemberActivityTab.tsx` | Corrigir cálculo de duração + limpeza de sessões órfãs |
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 

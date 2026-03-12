@@ -43,8 +43,15 @@ function isOnline(session: MemberSession): boolean {
   return diff < 90;
 }
 
-function SessionDuration({ startedAt, endedAt }: { startedAt: string; endedAt: string | null }) {
-  const end = endedAt ? new Date(endedAt) : new Date();
+function SessionDuration({ startedAt, endedAt, lastHeartbeatAt }: { startedAt: string; endedAt: string | null; lastHeartbeatAt: string }) {
+  let end: Date;
+  if (endedAt) {
+    end = new Date(endedAt);
+  } else {
+    // If offline (heartbeat > 90s ago), use last heartbeat as effective end
+    const hbAge = differenceInSeconds(new Date(), new Date(lastHeartbeatAt));
+    end = hbAge > 90 ? new Date(lastHeartbeatAt) : new Date();
+  }
   const mins = differenceInMinutes(end, new Date(startedAt));
   if (mins < 1) return <span>{"< 1min"}</span>;
   if (mins < 60) return <span>{mins}min</span>;
@@ -75,7 +82,22 @@ export default function MemberActivityTab() {
         console.error("[MemberActivity] Failed to load sessions:", error);
         toast.error("Erro ao carregar sessões");
       }
-      return (data || []) as MemberSession[];
+      const rows = (data || []) as MemberSession[];
+
+      // Auto-close orphaned sessions (no heartbeat for 5+ min, no ended_at)
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const orphaned = rows.filter(s => !s.ended_at && new Date(s.last_heartbeat_at) < fiveMinAgo);
+      if (orphaned.length > 0) {
+        for (const s of orphaned) {
+          supabase.from("member_sessions")
+            .update({ ended_at: s.last_heartbeat_at })
+            .eq("id", s.id)
+            .then(({ error: e }) => { if (e) console.error("[MemberActivity] Failed to close orphan:", e); });
+          s.ended_at = s.last_heartbeat_at;
+        }
+      }
+
+      return rows;
     },
     refetchInterval: 30_000,
   });
@@ -225,7 +247,7 @@ export default function MemberActivityTab() {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-muted-foreground">
-                      <SessionDuration startedAt={session.started_at} endedAt={null} />
+                      <SessionDuration startedAt={session.started_at} endedAt={null} lastHeartbeatAt={session.last_heartbeat_at} />
                     </p>
                   </div>
                 </div>
@@ -294,7 +316,7 @@ export default function MemberActivityTab() {
                           }
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          <SessionDuration startedAt={session.started_at} endedAt={session.ended_at} />
+                          <SessionDuration startedAt={session.started_at} endedAt={session.ended_at} lastHeartbeatAt={session.last_heartbeat_at} />
                         </TableCell>
                         <TableCell className="text-center">
                           <span className="text-sm font-semibold">{accessCountMap[session.normalized_phone] || 1}</span>
