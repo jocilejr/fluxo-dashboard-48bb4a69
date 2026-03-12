@@ -105,14 +105,13 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
       }, EXTENSION_TIMEOUT);
 
       // Envia no formato que o content-dashboard.js espera
-      window.postMessage(
-        {
-          type: `WHATSAPP_${action}`,
-          requestId,
-          payload: data,
-        },
-        "*"
-      );
+      const msg = {
+        type: `WHATSAPP_${action}`,
+        requestId,
+        payload: data,
+      };
+      console.log("[WhatsApp Hook] postMessage enviado:", JSON.stringify(msg));
+      window.postMessage(msg, "*");
     });
   }, []);
 
