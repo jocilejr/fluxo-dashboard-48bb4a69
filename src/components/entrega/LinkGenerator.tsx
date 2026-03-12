@@ -158,6 +158,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const handleClose = () => {
     setPhone("");
     setCopied(false);
+    setResolvedPhone("");
     setStep("phone");
     onClose();
   };
