@@ -1,33 +1,55 @@
 
 
-## Problema
+## Diagnóstico
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+O problema está no hook `useWhatsAppExtension.ts`. Quando `openChat()` é chamado:
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+1. **Linha 121**: `if (!extensionAvailable) return false;` — se o ping/pong de detecção falhou ou ainda está em "connecting", o comando **nunca é enviado** à extensão. Retorna `false` silenciosamente.
 
-## Solução
+2. **`PixCardQuickRecovery` linha 118**: `await openChat(phone)` — não verifica o retorno. Se retornou `false`, nenhum comando foi enviado, mas o toast de sucesso aparece mesmo assim (linha 120).
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+3. **Resposta nunca é recebida**: O `content-dashboard.js` responde `WHATSAPP_RESPONSE` **sem `requestId`** (linha 79-87 do content-dashboard.js). O hook exige `matchesRequestId` (linha 89), então a resposta nunca "casa" e dá timeout de 30s.
 
-### Alteração em `src/hooks/useTransactions.ts`
+Resumo: o `openChat` ou não envia nada (extensão "não detectada") ou envia mas nunca recebe confirmação. De qualquer forma, o número não chega ao campo de busca.
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+## Plano de Correção
 
+### 1. `src/hooks/useWhatsAppExtension.ts` — corrigir `sendCommand` e `openChat`
+
+**a)** Remover o guard `if (!extensionAvailable)` de `openChat`. Sempre enviar o comando — a extensão pode estar ativa mesmo que o ping não tenha sido detectado a tempo.
+
+**b)** Na função `sendCommand`, aceitar resposta `WHATSAPP_RESPONSE` **sem** exigir `requestId` match. Aceitar qualquer `WHATSAPP_RESPONSE` que chegar dentro do timeout como resposta válida (já que os comandos são sequenciais no uso real):
+
+```typescript
+const isResponse = event.data?.type === "WHATSAPP_RESPONSE" || 
+                   event.data?.type === "WHATSAPP_EXTENSION_RESPONSE";
+// Aceitar se requestId bate OU se não tem requestId na resposta
+const matchesRequest = !event.data?.requestId || event.data?.requestId === requestId;
+
+if (isResponse && matchesRequest) { ... }
 ```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
+
+**c)** Reduzir timeout de 30s para 10s (suficiente para abrir chat).
+
+### 2. `src/components/dashboard/PixCardQuickRecovery.tsx` — verificar retorno
+
+Na `handleOpenChat`, verificar o retorno de `openChat()`:
+
+```typescript
+const success = await openChat(phone);
+if (success) {
+  toast.success("Mensagem copiada! Cole com Ctrl+V");
+} else {
+  toast.error("Não foi possível abrir o chat. Verifique a extensão.");
+}
 ```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+### 3. `src/components/dashboard/BoletoQuickRecovery.tsx` — mesmo padrão
 
-A deduplicação acontece automaticamente pelo banco.
+Nos handlers que usam `openChat`, aplicar a mesma verificação de retorno.
 
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Resultado esperado
+- O comando `OPEN_CHAT` com o telefone será **sempre enviado** à extensão via `window.postMessage`
+- A extensão receberá o número e executará a manipulação de DOM (busca + digitação)
+- Feedback correto ao usuário sobre sucesso/falha
 
