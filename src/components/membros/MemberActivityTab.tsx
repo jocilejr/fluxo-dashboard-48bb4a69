@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
-import { Activity, Clock, Wifi, WifiOff } from "lucide-react";
+import { Activity, Clock, Wifi, WifiOff, FlaskConical } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format, differenceInMinutes, differenceInSeconds } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -54,6 +55,7 @@ function SessionDuration({ startedAt, endedAt }: { startedAt: string; endedAt: s
 
 export default function MemberActivityTab() {
   const [now, setNow] = useState(new Date());
+  const [simulating, setSimulating] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 15_000);
@@ -123,6 +125,31 @@ export default function MemberActivityTab() {
   const todaySessions = sessions || [];
   const uniqueVisitorsToday = useMemo(() => new Set(todaySessions.map((s: MemberSession) => s.normalized_phone)).size, [todaySessions]);
 
+  const handleSimulateSession = async () => {
+    setSimulating(true);
+    try {
+      const testPhone = "5500000000000";
+      const { data, error } = await supabase.from("member_sessions").insert({
+        normalized_phone: testPhone,
+        current_activity: "viewing_home",
+        page_url: "/teste-simulado",
+        user_agent: "Teste Admin",
+      }).select("id").single();
+
+      if (error) {
+        console.error("[SimulateSession] Error:", error);
+        toast.error(`Erro ao simular: ${error.message}`);
+      } else {
+        toast.success(`Sessão de teste criada (ID: ${data.id})`);
+        refetch();
+      }
+    } catch (e: any) {
+      toast.error(`Erro: ${e.message}`);
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   const avgDurationMins = useMemo(() => {
     const ended = todaySessions.filter((s: MemberSession) => s.ended_at);
     if (!ended.length) return 0;
@@ -138,6 +165,20 @@ export default function MemberActivityTab() {
 
   return (
     <div className="space-y-6">
+      {/* Test Button */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSimulateSession}
+          disabled={simulating}
+          className="gap-2"
+        >
+          <FlaskConical className="h-4 w-4" />
+          {simulating ? "Simulando..." : "Simular sessão de teste"}
+        </Button>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="px-4 py-3">

@@ -30,6 +30,7 @@ export function useMemberSession(normalizedPhone: string, active: boolean) {
   }, []);
 
   useEffect(() => {
+    console.log("[MemberSession] Effect triggered, active:", active, "phone:", normalizedPhone);
     if (!active || !normalizedPhone) return;
 
     let cancelled = false;
