@@ -17,13 +17,15 @@ export function useMemberSession(normalizedPhone: string, active: boolean) {
   const updateActivity = useCallback((update: SessionUpdate) => {
     activityRef.current = update;
     if (sessionIdRef.current) {
-      (supabase.from("member_sessions" as any) as any)
+      supabase.from("member_sessions")
         .update({
           ...update,
           last_heartbeat_at: new Date().toISOString(),
         })
         .eq("id", sessionIdRef.current)
-        .then(() => {});
+        .then(({ error }) => {
+          if (error) console.error("[MemberSession] Failed to update activity:", error);
+        });
     }
   }, []);
 
@@ -33,7 +35,7 @@ export function useMemberSession(normalizedPhone: string, active: boolean) {
     let cancelled = false;
 
     const startSession = async () => {
-      const { data } = await (supabase.from("member_sessions" as any) as any)
+      const { data, error } = await supabase.from("member_sessions")
         .insert({
           normalized_phone: normalizedPhone,
           current_activity: "viewing_home",
@@ -43,17 +45,24 @@ export function useMemberSession(normalizedPhone: string, active: boolean) {
         .select("id")
         .single();
 
+      if (error) {
+        console.error("[MemberSession] Failed to create session:", error);
+        return;
+      }
+
       if (cancelled || !data) return;
       sessionIdRef.current = data.id;
+      console.log("[MemberSession] Session started:", data.id);
 
       heartbeatRef.current = setInterval(async () => {
         if (!sessionIdRef.current) return;
-        await (supabase.from("member_sessions" as any) as any)
+        const { error: hbError } = await supabase.from("member_sessions")
           .update({
             last_heartbeat_at: new Date().toISOString(),
             ...activityRef.current,
           })
           .eq("id", sessionIdRef.current);
+        if (hbError) console.error("[MemberSession] Heartbeat failed:", hbError);
       }, HEARTBEAT_INTERVAL);
     };
 
