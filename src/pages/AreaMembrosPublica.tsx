@@ -665,7 +665,12 @@ export default function AreaMembrosPublica() {
         )}
       </main>
 
-      <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
+      <Dialog open={!!openProductId} onOpenChange={(open) => {
+        if (!open) {
+          setOpenProductId(null);
+          handleActivityChange("viewing_home");
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl bg-white">
           {openProduct?.delivery_products && (
             <>
@@ -685,6 +690,7 @@ export default function AreaMembrosPublica() {
                   productName={openProduct.delivery_products.name}
                   themeColor={themeColor}
                   phone={normalizedPhone}
+                  onActivityChange={handleActivityChange}
                 />
               </div>
             </>

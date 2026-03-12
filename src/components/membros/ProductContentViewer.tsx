@@ -12,9 +12,10 @@ interface Props {
   productName: string;
   themeColor: string;
   phone?: string;
+  onActivityChange?: (activity: string, productName?: string, materialName?: string) => void;
 }
 
-export default function ProductContentViewer({ productId, productName, themeColor, phone }: Props) {
+export default function ProductContentViewer({ productId, productName, themeColor, phone, onActivityChange }: Props) {
   const [preloadedPdf, setPreloadedPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const preloadedPdfIdRef = useRef<string | null>(null);
 
