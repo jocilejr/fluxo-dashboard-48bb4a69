@@ -23,6 +23,7 @@ interface Props {
   themeColor: string;
   preloadedPdf?: pdfjsLib.PDFDocumentProxy | null;
   phone?: string;
+  onOpen?: () => void;
 }
 
 const typeConfig: Record<string, { icon: typeof FileText; label: string; accent: string }> = {
