@@ -1036,6 +1036,47 @@ export type Database = {
           },
         ]
       }
+      member_pixel_frames: {
+        Row: {
+          created_at: string
+          fired: boolean
+          fired_at: string | null
+          id: string
+          normalized_phone: string
+          product_id: string | null
+          product_name: string
+          product_value: number
+        }
+        Insert: {
+          created_at?: string
+          fired?: boolean
+          fired_at?: string | null
+          id?: string
+          normalized_phone: string
+          product_id?: string | null
+          product_name: string
+          product_value?: number
+        }
+        Update: {
+          created_at?: string
+          fired?: boolean
+          fired_at?: string | null
+          id?: string
+          normalized_phone?: string
+          product_id?: string | null
+          product_name?: string
+          product_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_pixel_frames_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_product_categories: {
         Row: {
           created_at: string
