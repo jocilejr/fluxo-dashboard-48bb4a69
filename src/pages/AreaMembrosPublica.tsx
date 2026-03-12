@@ -319,6 +319,8 @@ export default function AreaMembrosPublica() {
 
   // Strategic rotation: pick 1 card offer — prioritize fewest global impressions
   const cardOffers = useMemo(() => {
+    if (!offerMetricsReady) return [];
+
     const allCards = filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase");
     if (allCards.length <= 1) return allCards;
 
@@ -329,7 +331,7 @@ export default function AreaMembrosPublica() {
       return aCount - bCount;
     });
     return [sorted[0]];
-  }, [filteredOffers, globalImpressions]);
+  }, [filteredOffers, globalImpressions, offerMetricsReady]);
 
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
   const showcaseOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "showcase"), [filteredOffers]);
