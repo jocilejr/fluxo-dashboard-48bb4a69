@@ -382,37 +382,47 @@ export function useCustomerPaymentMethods() {
 
       if (dlError) throw dlError;
 
-      const methodsByPhone: Record<string, Set<string>> = {};
-      
+      // Union-find: map variations to group keys for consistent grouping
+      const variationToKey = new Map<string, string>();
+      const methodsByKey: Record<string, Set<string>> = {};
+
+      const getOrCreateKey = (phone: string): string => {
+        const variations = generatePhoneVariations(phone);
+        for (const v of variations) {
+          if (variationToKey.has(v)) {
+            return variationToKey.get(v)!;
+          }
+        }
+        // New group - use phone as key and map all variations
+        for (const v of variations) {
+          variationToKey.set(v, phone);
+        }
+        return phone;
+      };
+
       // Adicionar métodos das transações PAGAS
       (transactions || []).forEach((t) => {
         if (!t.normalized_phone) return;
-        const normalizedKey = normalizePhoneForMatching(t.normalized_phone) || t.normalized_phone;
-        if (!methodsByPhone[normalizedKey]) {
-          methodsByPhone[normalizedKey] = new Set();
-        }
-        methodsByPhone[normalizedKey].add(t.type);
+        const key = getOrCreateKey(t.normalized_phone);
+        if (!methodsByKey[key]) methodsByKey[key] = new Set();
+        methodsByKey[key].add(t.type);
       });
 
-      // Adicionar métodos dos links de entrega - gerar link = pagamento atribuído
+      // Adicionar métodos dos links de entrega
       (deliveryLinks || []).forEach((dl) => {
         if (!dl.normalized_phone) return;
-        
-        const normalizedKey = normalizePhoneForMatching(dl.normalized_phone) || dl.normalized_phone;
-        if (!methodsByPhone[normalizedKey]) {
-          methodsByPhone[normalizedKey] = new Set();
-        }
-        // Converter payment_method para o tipo correspondente
+        const key = getOrCreateKey(dl.normalized_phone);
+        if (!methodsByKey[key]) methodsByKey[key] = new Set();
         if (dl.payment_method === 'pix') {
-          methodsByPhone[normalizedKey].add('pix');
+          methodsByKey[key].add('pix');
         } else if (dl.payment_method === 'cartao_boleto') {
-          methodsByPhone[normalizedKey].add('cartao');
-          methodsByPhone[normalizedKey].add('boleto');
+          methodsByKey[key].add('cartao');
+          methodsByKey[key].add('boleto');
         }
       });
 
       const result: Record<string, string[]> = {};
-      Object.entries(methodsByPhone).forEach(([phone, methods]) => {
+      Object.entries(methodsByKey).forEach(([phone, methods]) => {
         result[phone] = Array.from(methods);
       });
 
