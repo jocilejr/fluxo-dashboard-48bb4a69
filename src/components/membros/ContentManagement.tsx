@@ -208,7 +208,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
     onSuccess: () => {
       toast.success("Material adicionado!");
       queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatDialogOpen(false);
+      resetMatForm();
       // Auto-extract knowledge summary (fire-and-forget)
       supabase.functions.invoke("member-extract-knowledge", { body: { product_id: productId } }).catch(() => {});
     },
