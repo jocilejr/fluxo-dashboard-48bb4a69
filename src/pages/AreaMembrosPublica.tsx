@@ -341,13 +341,9 @@ export default function AreaMembrosPublica() {
     if (!normalizedPhone || shownOfferIds.length === 0 || impressionsRegisteredRef.current) return;
     impressionsRegisteredRef.current = true;
     
-    // Increment global impression counts
+    // Increment global impression counts atomically via RPC
     shownOfferIds.forEach((offerId: string) => {
-      supabase
-        .from("member_area_offers")
-        .update({ total_impressions: (globalImpressions[offerId] || 0) + 1 } as any)
-        .eq("id", offerId)
-        .then(() => {});
+      supabase.rpc("increment_offer_impression", { offer_id: offerId }).then(() => {});
     });
 
     // Also track per-user impression

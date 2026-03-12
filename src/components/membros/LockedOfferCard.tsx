@@ -105,20 +105,8 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
     setCtaVisible(false);
     setShowDots(true);
 
-    // Increment global total_clicks
-    supabase
-      .from("member_area_offers")
-      .select("total_clicks")
-      .eq("id", offer.id)
-      .single()
-      .then(({ data }) => {
-        const current = (data as any)?.total_clicks || 0;
-        supabase
-          .from("member_area_offers")
-          .update({ total_clicks: current + 1 } as any)
-          .eq("id", offer.id)
-          .then(() => {});
-      });
+    // Increment global total_clicks atomically via RPC
+    supabase.rpc("increment_offer_click", { offer_id: offer.id }).then(() => {});
 
     // Also track per-user click
     if (memberPhone) {
