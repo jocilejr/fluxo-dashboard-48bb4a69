@@ -55,6 +55,7 @@ function SessionDuration({ startedAt, endedAt }: { startedAt: string; endedAt: s
 
 export default function MemberActivityTab() {
   const [now, setNow] = useState(new Date());
+  const [simulating, setSimulating] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 15_000);
