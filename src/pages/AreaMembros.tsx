@@ -284,6 +284,28 @@ function MemberOffersTab() {
     queryFn: async () => { const { data } = await supabase.from("member_area_offers").select("*, delivery_products(name, page_logo)").order("sort_order"); return data || []; },
   });
 
+  // Count unique clickers who then purchased the offer's product
+  const { data: offerConversions } = useQuery({
+    queryKey: ["offer-conversions"],
+    queryFn: async () => {
+      if (!offers?.length) return {};
+      const productOffers = offers.filter((o: any) => o.product_id);
+      if (!productOffers.length) return {};
+      const productIds = productOffers.map((o: any) => o.product_id);
+      const { data: members } = await supabase
+        .from("member_products")
+        .select("product_id, normalized_phone")
+        .in("product_id", productIds)
+        .eq("is_active", true);
+      const conversionMap: Record<string, number> = {};
+      productOffers.forEach((o: any) => {
+        conversionMap[o.id] = (members || []).filter((m: any) => m.product_id === o.product_id).length;
+      });
+      return conversionMap;
+    },
+    enabled: !!offers?.length,
+  });
+
   const uploadImage = async (file: File): Promise<string> => {
     const ext = file.name.split(".").pop() || "jpg";
     const path = `offers/${crypto.randomUUID()}.${ext}`;
