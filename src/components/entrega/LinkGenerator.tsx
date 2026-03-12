@@ -122,6 +122,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
         message: `Acesso liberado: ${product.name}`,
         details: `Telefone: ${phone}`,
       });
+      setResolvedPhone(phoneForLink);
       setStep("link");
     } catch (error) {
       console.error("Erro ao gerar acesso:", error);
