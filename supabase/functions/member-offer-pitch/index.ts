@@ -26,6 +26,7 @@ serve(async (req) => {
     }
 
     const personaPrompt = settingsRes.data?.ai_persona_prompt || "";
+    const customOfferPrompt = settingsRes.data?.offer_prompt || "";
 
     // Fetch knowledge summaries for owned products
     let knowledgeContext = "";
