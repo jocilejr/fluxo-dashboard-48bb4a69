@@ -105,23 +105,23 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
       }, EXTENSION_TIMEOUT);
 
       // Envia no formato que o content-dashboard.js espera
-      window.postMessage(
-        {
-          type: `WHATSAPP_${action}`,
-          requestId,
-          payload: data,
-        },
-        "*"
-      );
+      const msg = {
+        type: `WHATSAPP_${action}`,
+        requestId,
+        payload: data,
+      };
+      console.log("[WhatsApp Hook] postMessage enviado:", JSON.stringify(msg));
+      window.postMessage(msg, "*");
     });
   }, []);
 
   const extensionAvailable = extensionStatus === "connected";
 
   const openChat = useCallback(async (phone: string): Promise<boolean> => {
-    // Always attempt to send - extension may be active even if ping wasn't detected
-    return sendCommand("OPEN_CHAT", { phone: normalizePhone(phone) });
-  }, [sendCommand]);
+    const normalized = normalizePhone(phone);
+    console.log("[WhatsApp Hook] openChat chamado:", { raw: phone, normalized, extensionStatus });
+    return sendCommand("OPEN_CHAT", { phone: normalized });
+  }, [sendCommand, extensionStatus]);
 
   const sendText = useCallback(async (phone: string, text: string): Promise<boolean> => {
     if (!extensionAvailable) return false;

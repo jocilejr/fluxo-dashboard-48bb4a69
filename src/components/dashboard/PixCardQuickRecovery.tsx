@@ -115,6 +115,7 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
 
     // Abre o chat sem enviar mensagem
     const phone = transaction.customer_phone.replace(/\D/g, "");
+    console.log("[PixCardRecovery] customer_phone:", transaction.customer_phone, "normalizado:", phone);
     const success = await openChat(phone);
     
     if (success) {

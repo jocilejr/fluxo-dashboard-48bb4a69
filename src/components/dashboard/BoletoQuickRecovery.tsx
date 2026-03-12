@@ -722,6 +722,7 @@ export function BoletoQuickRecovery({ open, onOpenChange, transaction, onTransac
                       message: `WhatsApp aberto para recuperação de boleto: ${transaction.customer_name || "cliente"}`,
                       details: `Telefone: ${transaction.customer_phone}, Valor: ${formatCurrency(Number(transaction.amount))}`
                     });
+                    console.log("[BoletoRecovery] customer_phone:", transaction.customer_phone);
                     const success = await openChat(transaction.customer_phone!);
                     if (success) {
                       toast.success("Chat aberto! Cole a mensagem com Ctrl+V");

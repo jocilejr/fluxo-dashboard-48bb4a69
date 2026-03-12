@@ -1,56 +1,33 @@
 
 
-## Diagnóstico
+## Problema
 
-Analisei toda a cadeia de comunicação:
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-1. **App** → `window.postMessage({ type: "WHATSAPP_OPEN_CHAT", payload: { phone: "55..." } })`
-2. **content-dashboard.js** → extrai `payload.phone` → `chrome.runtime.sendMessage({ type: 'OPEN_CHAT', phone: '55...' })`
-3. **background.js** → encaminha para tab do WhatsApp
-4. **content-whatsapp.js** → `openChat(message.phone)` → digita no campo de busca
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-Pelo código, a cadeia parece correta. Porém, não consigo identificar com certeza onde o telefone se perde apenas por análise estática. 
+## Solução
 
-**Hipótese principal**: O `sendCommand` pode estar falhando silenciosamente (timeout de 10s, resposta ignorada) ou o telefone está chegando como `undefined` na extensão por algum motivo de timing/serialização.
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-## Plano: Adicionar logs de diagnóstico em cada etapa
+### Alteração em `src/hooks/useTransactions.ts`
 
-### 1. `src/hooks/useWhatsAppExtension.ts` — logs detalhados
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-Adicionar `console.log` em pontos críticos para rastrear exatamente o que está sendo enviado:
-
-```typescript
-const openChat = useCallback(async (phone: string): Promise<boolean> => {
-  const normalized = normalizePhone(phone);
-  console.log("[WhatsApp Hook] openChat chamado com:", { raw: phone, normalized });
-  return sendCommand("OPEN_CHAT", { phone: normalized });
-}, [sendCommand]);
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
 ```
 
-E dentro de `sendCommand`, antes do `postMessage`:
-```typescript
-console.log("[WhatsApp Hook] postMessage enviado:", { 
-  type: `WHATSAPP_${action}`, 
-  payload: data,
-  payloadPhone: data.phone 
-});
-```
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-### 2. Verificação no PixCardQuickRecovery e BoletoQuickRecovery
+A deduplicação acontece automaticamente pelo banco.
 
-Adicionar log antes de chamar `openChat`:
-```typescript
-console.log("[Recovery] customer_phone:", transaction.customer_phone);
-console.log("[Recovery] phone normalizado:", phone);
-```
+### Impacto
 
-### Resultado esperado
-
-Com esses logs, ao clicar "Recuperar no WhatsApp", o console do navegador mostrará:
-- O telefone bruto do `transaction`
-- O telefone após normalização
-- O payload exato enviado via `postMessage`
-- Se houve timeout ou resposta
-
-Assim poderemos identificar precisamente onde o número se perde — se é na app, no postMessage, ou na resposta da extensão.
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
