@@ -1222,6 +1222,45 @@ export type Database = {
           },
         ]
       }
+      member_sessions: {
+        Row: {
+          current_activity: string | null
+          current_material_name: string | null
+          current_product_name: string | null
+          ended_at: string | null
+          id: string
+          last_heartbeat_at: string
+          normalized_phone: string
+          page_url: string | null
+          started_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          current_activity?: string | null
+          current_material_name?: string | null
+          current_product_name?: string | null
+          ended_at?: string | null
+          id?: string
+          last_heartbeat_at?: string
+          normalized_phone: string
+          page_url?: string | null
+          started_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          current_activity?: string | null
+          current_material_name?: string | null
+          current_product_name?: string | null
+          ended_at?: string | null
+          id?: string
+          last_heartbeat_at?: string
+          normalized_phone?: string
+          page_url?: string | null
+          started_at?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       meta_ads_settings: {
         Row: {
           access_token: string

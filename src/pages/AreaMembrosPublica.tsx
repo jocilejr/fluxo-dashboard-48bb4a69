@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
@@ -13,6 +13,7 @@ import FloatingOfferBar from "@/components/membros/FloatingOfferBar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import meirePhoto from "@/assets/meire-rosana.png";
+import { useMemberSession } from "@/hooks/useMemberSession";
 
 interface MemberProduct {
   id: string;
@@ -91,6 +92,19 @@ export default function AreaMembrosPublica() {
   const pixelFramesFiredRef = useRef(false);
 
   const normalizedPhone = useMemo(() => phone?.replace(/\D/g, "") || "", [phone]);
+
+  // Session tracking
+  const sessionActive = !loading && !notFound && !!normalizedPhone;
+  const { updateActivity } = useMemberSession(normalizedPhone, sessionActive);
+
+  // Expose updateActivity for child components via callback
+  const handleActivityChange = useCallback((activity: string, productName?: string, materialName?: string) => {
+    updateActivity({
+      current_activity: activity,
+      current_product_name: productName || null,
+      current_material_name: materialName || null,
+    });
+  }, [updateActivity]);
 
   useEffect(() => {
     if (!phone) return;
@@ -651,7 +665,12 @@ export default function AreaMembrosPublica() {
         )}
       </main>
 
-      <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
+      <Dialog open={!!openProductId} onOpenChange={(open) => {
+        if (!open) {
+          setOpenProductId(null);
+          handleActivityChange("viewing_home");
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl bg-white">
           {openProduct?.delivery_products && (
             <>
@@ -671,6 +690,7 @@ export default function AreaMembrosPublica() {
                   productName={openProduct.delivery_products.name}
                   themeColor={themeColor}
                   phone={normalizedPhone}
+                  onActivityChange={handleActivityChange}
                 />
               </div>
             </>

@@ -12,9 +12,10 @@ interface Props {
   productName: string;
   themeColor: string;
   phone?: string;
+  onActivityChange?: (activity: string, productName?: string, materialName?: string) => void;
 }
 
-export default function ProductContentViewer({ productId, productName, themeColor, phone }: Props) {
+export default function ProductContentViewer({ productId, productName, themeColor, phone, onActivityChange }: Props) {
   const [preloadedPdf, setPreloadedPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const preloadedPdfIdRef = useRef<string | null>(null);
 
@@ -76,6 +77,11 @@ export default function ProductContentViewer({ productId, productName, themeColo
       .catch(() => {});
   }, [mostRecentPdf?.id, mostRecentPdf?.content_url]);
 
+  // Track product view activity
+  useEffect(() => {
+    onActivityChange?.("viewing_product", productName);
+  }, [productId]);
+
   if (loadingCats || loadingMats) {
     return (
       <div className="flex items-center justify-center py-10">
@@ -103,15 +109,19 @@ export default function ProductContentViewer({ productId, productName, themeColo
 
   const uncategorized = allMaterials.filter((m: any) => !m.category_id);
 
-  const renderMaterialCard = (mat: any) => (
-    <MaterialCard
-      key={mat.id}
-      material={mat}
-      themeColor={themeColor}
-      preloadedPdf={mostRecentPdf?.id === mat.id ? preloadedPdf : undefined}
-      phone={phone}
-    />
-  );
+  const renderMaterialCard = (mat: any) => {
+    const activityType = mat.content_type === "pdf" ? "reading_pdf" : mat.content_type === "video" ? "watching_video" : "viewing_product";
+    return (
+      <MaterialCard
+        key={mat.id}
+        material={mat}
+        themeColor={themeColor}
+        preloadedPdf={mostRecentPdf?.id === mat.id ? preloadedPdf : undefined}
+        phone={phone}
+        onOpen={() => onActivityChange?.(activityType, productName, mat.title)}
+      />
+    );
+  };
 
   return (
     <div className="space-y-8">

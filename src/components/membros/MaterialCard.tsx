@@ -23,6 +23,7 @@ interface Props {
   themeColor: string;
   preloadedPdf?: pdfjsLib.PDFDocumentProxy | null;
   phone?: string;
+  onOpen?: () => void;
 }
 
 const typeConfig: Record<string, { icon: typeof FileText; label: string; accent: string }> = {
@@ -33,7 +34,7 @@ const typeConfig: Record<string, { icon: typeof FileText; label: string; accent:
   audio: { icon: Music, label: "Áudio", accent: "#f59e0b" },
 };
 
-export default function MaterialCard({ material, themeColor, preloadedPdf, phone }: Props) {
+export default function MaterialCard({ material, themeColor, preloadedPdf, phone, onOpen }: Props) {
   const [open, setOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const config = typeConfig[material.content_type] || typeConfig.text;
@@ -41,6 +42,7 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
   const videoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleOpen = () => {
+    onOpen?.();
     if (material.content_type === "pdf") {
       setPdfOpen(true);
     } else {
