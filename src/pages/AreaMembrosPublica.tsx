@@ -86,6 +86,7 @@ export default function AreaMembrosPublica() {
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
   const [offerImpressions, setOfferImpressions] = useState<Record<string, { impression_count: number; clicked: boolean }>>({});
+  const pixelFramesFiredRef = useRef(false);
 
   const normalizedPhone = useMemo(() => phone?.replace(/\D/g, "") || "", [phone]);
 
