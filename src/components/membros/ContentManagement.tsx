@@ -220,6 +220,46 @@ function ProductContentEditor({ productId }: { productId: string }) {
     onSuccess: () => { toast.success("Material removido"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
   });
 
+  const updateMatMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingMaterial || !matTitle) throw new Error("Título é obrigatório");
+      const updateData: any = {
+        category_id: matCategoryId && matCategoryId !== "none" ? matCategoryId : null,
+        title: matTitle,
+        description: matDesc || null,
+        content_type: matType,
+        content_url: matUrl || null,
+        content_text: matText || null,
+        button_label: matType === "text" && matButtonLabel ? matButtonLabel : null,
+      };
+      const { error } = await supabase.from("member_product_materials").update(updateData).eq("id", editingMaterial.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Material atualizado!");
+      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
+      resetMatForm();
+      supabase.functions.invoke("member-extract-knowledge", { body: { product_id: productId } }).catch(() => {});
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetMatForm = () => {
+    setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setEditingMaterial(null); setMatDialogOpen(false);
+  };
+
+  const openEditMaterial = (mat: any) => {
+    setEditingMaterial(mat);
+    setMatTitle(mat.title || "");
+    setMatDesc(mat.description || "");
+    setMatType(mat.content_type || "text");
+    setMatUrl(mat.content_url || "");
+    setMatText(mat.content_text || "");
+    setMatButtonLabel(mat.button_label || "");
+    setMatCategoryId(mat.category_id || "none");
+    setMatDialogOpen(true);
+  };
+
   const contentTypes = [
     { value: "text", label: "Texto (com botão opcional)" },
     { value: "pdf", label: "PDF (upload)" },
