@@ -1460,6 +1460,41 @@ export type Database = {
           },
         ]
       }
+      product_knowledge_summaries: {
+        Row: {
+          created_at: string
+          id: string
+          key_topics: string[]
+          product_id: string
+          summary: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_topics?: string[]
+          product_id: string
+          summary?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_topics?: string[]
+          product_id?: string
+          summary?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_knowledge_summaries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "delivery_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

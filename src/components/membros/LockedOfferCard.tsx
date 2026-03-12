@@ -31,6 +31,7 @@ interface Props {
   offer: Offer;
   themeColor: string;
   ownedProductNames?: string[];
+  ownedProductIds?: string[];
   firstName?: string;
   memberProfile?: MemberProfile | null;
   memberPhone?: string;
@@ -50,7 +51,7 @@ function getContextLabel(offer: Offer, index?: number): string {
   return CONTEXTUAL_LABELS[i % CONTEXTUAL_LABELS.length];
 }
 
-export default function LockedOfferCard({ offer, themeColor, ownedProductNames, firstName, memberProfile, memberPhone }: Props) {
+export default function LockedOfferCard({ offer, themeColor, ownedProductNames, ownedProductIds, firstName, memberProfile, memberPhone }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [aiMessages, setAiMessages] = useState<string[]>([]);
@@ -122,6 +123,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
           offerName: offer.name,
           offerDescription: offer.description,
           ownedProductNames,
+          ownedProductIds,
           profile: memberProfile,
           offerMaterials: offerMaterialNames,
         },

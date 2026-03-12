@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { toast } from "sonner";
-import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Check, ShoppingBag, Edit } from "lucide-react";
+import { Crown, Plus, Search, Settings, Gift, Users, BookOpen, Check, ShoppingBag, Edit, Brain, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -252,6 +252,7 @@ function MemberOffersTab() {
   const [pixKey, setPixKey] = useState("");
   const [pixKeyType, setPixKeyType] = useState("telefone");
   const [cardPaymentUrl, setCardPaymentUrl] = useState("");
+  const [extractingKnowledge, setExtractingKnowledge] = useState<string | null>(null);
 
   const { data: products } = useQuery({
     queryKey: ["delivery-products-for-offers"],
@@ -354,6 +355,22 @@ function MemberOffersTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["member-area-offers"] }),
   });
 
+  const handleExtractKnowledge = async (productId: string) => {
+    if (!productId) { toast.error("Esta oferta não tem produto vinculado"); return; }
+    setExtractingKnowledge(productId);
+    try {
+      const { data, error } = await supabase.functions.invoke("member-extract-knowledge", {
+        body: { product_id: productId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Resumo gerado! ${(data?.key_topics || []).length} tópicos extraídos`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar resumo");
+    }
+    setExtractingKnowledge(null);
+  };
+
   const selectedProduct = products?.find(p => p.id === selectedProductId);
 
   return (
@@ -447,7 +464,18 @@ function MemberOffersTab() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  {offer.product_id && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Gerar resumo de conhecimento (IA)"
+                      disabled={extractingKnowledge === offer.product_id}
+                      onClick={() => handleExtractKnowledge(offer.product_id)}
+                    >
+                      {extractingKnowledge === offer.product_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+                    </Button>
+                  )}
                   <Switch checked={offer.is_active} onCheckedChange={(checked) => toggleMutation.mutate({ id: offer.id, active: checked })} />
                   <Button variant="ghost" size="icon" onClick={() => openEdit(offer)}><Edit className="h-4 w-4" /></Button>
                   <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(offer.id)}><Trash2 className="h-4 w-4" /></Button>

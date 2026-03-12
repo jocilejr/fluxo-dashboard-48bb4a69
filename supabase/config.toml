@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.member-purchase]
 verify_jwt = false
+
+[functions.member-extract-knowledge]
+verify_jwt = true

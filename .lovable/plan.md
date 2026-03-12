@@ -1,52 +1,33 @@
 
 
-## Extrair e Armazenar Conhecimento dos PDFs para Contexto da Copy
+## Problema
 
-### Ideia
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-Criar uma tabela `product_knowledge_summaries` que armazena resumos do conteúdo de cada produto (extraídos via IA dos PDFs). Na hora de gerar a copy da oferta, a edge function consulta os resumos dos produtos que a pessoa **já possui** para personalizar a primeira mensagem com base no conhecimento que ela já adquiriu, criando uma ponte natural para a oferta.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-### Alterações no banco
+## Solução
 
-**Nova tabela `product_knowledge_summaries`:**
-- `id` (uuid, PK)
-- `product_id` (uuid, referência ao produto)
-- `summary` (text) — resumo do conteúdo/conhecimento do produto
-- `key_topics` (text[]) — tópicos principais extraídos
-- `created_at`, `updated_at`
-- RLS: leitura pública (anon+authenticated), escrita apenas admin/service role
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-### Nova edge function `member-extract-knowledge`
+### Alteração em `src/hooks/useTransactions.ts`
 
-- Recebe `{ product_id }`
-- Busca todos os materiais PDF do produto na tabela `member_product_materials`
-- Para cada PDF, faz download do `content_url` do storage
-- Envia o conteúdo (ou os títulos/descrições se o PDF for muito grande) para a IA (Lovable AI Gateway) pedindo um resumo dos ensinamentos principais
-- Salva o resultado em `product_knowledge_summaries`
-- Pode ser chamada manualmente pelo admin ou automaticamente ao importar PDFs
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-### Botão no admin (`AreaMembros.tsx`)
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
 
-- Adicionar um botão "Gerar resumo de conhecimento" na seção de cada produto
-- Ao clicar, chama a edge function `member-extract-knowledge`
-- Mostra loading e feedback de sucesso
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-### Atualização da edge function `member-offer-pitch`
+A deduplicação acontece automaticamente pelo banco.
 
-- Antes de gerar a copy, buscar os `product_knowledge_summaries` dos produtos que a pessoa já possui (`ownedProductNames` → buscar por nome ou IDs)
-- Incluir no prompt do sistema uma seção "CONHECIMENTO QUE A PESSOA JÁ ADQUIRIU" com os resumos e tópicos
-- Ajustar as instruções da primeira mensagem: em vez de apenas listar os nomes dos produtos, a IA deve **referenciar o que a pessoa aprendeu** (ex: "Você já estudou sobre oração intercessora e adoração...") para criar contexto e introduzir a oferta naturalmente
+### Impacto
 
-### Atualização do `LockedOfferCard.tsx`
-
-- Passar os IDs dos produtos que a pessoa possui (além dos nomes) para a edge function
-- A edge function faz a consulta dos resumos internamente
-
-### Arquivos
-
-- **Migração SQL**: criar tabela `product_knowledge_summaries`
-- **Nova edge function**: `supabase/functions/member-extract-knowledge/index.ts`
-- **Editado**: `supabase/functions/member-offer-pitch/index.ts` (consultar resumos e enriquecer prompt)
-- **Editado**: `src/pages/AreaMembros.tsx` (botão para gerar resumo)
-- **Editado**: `src/components/membros/LockedOfferCard.tsx` (passar IDs dos produtos)
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 

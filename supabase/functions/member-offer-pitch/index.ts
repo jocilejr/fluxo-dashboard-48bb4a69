@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { firstName, offerName, offerDescription, ownedProductNames, profile, offerMaterials } = await req.json();
+    const { firstName, offerName, offerDescription, ownedProductNames, ownedProductIds, profile, offerMaterials } = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -26,6 +26,23 @@ serve(async (req) => {
     }
 
     const personaPrompt = settingsRes.data?.ai_persona_prompt || "";
+
+    // Fetch knowledge summaries for owned products
+    let knowledgeContext = "";
+    if (ownedProductIds && ownedProductIds.length > 0) {
+      const { data: summaries } = await supabase
+        .from("product_knowledge_summaries")
+        .select("summary, key_topics")
+        .in("product_id", ownedProductIds);
+
+      if (summaries && summaries.length > 0) {
+        const parts = summaries.map((s: any) => {
+          const topics = (s.key_topics || []).join(", ");
+          return `${s.summary}${topics ? `\nTópicos: ${topics}` : ""}`;
+        });
+        knowledgeContext = parts.join("\n\n");
+      }
+    }
 
     const prof = profile || {};
     let memberDays = 0;
@@ -44,6 +61,10 @@ serve(async (req) => {
       ? `SUA PERSONALIDADE:\n${personaPrompt}`
       : `SUA PERSONALIDADE:\nVocê é uma mulher cristã de 57 anos, líder de uma comunidade de orações. Você age de forma cristã e nunca tenta vender algo — você oferece com carinho algo que pode fazer sentido para a pessoa, e pede uma contribuição caso a pessoa possa contribuir.`;
 
+    const knowledgeBlock = knowledgeContext
+      ? `\nCONHECIMENTO QUE A PESSOA JÁ ADQUIRIU (dos materiais que ela já possui):\n${knowledgeContext}\n\n→ Na PRIMEIRA mensagem, faça referência ao que a pessoa já aprendeu/estudou (use os tópicos acima de forma natural). Isso cria conexão e mostra que você conhece a jornada dela. Exemplo: "Você já estudou sobre oração intercessora e adoração..." Depois, introduza o novo material como uma continuidade natural dessa jornada.`
+      : "";
+
     const systemPrompt = `Você vai gerar mensagens de chat simulando uma conversa pessoal sobre um material que a pessoa demonstrou interesse.
 
 ${personaBlock}
@@ -56,9 +77,9 @@ REGRAS ABSOLUTAS:
 - Use o nome da pessoa
 - Gere EXATAMENTE 2 mensagens curtas (como balões de WhatsApp)
 - Cada mensagem deve ter no máximo 2 frases
-- A primeira mensagem deve ser pessoal e acolhedora, e deve mencionar que os materiais que ela já possui são: ${ownedNames}. Diga que ela ainda não contribuiu para receber "${offerName}", de forma carinhosa e sem pressão.
+- A primeira mensagem deve ser pessoal e acolhedora${knowledgeContext ? ", referenciando o conhecimento que a pessoa já adquiriu (veja seção CONHECIMENTO abaixo)" : `, e deve mencionar que os materiais que ela já possui são: ${ownedNames}`}. Diga que ela ainda não contribuiu para receber "${offerName}", de forma carinhosa e sem pressão.
 - A segunda mensagem deve explicar brevemente o que é o material com base na descrição, e convidar com gentileza.
-
+${knowledgeBlock}
 PERFIL DA PESSOA:
 - Nome: ${firstName}
 - Membro há: ${memberDays} dias${memberDays <= 7 ? " (nova)" : ""}
