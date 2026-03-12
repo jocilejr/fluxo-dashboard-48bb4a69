@@ -364,7 +364,7 @@ export default function AreaMembrosPublica() {
       .upsert(upserts, { onConflict: "normalized_phone,offer_id" })
       .then(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedPhone, shownOfferIds.join(",")]);
+  }, [offerMetricsReady, normalizedPhone, shownOfferIds.join(",")]);
 
   // Fire pending pixel frames on page load
   useEffect(() => {
