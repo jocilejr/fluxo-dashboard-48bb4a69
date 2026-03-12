@@ -108,6 +108,7 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
       const msg = {
         type: `WHATSAPP_${action}`,
         requestId,
+        ...data,
         payload: data,
       };
       console.log("[WhatsApp Hook] postMessage enviado:", JSON.stringify(msg));
