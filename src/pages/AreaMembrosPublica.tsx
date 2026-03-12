@@ -582,7 +582,7 @@ export default function AreaMembrosPublica() {
         {/* Interleaved products and offers (2:1 ratio) */}
         {(() => {
           const interleaved: ({ type: "product"; data: MemberProduct } | { type: "offer"; data: any })[] = [];
-          const interleavedCardOffers = cardOffers.length > 1 ? cardOffers.slice(0, -1) : cardOffers;
+          const interleavedCardOffers = cardOffers;
           let offerIdx = 0;
 
           for (let i = 0; i < sortedProducts.length; i++) {
