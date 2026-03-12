@@ -466,9 +466,14 @@ function ProductContentEditor({ productId }: { productId: string }) {
                       )}
                     </div>
                   </div>
-                  <button onClick={() => deleteMatMutation.mutate(mat.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => openEditMaterial(mat)} className="text-muted-foreground hover:text-primary p-1">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => deleteMatMutation.mutate(mat.id)} className="text-muted-foreground hover:text-destructive p-1">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
