@@ -2,32 +2,49 @@
 
 ## Problema
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
-
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+Ao liberar acesso na Área de Membros, o sistema insere um novo registro em `member_products` usando o telefone exatamente como digitado. Se o mesmo número já existe em formato diferente (ex: com/sem 55), cria duplicata.
 
 ## Solução
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+Aplicar a regra dos 8 últimos dígitos em **3 pontos de inserção** de `member_products`:
 
-### Alteração em `src/hooks/useTransactions.ts`
+### 1. `src/components/entrega/LinkGenerator.tsx` — `handleGenerate` (linha ~71)
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+Antes do upsert, buscar se já existe um `member_products` com o mesmo `product_id` cujos 8 últimos dígitos do `normalized_phone` coincidam:
 
+```typescript
+const last8 = normalizedPhone.slice(-8);
+const { data: existing } = await supabase
+  .from("member_products")
+  .select("id, normalized_phone")
+  .eq("product_id", product.id)
+  .eq("is_active", true);
+
+const match = existing?.find(mp => mp.normalized_phone.slice(-8) === last8);
+
+if (match) {
+  // Já existe acesso — usar o normalized_phone existente para o link
+  // Não inserir duplicata
+} else {
+  // Inserir novo acesso normalmente
+}
 ```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+O link gerado usará o `normalized_phone` do registro existente (se houver match), garantindo que o URL aponte para o perfil correto.
 
-A deduplicação acontece automaticamente pelo banco.
+### 2. `src/pages/AreaMembros.tsx` — `addMutation` (linha ~96)
 
-### Impacto
+Mesma lógica: antes do insert, verificar se já existe registro com os mesmos 8 últimos dígitos para aquele produto. Se existir, mostrar toast informativo em vez de criar duplicata.
 
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### 3. `src/pages/AreaMembros.tsx` — `groupedByPhone` (linha ~85)
+
+Agrupar registros por sufixo de 8 dígitos (mesma lógica já aplicada em `useCustomers.ts`), para que a lista de membros não mostre o mesmo cliente duas vezes.
+
+### 4. `src/pages/AreaMembrosPublica.tsx` — busca de produtos (linha ~107)
+
+Já usa `generatePhoneVariations` + `.in()`. Adicionar fallback por últimos 8 dígitos: se a busca por variações retornar vazio, fazer segunda query filtrando por sufixo.
+
+### 5. Limpeza de duplicatas existentes (SQL via migration)
+
+Script para consolidar registros duplicados em `member_products` onde os 8 últimos dígitos coincidem para o mesmo `product_id` — manter o mais antigo e deletar os demais.
 
