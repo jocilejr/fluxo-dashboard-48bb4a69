@@ -86,6 +86,7 @@ export default function AreaMembrosPublica() {
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
   const [globalImpressions, setGlobalImpressions] = useState<Record<string, number>>({});
+  const [offerMetricsReady, setOfferMetricsReady] = useState(false);
   const impressionsRegisteredRef = useRef(false);
   const pixelFramesFiredRef = useRef(false);
 
@@ -100,6 +101,8 @@ export default function AreaMembrosPublica() {
     if (!phone) return;
     setLoading(true);
     setAiLoading(true);
+    setOfferMetricsReady(false);
+    impressionsRegisteredRef.current = false;
     const digits = phone.replace(/\D/g, "");
     const variations = generatePhoneVariations(digits);
     if (variations.length === 0) { setNotFound(true); setLoading(false); return; }
@@ -177,6 +180,7 @@ export default function AreaMembrosPublica() {
       gMap[o.id] = o.total_impressions || 0;
     });
     setGlobalImpressions(gMap);
+    setOfferMetricsReady(true);
 
     setLoading(false);
     loadAiContext(name, memberProds, memberOffers, matsByProd, progressData, customerProfile);
@@ -316,6 +320,8 @@ export default function AreaMembrosPublica() {
 
   // Strategic rotation: pick 1 card offer — prioritize fewest global impressions
   const cardOffers = useMemo(() => {
+    if (!offerMetricsReady) return [];
+
     const allCards = filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase");
     if (allCards.length <= 1) return allCards;
 
@@ -326,7 +332,7 @@ export default function AreaMembrosPublica() {
       return aCount - bCount;
     });
     return [sorted[0]];
-  }, [filteredOffers, globalImpressions]);
+  }, [filteredOffers, globalImpressions, offerMetricsReady]);
 
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
   const showcaseOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "showcase"), [filteredOffers]);
@@ -338,7 +344,7 @@ export default function AreaMembrosPublica() {
   ], [cardOffers, showcaseOffers]);
 
   useEffect(() => {
-    if (!normalizedPhone || shownOfferIds.length === 0 || impressionsRegisteredRef.current) return;
+    if (!offerMetricsReady || !normalizedPhone || shownOfferIds.length === 0 || impressionsRegisteredRef.current) return;
     impressionsRegisteredRef.current = true;
     
     // Increment global impression counts atomically via RPC
@@ -359,7 +365,7 @@ export default function AreaMembrosPublica() {
       .upsert(upserts, { onConflict: "normalized_phone,offer_id" })
       .then(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedPhone, shownOfferIds.join(",")]);
+  }, [offerMetricsReady, normalizedPhone, shownOfferIds.join(",")]);
 
   // Fire pending pixel frames on page load
   useEffect(() => {
