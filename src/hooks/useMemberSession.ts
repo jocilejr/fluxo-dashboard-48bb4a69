@@ -36,25 +36,57 @@ export function useMemberSession(normalizedPhone: string, active: boolean) {
     let cancelled = false;
 
     const startSession = async () => {
-      const { data, error } = await supabase.from("member_sessions")
+      // Generate ID client-side to avoid needing SELECT permission
+      const clientId = crypto.randomUUID();
+      console.log("[MemberSession] Creating session with client-generated ID:", clientId);
+
+      const { error } = await supabase.from("member_sessions")
         .insert({
+          id: clientId,
           normalized_phone: normalizedPhone,
           current_activity: "viewing_home",
           page_url: window.location.pathname,
           user_agent: navigator.userAgent.slice(0, 255),
-        })
-        .select("id")
-        .single();
+        });
 
       if (error) {
         console.error("[MemberSession] Failed to create session:", error);
+        // Retry once after 5s
+        if (!cancelled) {
+          setTimeout(() => {
+            if (cancelled) return;
+            console.log("[MemberSession] Retrying session creation...");
+            supabase.from("member_sessions")
+              .insert({
+                id: clientId,
+                normalized_phone: normalizedPhone,
+                current_activity: "viewing_home",
+                page_url: window.location.pathname,
+                user_agent: navigator.userAgent.slice(0, 255),
+              })
+              .then(({ error: retryErr }) => {
+                if (retryErr) {
+                  console.error("[MemberSession] Retry also failed:", retryErr);
+                  return;
+                }
+                if (!cancelled) {
+                  sessionIdRef.current = clientId;
+                  console.log("[MemberSession] Session started on retry:", clientId);
+                  startHeartbeat();
+                }
+              });
+          }, 5000);
+        }
         return;
       }
 
-      if (cancelled || !data) return;
-      sessionIdRef.current = data.id;
-      console.log("[MemberSession] Session started:", data.id);
+      if (cancelled) return;
+      sessionIdRef.current = clientId;
+      console.log("[MemberSession] Session started:", clientId);
+      startHeartbeat();
+    };
 
+    const startHeartbeat = () => {
       heartbeatRef.current = setInterval(async () => {
         if (!sessionIdRef.current) return;
         const { error: hbError } = await supabase.from("member_sessions")
@@ -84,6 +116,7 @@ export function useMemberSession(normalizedPhone: string, active: boolean) {
           Prefer: "return=minimal",
         };
         fetch(url, { method: "PATCH", headers, body, keepalive: true }).catch(() => {});
+        console.log("[MemberSession] Session ended:", sessionIdRef.current);
         sessionIdRef.current = null;
       }
     };

@@ -66,11 +66,15 @@ export default function MemberActivityTab() {
     queryKey: ["member-sessions-recent"],
     queryFn: async () => {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { data } = await (supabase.from("member_sessions" as any) as any)
+      const { data, error } = await supabase.from("member_sessions")
         .select("*")
         .gte("started_at", since)
         .order("started_at", { ascending: false })
         .limit(200);
+      if (error) {
+        console.error("[MemberActivity] Failed to load sessions:", error);
+        toast.error("Erro ao carregar sessões");
+      }
       return (data || []) as MemberSession[];
     },
     refetchInterval: 30_000,
