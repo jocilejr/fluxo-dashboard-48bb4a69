@@ -2,32 +2,25 @@
 
 ## Problema
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
-
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+Números como `55988011206` e `5547988011206` não são unificados pelo `generatePhoneVariations` porque o sistema interpreta DDDs diferentes (55 vs 47). Porém, os 8 últimos dígitos são iguais (`88011206`), indicando que é a mesma pessoa.
 
 ## Solução
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+Adicionar uma segunda camada de agrupamento no `mergeCustomerRecords`: após o agrupamento por variações (que já funciona para casos com/sem 9º dígito), fazer um segundo passe comparando os **8 últimos dígitos** de cada telefone. Se dois clientes compartilham os mesmos 8 últimos dígitos, eles são mesclados.
 
-### Alteração em `src/hooks/useTransactions.ts`
+### Arquivo: `src/hooks/useCustomers.ts` — função `mergeCustomerRecords`
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+Após o loop atual de union-find por variações (linhas 55-83), adicionar um segundo passe:
 
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
+1. Para cada grupo, extrair os 8 últimos dígitos do `normalized_phone` do primeiro membro
+2. Manter um `Map<string, number>` de `últimos8dígitos → índice do grupo`
+3. Se outro grupo tiver os mesmos 8 últimos dígitos, fundir os dois grupos
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
+A agregação de dados (linhas 85-118) permanece igual — apenas o agrupamento ganha essa regra adicional.
 
 ### Impacto
 
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+- `55988011206` (últimos 8: `88011206`) e `5547988011206` (últimos 8: `88011206`) serão unificados
+- Sem alteração no banco de dados
+- Sem risco de quebrar números existentes — a regra dos 8 últimos dígitos é suficientemente específica para evitar falsos positivos em números brasileiros
 
