@@ -158,9 +158,18 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
             {material.content_type === "text" && (
               <div className="space-y-5">
                 {material.content_text && (
-                  <div className="prose prose-sm max-w-none whitespace-pre-wrap leading-relaxed text-gray-700 rounded-xl p-6 border border-gray-200 bg-gray-50">
-                    {material.content_text}
-                  </div>
+                  <div className="prose prose-sm max-w-none whitespace-pre-wrap leading-relaxed text-gray-700 rounded-xl p-6 border border-gray-200 bg-gray-50 break-words overflow-hidden"
+                    dangerouslySetInnerHTML={{
+                      __html: material.content_text
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(
+                          /(https?:\/\/[^\s<]+)/g,
+                          '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline break-all hover:text-blue-800">$1</a>'
+                        )
+                    }}
+                  />
                 )}
                 {material.content_url && (
                   <Button
