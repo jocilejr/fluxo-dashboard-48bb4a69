@@ -115,9 +115,13 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
 
     // Abre o chat sem enviar mensagem
     const phone = transaction.customer_phone.replace(/\D/g, "");
-    await openChat(phone);
+    const success = await openChat(phone);
     
-    toast.success("Mensagem copiada! Cole com Ctrl+V");
+    if (success) {
+      toast.success("Mensagem copiada! Cole com Ctrl+V");
+    } else {
+      toast.error("Não foi possível abrir o chat. Verifique a extensão.");
+    }
     addActivityLog({
       type: "success",
       category: "Recuperação PIX/Cartão",
