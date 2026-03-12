@@ -285,18 +285,38 @@ export default function AreaMembrosPublica() {
     setAiLoading(false);
   };
 
-  // Filter out offers for products the member already owns (by product_id or name match)
+  // Filter out offers for products the member already owns, then sort by strategic rotation
   const filteredOffers = useMemo(() => {
-    const ownedProductIds = new Set(products.map(p => p.product_id));
-    const ownedProductNames = new Set(
+    const ownedProdIds = new Set(products.map(p => p.product_id));
+    const ownedProdNames = new Set(
       products.filter(p => p.delivery_products?.name).map(p => p.delivery_products!.name.toLowerCase().trim())
     );
-    return offers.filter((offer: any) => {
-      if (offer.product_id && ownedProductIds.has(offer.product_id)) return false;
-      if (offer.name && ownedProductNames.has(offer.name.toLowerCase().trim())) return false;
+    const available = offers.filter((offer: any) => {
+      if (offer.product_id && ownedProdIds.has(offer.product_id)) return false;
+      if (offer.name && ownedProdNames.has(offer.name.toLowerCase().trim())) return false;
       return true;
     });
-  }, [offers, products]);
+
+    // Strategic rotation: prioritize unseen/fresh offers
+    const getPriority = (offer: any): number => {
+      const imp = offerImpressions[offer.id];
+      if (!imp || imp.impression_count === 0) return 0; // Never seen — highest priority
+      if (imp.impression_count === 1 && !imp.clicked) return 1; // Seen once, no click
+      if (imp.clicked) return 2; // Clicked — interested
+      return 3; // Seen 2x+ without click — lowest priority
+    };
+
+    // Check if ALL offers in a group have been exhausted (seen 2x+ without click)
+    const allExhausted = available.every((o: any) => {
+      const imp = offerImpressions[o.id];
+      return imp && imp.impression_count >= 2 && !imp.clicked;
+    });
+
+    // If all exhausted, reset by treating all as equal (original sort_order)
+    if (allExhausted) return available;
+
+    return [...available].sort((a: any, b: any) => getPriority(a) - getPriority(b));
+  }, [offers, products, offerImpressions]);
 
   const cardOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase"), [filteredOffers]);
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
