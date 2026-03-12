@@ -31,6 +31,7 @@ interface Props {
   offer: Offer;
   themeColor: string;
   ownedProductNames?: string[];
+  ownedProductIds?: string[];
   firstName?: string;
   memberProfile?: MemberProfile | null;
   memberPhone?: string;
