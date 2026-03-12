@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CreditCard, FileText, QrCode, Copy, Check, Loader2, ArrowLeft } from "lucide-react";
+import { CreditCard, FileText, QrCode, Copy, Check, Loader2, ArrowLeft, ShieldCheck, Zap } from "lucide-react";
 
 interface Offer {
   id: string;
@@ -153,7 +153,7 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
         {/* Step: Select method */}
         {step === "select" && (
           <div className="p-5 space-y-3">
-            <p className="text-sm text-gray-600 text-center mb-4">Como deseja pagar?</p>
+            <p className="text-sm text-gray-600 text-center mb-1">Como deseja pagar?</p>
 
             {/* PIX */}
             {offer.pix_key && (
@@ -168,8 +168,13 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
                 >
                   <QrCode className="h-6 w-6" style={{ color: themeColor }} />
                 </div>
-                <div>
-                  <p className="font-semibold text-gray-800 text-sm">PIX</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-gray-800 text-sm">PIX</p>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium">
+                      <Zap className="h-2.5 w-2.5" /> Recebimento imediato
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-500">Pagamento instantâneo</p>
                 </div>
               </button>
@@ -188,8 +193,13 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
                 >
                   <CreditCard className="h-6 w-6" style={{ color: themeColor }} />
                 </div>
-                <div>
-                  <p className="font-semibold text-gray-800 text-sm">Cartão de Crédito</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-gray-800 text-sm">Cartão de Crédito</p>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium">
+                      até 12x
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-500">Parcelamento disponível</p>
                 </div>
               </button>
@@ -212,6 +222,17 @@ export default function PaymentFlow({ open, onOpenChange, offer, themeColor, mem
                 <p className="text-xs text-gray-500">Vencimento em 3 dias úteis</p>
               </div>
             </button>
+
+            {/* Trust badges */}
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
+                <ShieldCheck className="h-3.5 w-3.5" /> Verificado
+              </span>
+              <span className="w-px h-3 bg-gray-200" />
+              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
+                <ShieldCheck className="h-3.5 w-3.5" /> Pagamento 100% seguro
+              </span>
+            </div>
           </div>
         )}
 
