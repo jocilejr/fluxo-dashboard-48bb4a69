@@ -343,7 +343,7 @@ export default function AreaMembrosPublica() {
   ], [cardOffers, showcaseOffers]);
 
   useEffect(() => {
-    if (!normalizedPhone || shownOfferIds.length === 0 || impressionsRegisteredRef.current) return;
+    if (!offerMetricsReady || !normalizedPhone || shownOfferIds.length === 0 || impressionsRegisteredRef.current) return;
     impressionsRegisteredRef.current = true;
     
     // Increment global impression counts atomically via RPC
