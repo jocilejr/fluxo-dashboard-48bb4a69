@@ -351,6 +351,49 @@ export default function AreaMembrosPublica() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [normalizedPhone, filteredOffers.length > 0]);
 
+  // Fire pending pixel frames on page load
+  useEffect(() => {
+    if (!normalizedPhone || loading || notFound || pixelFramesFiredRef.current) return;
+    pixelFramesFiredRef.current = true;
+
+    const firePendingPixelFrames = async () => {
+      const variations = generatePhoneVariations(normalizedPhone);
+      if (variations.length === 0) return;
+
+      const [framesRes, pixelsRes] = await Promise.all([
+        supabase
+          .from("member_pixel_frames")
+          .select("id, product_name, product_value")
+          .in("normalized_phone", variations)
+          .eq("fired", false),
+        supabase
+          .from("global_delivery_pixels")
+          .select("platform, pixel_id, event_name")
+          .eq("is_active", true),
+      ]);
+
+      const frames = framesRes.data || [];
+      const globalPixels = (pixelsRes.data || []) as PixelInfo[];
+      if (frames.length === 0 || globalPixels.length === 0) return;
+
+      console.log(`[PixelFrames] Firing ${frames.length} pending frames with ${globalPixels.length} pixels`);
+
+      for (const frame of frames) {
+        firePixels(globalPixels, Number(frame.product_value) || 0, normalizedPhone);
+      }
+
+      const frameIds = frames.map(f => f.id);
+      await supabase
+        .from("member_pixel_frames")
+        .update({ fired: true, fired_at: new Date().toISOString() })
+        .in("id", frameIds);
+
+      console.log(`[PixelFrames] Marked ${frameIds.length} frames as fired`);
+    };
+
+    firePendingPixelFrames();
+  }, [normalizedPhone, loading, notFound]);
+
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());
   }, [products]);
