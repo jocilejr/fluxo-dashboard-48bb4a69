@@ -287,49 +287,55 @@ export default function AreaMembrosPublica() {
     setAiLoading(false);
   };
 
-  // Filter out offers for products the member already owns, then sort by strategic rotation
+  // Filter out offers for products the member already owns
   const filteredOffers = useMemo(() => {
     const ownedProdIds = new Set(products.map(p => p.product_id));
     const ownedProdNames = new Set(
       products.filter(p => p.delivery_products?.name).map(p => p.delivery_products!.name.toLowerCase().trim())
     );
-    const available = offers.filter((offer: any) => {
+    return offers.filter((offer: any) => {
       if (offer.product_id && ownedProdIds.has(offer.product_id)) return false;
       if (offer.name && ownedProdNames.has(offer.name.toLowerCase().trim())) return false;
       return true;
     });
+  }, [offers, products]);
 
-    // Strategic rotation: prioritize unseen/fresh offers
+  // Strategic rotation: pick 1 card offer to show at a time
+  const cardOffers = useMemo(() => {
+    const allCards = filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase");
+    if (allCards.length <= 1) return allCards;
+
     const getPriority = (offer: any): number => {
       const imp = offerImpressions[offer.id];
-      if (!imp || imp.impression_count === 0) return 0; // Never seen — highest priority
+      if (!imp || imp.impression_count === 0) return 0; // Never seen — highest
       if (imp.impression_count === 1 && !imp.clicked) return 1; // Seen once, no click
       if (imp.clicked) return 2; // Clicked — interested
-      return 3; // Seen 2x+ without click — lowest priority
+      return 3; // Seen 2x+ without click — lowest
     };
 
-    // Check if ALL offers in a group have been exhausted (seen 2x+ without click)
-    const allExhausted = available.every((o: any) => {
+    // If all exhausted, reset cycle
+    const allExhausted = allCards.every((o: any) => {
       const imp = offerImpressions[o.id];
       return imp && imp.impression_count >= 2 && !imp.clicked;
     });
+    if (allExhausted) return [allCards[0]];
 
-    // If all exhausted, reset by treating all as equal (original sort_order)
-    if (allExhausted) return available;
+    const sorted = [...allCards].sort((a: any, b: any) => getPriority(a) - getPriority(b));
+    return [sorted[0]];
+  }, [filteredOffers, offerImpressions]);
 
-    return [...available].sort((a: any, b: any) => getPriority(a) - getPriority(b));
-  }, [offers, products, offerImpressions]);
-
-  const cardOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase"), [filteredOffers]);
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
   const showcaseOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "showcase"), [filteredOffers]);
 
-  // Register impressions for visible offers
+  // Register impressions only for actually shown offers
+  const shownOfferIds = useMemo(() => [
+    ...cardOffers.map((o: any) => o.id),
+    ...showcaseOffers.map((o: any) => o.id),
+  ], [cardOffers, showcaseOffers]);
+
   useEffect(() => {
-    if (!normalizedPhone || filteredOffers.length === 0) return;
-    const offerIds = filteredOffers.map((o: any) => o.id);
-    // Upsert impressions for all currently visible offers
-    const upserts = offerIds.map((offerId: string) => ({
+    if (!normalizedPhone || shownOfferIds.length === 0) return;
+    const upserts = shownOfferIds.map((offerId: string) => ({
       normalized_phone: normalizedPhone,
       offer_id: offerId,
       impression_count: (offerImpressions[offerId]?.impression_count || 0) + 1,
@@ -340,16 +346,14 @@ export default function AreaMembrosPublica() {
       .from("member_offer_impressions")
       .upsert(upserts, { onConflict: "normalized_phone,offer_id" })
       .then(() => {
-        // Update local state
         const newMap = { ...offerImpressions };
         upserts.forEach(u => {
           newMap[u.offer_id] = { impression_count: u.impression_count, clicked: u.clicked };
         });
         setOfferImpressions(newMap);
       });
-    // Only run once per page load
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedPhone, filteredOffers.length > 0]);
+  }, [normalizedPhone, shownOfferIds.join(",")]);
 
   // Fire pending pixel frames on page load
   useEffect(() => {
