@@ -151,6 +151,17 @@ export default function AreaMembrosPublica() {
     });
     setProgressMap(progByProd);
 
+    // Load offer impressions for rotation
+    const impressionsRes = await supabase
+      .from("member_offer_impressions")
+      .select("offer_id, impression_count, clicked")
+      .eq("normalized_phone", digits);
+    const impMap: Record<string, { impression_count: number; clicked: boolean }> = {};
+    (impressionsRes.data || []).forEach((imp: any) => {
+      impMap[imp.offer_id] = { impression_count: imp.impression_count, clicked: imp.clicked };
+    });
+    setOfferImpressions(impMap);
+
     setLoading(false);
     loadAiContext(name, memberProds, memberOffers, matsByProd, progressData, customerProfile);
   };
