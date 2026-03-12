@@ -23,7 +23,7 @@ interface UseWhatsAppExtensionReturn {
   retryConnection: () => void;
 }
 
-const EXTENSION_TIMEOUT = 30000;
+const EXTENSION_TIMEOUT = 10000;
 
 export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus>("connecting");
@@ -84,9 +84,10 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
       const handleResponse = (event: MessageEvent) => {
         // Verifica se é uma resposta para este comando
         const isResponse = event.data?.type === "WHATSAPP_EXTENSION_RESPONSE" || event.data?.type === "WHATSAPP_RESPONSE";
-        const matchesRequestId = event.data?.requestId === requestId;
+        // Accept response if requestId matches OR if response has no requestId (extension bridge compatibility)
+        const matchesRequest = !event.data?.requestId || event.data?.requestId === requestId;
         
-        if (isResponse && matchesRequestId) {
+        if (isResponse && matchesRequest) {
           console.log("[WhatsApp Extension] Response matched:", event.data);
           window.removeEventListener("message", handleResponse);
           const success = event.data.success === true || event.data.payload?.success === true;
@@ -118,9 +119,9 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
   const extensionAvailable = extensionStatus === "connected";
 
   const openChat = useCallback(async (phone: string): Promise<boolean> => {
-    if (!extensionAvailable) return false;
+    // Always attempt to send - extension may be active even if ping wasn't detected
     return sendCommand("OPEN_CHAT", { phone: normalizePhone(phone) });
-  }, [extensionAvailable, sendCommand]);
+  }, [sendCommand]);
 
   const sendText = useCallback(async (phone: string, text: string): Promise<boolean> => {
     if (!extensionAvailable) return false;

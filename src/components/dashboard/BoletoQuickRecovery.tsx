@@ -722,12 +722,11 @@ export function BoletoQuickRecovery({ open, onOpenChange, transaction, onTransac
                       message: `WhatsApp aberto para recuperação de boleto: ${transaction.customer_name || "cliente"}`,
                       details: `Telefone: ${transaction.customer_phone}, Valor: ${formatCurrency(Number(transaction.amount))}`
                     });
-                    if (extensionAvailable) {
-                      openChat(transaction.customer_phone!).catch(() => {
-                        window.open(`https://web.whatsapp.com/send?phone=${transaction.customer_phone?.replace(/\D/g, "")}`, "_blank");
-                      });
+                    const success = await openChat(transaction.customer_phone!);
+                    if (success) {
+                      toast.success("Chat aberto! Cole a mensagem com Ctrl+V");
                     } else {
-                      window.open(`https://web.whatsapp.com/send?phone=${transaction.customer_phone?.replace(/\D/g, "")}`, "_blank");
+                      toast.error("Não foi possível abrir o chat. Verifique a extensão.");
                     }
                   }}
                 >
