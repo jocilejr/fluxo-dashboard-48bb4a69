@@ -110,9 +110,22 @@ export default function AreaMembrosPublica() {
       supabase.from("customers").select("name, display_phone, first_seen_at, total_paid, total_transactions, pix_payment_count").in("normalized_phone", variations).limit(1).maybeSingle(),
     ]);
 
-    if (!productsRes.data || productsRes.data.length === 0) { setNotFound(true); setLoading(false); return; }
+    // Fallback: if no products found by variations, try last 8 digits
+    let finalProductsData = productsRes.data;
+    if (!finalProductsData || finalProductsData.length === 0) {
+      const last8 = digits.slice(-8);
+      const { data: allProducts } = await supabase
+        .from("member_products")
+        .select("*, delivery_products(name, slug, redirect_url, page_logo, value, member_cover_image, member_description)")
+        .eq("is_active", true);
+      finalProductsData = (allProducts || []).filter(
+        (mp: any) => mp.normalized_phone?.slice(-8) === last8
+      );
+    }
 
-    const memberProds = productsRes.data as unknown as MemberProduct[];
+    if (!finalProductsData || finalProductsData.length === 0) { setNotFound(true); setLoading(false); return; }
+
+    const memberProds = finalProductsData as unknown as MemberProduct[];
     const memberOffers = (offersRes.data || []) as any[];
     setProducts(memberProds);
     setOffers(memberOffers);

@@ -32,6 +32,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const [linkMessageTemplate, setLinkMessageTemplate] = useState<string>("{link}");
   const [step, setStep] = useState<"phone" | "link">("phone");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [resolvedPhone, setResolvedPhone] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -58,7 +59,8 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const cleanPhone = phone.replace(/\D/g, "");
   const normalizedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
   const baseUrl = customDomain ? `https://${customDomain}` : window.location.origin;
-  const generatedUrl = cleanPhone ? `${baseUrl}/membros/${normalizedPhone}` : "";
+  const linkPhone = resolvedPhone || normalizedPhone;
+  const generatedUrl = cleanPhone ? `${baseUrl}/membros/${linkPhone}` : "";
 
   const handleGenerate = async () => {
     if (!cleanPhone) {
@@ -69,23 +71,30 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
     setIsProcessing(true);
 
     try {
-      // 1. Grant access in member_products (triggers pixel frame creation automatically)
-      const { error: memberError } = await supabase
+      // 1. Check if access already exists by last 8 digits
+      const last8 = normalizedPhone.slice(-8);
+      const { data: existingAccesses } = await supabase
         .from("member_products")
-        .upsert(
-          {
-            normalized_phone: normalizedPhone,
-            product_id: product.id,
-            is_active: true,
-            granted_at: new Date().toISOString(),
-          },
-          { onConflict: "normalized_phone,product_id" }
-        );
+        .select("id, normalized_phone")
+        .eq("product_id", product.id);
 
-      if (memberError) {
-        console.error("Erro ao liberar acesso:", memberError);
-        // If upsert with onConflict fails, try insert ignore approach
-        const { error: insertError } = await supabase
+      const match = existingAccesses?.find(
+        (mp) => mp.normalized_phone.slice(-8) === last8
+      );
+
+      let phoneForLink = normalizedPhone;
+
+      if (match) {
+        // Already has access — reuse existing phone for the link
+        phoneForLink = match.normalized_phone;
+        // Ensure it's active
+        await supabase
+          .from("member_products")
+          .update({ is_active: true, granted_at: new Date().toISOString() })
+          .eq("id", match.id);
+      } else {
+        // No existing access — insert new
+        const { error: memberError } = await supabase
           .from("member_products")
           .insert({
             normalized_phone: normalizedPhone,
@@ -93,8 +102,8 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
             is_active: true,
           });
 
-        if (insertError && !insertError.message.includes("duplicate")) {
-          throw insertError;
+        if (memberError && !memberError.message.includes("duplicate")) {
+          throw memberError;
         }
       }
 
@@ -113,6 +122,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
         message: `Acesso liberado: ${product.name}`,
         details: `Telefone: ${phone}`,
       });
+      setResolvedPhone(phoneForLink);
       setStep("link");
     } catch (error) {
       console.error("Erro ao gerar acesso:", error);
@@ -148,6 +158,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const handleClose = () => {
     setPhone("");
     setCopied(false);
+    setResolvedPhone("");
     setStep("phone");
     onClose();
   };
