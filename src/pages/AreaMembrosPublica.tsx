@@ -13,6 +13,7 @@ import FloatingOfferBar from "@/components/membros/FloatingOfferBar";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import meirePhoto from "@/assets/meire-rosana.png";
+import { useMemberSession } from "@/hooks/useMemberSession";
 
 interface MemberProduct {
   id: string;
