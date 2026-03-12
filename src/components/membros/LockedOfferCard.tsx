@@ -37,6 +37,8 @@ interface Props {
   memberPhone?: string;
 }
 
+type ChatBubble = { type: "text"; content: string } | { type: "image"; url: string };
+
 const CONTEXTUAL_LABELS = [
   "Aprofunde seus estudos",
   "Complementa seu material",
@@ -51,37 +53,42 @@ function getContextLabel(offer: Offer, index?: number): string {
   return CONTEXTUAL_LABELS[i % CONTEXTUAL_LABELS.length];
 }
 
+const BUBBLE_DELAY_MS = 10000; // 10 seconds between bubbles
+
 export default function LockedOfferCard({ offer, themeColor, ownedProductNames, ownedProductIds, firstName, memberProfile, memberPhone }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [aiMessages, setAiMessages] = useState<string[]>([]);
+  const [bubbles, setBubbles] = useState<ChatBubble[]>([]);
   const [visibleCount, setVisibleCount] = useState(0);
   const [showDots, setShowDots] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [ctaVisible, setCtaVisible] = useState(false);
-  const pitchCache = useRef<Record<string, string[]>>({});
+  const pitchCache = useRef<Record<string, { bubbles: ChatBubble[] }>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [visibleCount, showDots]);
 
+  // Reveal bubbles one by one with 10s delay
   useEffect(() => {
-    if (aiMessages.length === 0 || visibleCount >= aiMessages.length) return;
+    if (bubbles.length === 0 || visibleCount >= bubbles.length) return;
     setShowDots(true);
+    const delay = visibleCount === 0 ? 1500 : BUBBLE_DELAY_MS;
     const t = setTimeout(() => {
       setShowDots(false);
       setVisibleCount(prev => prev + 1);
-    }, visibleCount === 0 ? 400 : 900);
+    }, delay);
     return () => clearTimeout(t);
-  }, [aiMessages, visibleCount]);
+  }, [bubbles, visibleCount]);
 
+  // Show CTA after all bubbles are visible
   useEffect(() => {
-    if (aiMessages.length > 0 && visibleCount >= aiMessages.length && !aiLoading) {
-      const t = setTimeout(() => setCtaVisible(true), 300);
+    if (bubbles.length > 0 && visibleCount >= bubbles.length && !aiLoading) {
+      const t = setTimeout(() => setCtaVisible(true), 500);
       return () => clearTimeout(t);
     }
-  }, [visibleCount, aiMessages.length, aiLoading]);
+  }, [visibleCount, bubbles.length, aiLoading]);
 
   const handleOpen = useCallback(async () => {
     setDialogOpen(true);
@@ -90,14 +97,14 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
     setShowDots(true);
 
     if (pitchCache.current[offer.id]) {
-      setAiMessages(pitchCache.current[offer.id]);
+      setBubbles(pitchCache.current[offer.id].bubbles);
       setAiLoading(false);
       return;
     }
 
     setAiLoading(true);
     try {
-      // Fetch materials for this offer's product to enrich the pitch
+      // Fetch materials for this offer's product
       let offerMaterialNames: string[] = [];
       if (offer.product_id) {
         const [catsRes, matsRes] = await Promise.all([
@@ -106,7 +113,6 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
         ]);
         const cats = catsRes.data || [];
         const mats = matsRes.data || [];
-        // Group materials by category for a structured list
         const catMap = new Map(cats.map(c => [c.id, c.name]));
         const grouped: Record<string, string[]> = {};
         mats.forEach(m => {
@@ -130,16 +136,27 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
       });
 
       if (!error && data?.messages && Array.isArray(data.messages)) {
-        setAiMessages(data.messages);
-        pitchCache.current[offer.id] = data.messages;
-      } else if (!error && data?.message) {
-        const msgs = [data.message];
-        setAiMessages(msgs);
-        pitchCache.current[offer.id] = msgs;
+        const msgs = data.messages as string[];
+        const productImageUrl = data.productImageUrl as string | null;
+
+        // Build 4 bubbles: text1, text2, image, text3
+        const allBubbles: ChatBubble[] = [
+          { type: "text", content: msgs[0] },
+          { type: "text", content: msgs[1] },
+        ];
+        if (productImageUrl) {
+          allBubbles.push({ type: "image", url: productImageUrl });
+        }
+        if (msgs[2]) {
+          allBubbles.push({ type: "text", content: msgs[2] });
+        }
+
+        setBubbles(allBubbles);
+        pitchCache.current[offer.id] = { bubbles: allBubbles };
       }
     } catch {}
     setAiLoading(false);
-  }, [offer, firstName, ownedProductNames, memberProfile]);
+  }, [offer, firstName, ownedProductNames, ownedProductIds, memberProfile]);
 
   const handleClose = () => {
     setDialogOpen(false);
@@ -149,106 +166,64 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
   };
 
   const label = getContextLabel(offer);
+  const timeStr = `${new Date().getHours().toString().padStart(2, "0")}:${new Date().getMinutes().toString().padStart(2, "0")}`;
 
   return (
     <>
-      {/* Redesigned card — banner style */}
+      {/* Card */}
       <button
         className="w-full rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 text-left active:scale-[0.98] group relative"
-        style={{
-          border: `1.5px dashed ${themeColor}40`,
-        }}
+        style={{ border: `1.5px dashed ${themeColor}40` }}
         onClick={handleOpen}
       >
-        {/* Image or gradient banner */}
         {offer.image_url ? (
           <div className="relative h-[90px] w-full overflow-hidden">
-            <img
-              src={offer.image_url}
-              alt={offer.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
+            <img src={offer.image_url} alt={offer.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
             <div className="absolute top-2.5 right-2.5">
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold text-white/90 bg-black/40 backdrop-blur-sm">
-                <Lock className="h-2.5 w-2.5" />
-                Exclusivo
+                <Lock className="h-2.5 w-2.5" /> Exclusivo
               </span>
             </div>
             <div className="absolute bottom-0 left-0 right-0 p-3.5">
-              <span
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white/90 mb-1.5"
-                style={{ backgroundColor: `${themeColor}90` }}
-              >
-                <Sparkles className="h-2.5 w-2.5" />
-                {label}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white/90 mb-1.5" style={{ backgroundColor: `${themeColor}90` }}>
+                <Sparkles className="h-2.5 w-2.5" /> {label}
               </span>
-              <h3 className="font-extrabold text-white text-[15px] leading-tight drop-shadow-sm truncate">
-                {offer.name}
-              </h3>
+              <h3 className="font-extrabold text-white text-[15px] leading-tight drop-shadow-sm truncate">{offer.name}</h3>
             </div>
           </div>
         ) : (
-          <div
-            className="relative h-[80px] w-full flex flex-col justify-end p-3"
-            style={{
-              background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)`,
-            }}
-          >
+          <div className="relative h-[80px] w-full flex flex-col justify-end p-3" style={{ background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)` }}>
             <div className="absolute top-3 right-3 flex items-center gap-1.5">
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">
-                <Lock className="h-2.5 w-2.5" />
-                Exclusivo
+                <Lock className="h-2.5 w-2.5" /> Exclusivo
               </span>
             </div>
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white w-fit mb-1.5"
-              style={{ backgroundColor: themeColor }}
-            >
-              <Sparkles className="h-2.5 w-2.5" />
-              {label}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white w-fit mb-1.5" style={{ backgroundColor: themeColor }}>
+              <Sparkles className="h-2.5 w-2.5" /> {label}
             </span>
-            <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">
-              {offer.name}
-            </h3>
+            <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
           </div>
         )}
 
-        {/* Bottom section */}
         <div className="px-3 py-2.5 bg-white flex items-center justify-between gap-2">
           {offer.description ? (
-            <p className="text-[12px] text-gray-500 leading-snug truncate flex-1">
-              {offer.description}
-            </p>
+            <p className="text-[12px] text-gray-500 leading-snug truncate flex-1">{offer.description}</p>
           ) : (
-            <p className="text-[12px] text-gray-400 leading-snug flex-1">
-              Toque para saber mais sobre este material
-            </p>
+            <p className="text-[12px] text-gray-400 leading-snug flex-1">Toque para saber mais sobre este material</p>
           )}
-          <span
-            className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full text-white shadow-sm group-hover:shadow-md transition-shadow"
-            style={{ backgroundColor: themeColor }}
-          >
+          <span className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full text-white shadow-sm group-hover:shadow-md transition-shadow" style={{ backgroundColor: themeColor }}>
             Conhecer
           </span>
         </div>
 
-        {/* Hover glow */}
-        <div
-          className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-          style={{
-            boxShadow: `0 0 20px ${themeColor}25, inset 0 0 20px ${themeColor}08`,
-          }}
-        />
+        <div className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ boxShadow: `0 0 20px ${themeColor}25, inset 0 0 20px ${themeColor}08` }} />
       </button>
 
-      {/* Dialog — chat escuro estilo WhatsApp */}
+      {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent className="sm:max-w-md rounded-2xl border-0 p-0 overflow-hidden shadow-2xl bg-white">
-          <div
-            className="flex items-center gap-3 px-4 py-3"
-            style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}cc)` }}
-          >
+          <div className="flex items-center gap-3 px-4 py-3" style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}cc)` }}>
             <div className="relative">
               <img src={meirePhoto} alt="Meire Rosana" className="h-11 w-11 rounded-full object-cover ring-2 ring-white/30" />
               <div className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-400 ring-2 ring-white" />
@@ -261,23 +236,30 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
             </div>
           </div>
 
-          <div ref={scrollRef} className="px-3 py-4 space-y-2 min-h-[200px] max-h-[320px] overflow-y-auto bg-gray-50">
-            {aiMessages.slice(0, visibleCount).map((msg, i) => (
+          <div ref={scrollRef} className="px-3 py-4 space-y-2 min-h-[200px] max-h-[420px] overflow-y-auto bg-gray-50">
+            {bubbles.slice(0, visibleCount).map((bubble, i) => (
               <div key={i} className="flex items-end gap-2" style={{ animation: "chatBubbleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}>
                 {i === 0 ? (
                   <img src={meirePhoto} alt="" className="h-7 w-7 rounded-full object-cover shrink-0 mb-0.5" />
                 ) : (
                   <div className="h-7 w-7 shrink-0" />
                 )}
-                <div
-                  className="px-3.5 py-2.5 rounded-2xl text-[13.5px] leading-relaxed max-w-[82%] shadow-sm text-gray-700"
-                  style={{ backgroundColor: `${themeColor}10`, borderTopLeftRadius: i === 0 ? "4px" : undefined }}
-                >
-                  {msg}
-                  <span className="block text-[10px] text-gray-400 text-right mt-1 -mb-0.5">
-                    {new Date().getHours().toString().padStart(2, "0")}:{new Date().getMinutes().toString().padStart(2, "0")}
-                  </span>
-                </div>
+                {bubble.type === "text" ? (
+                  <div
+                    className="px-3.5 py-2.5 rounded-2xl text-[13.5px] leading-relaxed max-w-[82%] shadow-sm text-gray-700"
+                    style={{ backgroundColor: `${themeColor}10`, borderTopLeftRadius: i === 0 ? "4px" : undefined }}
+                  >
+                    {bubble.content}
+                    <span className="block text-[10px] text-gray-400 text-right mt-1 -mb-0.5">{timeStr}</span>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl overflow-hidden shadow-sm max-w-[82%]" style={{ borderTopLeftRadius: "4px" }}>
+                    <img src={bubble.url} alt="Material" className="w-full max-h-[200px] object-cover" />
+                    <div className="px-2 py-1" style={{ backgroundColor: `${themeColor}10` }}>
+                      <span className="block text-[10px] text-gray-400 text-right">{timeStr}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
 
@@ -300,7 +282,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
               </div>
             )}
 
-            {!aiLoading && !showDots && aiMessages.length === 0 && (
+            {!aiLoading && !showDots && bubbles.length === 0 && (
               <div className="flex items-end gap-2" style={{ animation: "chatBubbleIn 0.3s ease-out forwards" }}>
                 <img src={meirePhoto} alt="" className="h-7 w-7 rounded-full object-cover shrink-0 mb-0.5" />
                 <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-md text-[13.5px] leading-relaxed max-w-[82%] shadow-sm text-gray-700" style={{ backgroundColor: `${themeColor}10` }}>
