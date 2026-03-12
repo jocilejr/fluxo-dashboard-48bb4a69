@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useCustomers, useCustomerEvents, useCustomerPaymentMethods, Customer, CustomerEvent, CustomerStats } from "@/hooks/useCustomers";
-import { normalizePhoneForMatching } from "@/lib/phoneNormalization";
+import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -646,11 +646,15 @@ export default function Clientes() {
     let result = [...customers];
     result.sort((a, b) => Number(b.total_paid) - Number(a.total_paid));
     
-    // Filtro por método de pagamento (use normalized phone key for matching)
+    // Filtro por método de pagamento (use phone variations for matching)
     if (paymentFilter !== "all") {
       result = result.filter((c) => {
-        const normalizedKey = normalizePhoneForMatching(c.normalized_phone) || c.normalized_phone;
-        const methods = paymentMethodsByPhone[normalizedKey] || [];
+        const phones = c.merged_phones || [c.normalized_phone];
+        const allVariations = phones.flatMap(p => generatePhoneVariations(p));
+        const methods = allVariations.reduce<string[]>((acc, v) => {
+          const m = paymentMethodsByPhone[v];
+          return m ? [...acc, ...m] : acc;
+        }, []);
         return methods.includes(paymentFilter);
       });
     }
