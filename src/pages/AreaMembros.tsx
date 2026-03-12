@@ -489,39 +489,51 @@ function MemberOffersTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {offers.map((offer: any) => (
-            <Card key={offer.id} className="p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {offer.image_url && <img src={offer.image_url} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />}
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{offer.name}</p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      {offer.price && <span>R$ {Number(offer.price).toFixed(2).replace(".", ",")}</span>}
-                      {offer.delivery_products?.name && <Badge variant="secondary" className="text-[10px]">{offer.delivery_products.name}</Badge>}
-                      <Badge variant="outline" className="text-[10px]">{(offer as any).display_type === "bottom_page" ? "Fim da página" : (offer as any).display_type === "showcase" ? "Produto Físico" : "Card"}</Badge>
+          {offers.map((offer: any) => {
+            const impressions = (offer as any).total_impressions || 0;
+            const clicks = (offer as any).total_clicks || 0;
+            const conversions = offerConversions?.[offer.id] || 0;
+            const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(1) : "0";
+            return (
+              <Card key={offer.id} className="p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {offer.image_url && <img src={offer.image_url} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />}
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{offer.name}</p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                        {offer.price && <span>R$ {Number(offer.price).toFixed(2).replace(".", ",")}</span>}
+                        {offer.delivery_products?.name && <Badge variant="secondary" className="text-[10px]">{offer.delivery_products.name}</Badge>}
+                        <Badge variant="outline" className="text-[10px]">{(offer as any).display_type === "showcase" ? "Produto Físico" : "Card"}</Badge>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <span title="Impressões">{impressions.toLocaleString("pt-BR")} views</span>
+                        <span title="Cliques">{clicks.toLocaleString("pt-BR")} cliques</span>
+                        <span title="Taxa de clique (CTR)">{ctr}% CTR</span>
+                        <span title="Conversões" className="text-emerald-600 font-medium">{conversions} vendas</span>
+                      </div>
                     </div>
                   </div>
+                  <div className="flex items-center gap-1">
+                    {offer.product_id && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Gerar resumo de conhecimento (IA)"
+                        disabled={extractingKnowledge === offer.product_id}
+                        onClick={() => handleExtractKnowledge(offer.product_id)}
+                      >
+                        {extractingKnowledge === offer.product_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+                      </Button>
+                    )}
+                    <Switch checked={offer.is_active} onCheckedChange={(checked) => toggleMutation.mutate({ id: offer.id, active: checked })} />
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(offer)}><Edit className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(offer.id)}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  {offer.product_id && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      title="Gerar resumo de conhecimento (IA)"
-                      disabled={extractingKnowledge === offer.product_id}
-                      onClick={() => handleExtractKnowledge(offer.product_id)}
-                    >
-                      {extractingKnowledge === offer.product_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-                    </Button>
-                  )}
-                  <Switch checked={offer.is_active} onCheckedChange={(checked) => toggleMutation.mutate({ id: offer.id, active: checked })} />
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(offer)}><Edit className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(offer.id)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
