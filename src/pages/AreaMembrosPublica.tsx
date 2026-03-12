@@ -298,6 +298,10 @@ export default function AreaMembrosPublica() {
     return products.filter(p => p.delivery_products).map(p => p.delivery_products!.name);
   }, [products]);
 
+  const ownedProductIds = useMemo(() => {
+    return products.map(p => p.product_id);
+  }, [products]);
+
   const firstName = customerName?.split(" ")[0] || "Querido(a)";
 
   const openProduct = useMemo(() => {
