@@ -434,7 +434,7 @@ export default function AreaMembrosPublica() {
                 <Check className="h-3 w-3" strokeWidth={3} />
                 {recent ? "Liberado recentemente" : "Liberado"}
               </span>
-              <h3 className="font-extrabold text-white text-lg leading-tight drop-shadow-sm uppercase tracking-wide line-clamp-2">
+              <h3 className="font-black text-white text-xl leading-tight uppercase tracking-wide line-clamp-2" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
                 {product.name}
               </h3>
             </div>
