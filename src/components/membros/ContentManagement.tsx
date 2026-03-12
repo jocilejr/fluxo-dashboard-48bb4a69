@@ -77,6 +77,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const queryClient = useQueryClient();
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [matDialogOpen, setMatDialogOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<any>(null);
   const [catName, setCatName] = useState("");
   const [catIcon, setCatIcon] = useState("📖");
   const [catDesc, setCatDesc] = useState("");
