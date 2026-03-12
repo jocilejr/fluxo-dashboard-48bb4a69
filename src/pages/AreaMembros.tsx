@@ -84,13 +84,14 @@ function MemberProductsTab() {
 
   const groupedByPhone = useMemo(() => {
     if (!memberProducts) return [];
-    const map = new Map<string, any[]>();
+    // Group by last 8 digits to unify same person
+    const map = new Map<string, { phone: string; items: any[] }>();
     for (const mp of memberProducts) {
-      const phone = mp.normalized_phone;
-      if (!map.has(phone)) map.set(phone, []);
-      map.get(phone)!.push(mp);
+      const last8 = mp.normalized_phone.slice(-8);
+      if (!map.has(last8)) map.set(last8, { phone: mp.normalized_phone, items: [] });
+      map.get(last8)!.items.push(mp);
     }
-    return Array.from(map.entries()).map(([phone, prods]) => ({ phone, products: prods }));
+    return Array.from(map.values()).map(({ phone, items }) => ({ phone, products: items }));
   }, [memberProducts]);
 
   const addMutation = useMutation({
