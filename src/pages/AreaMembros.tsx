@@ -288,6 +288,7 @@ function MemberOffersTab() {
     setCategoryTag(offer.category_tag || "");
     setDisplayType(offer.display_type || "card");
     setPixKey(offer.pix_key || "");
+    setPixKeyType(offer.pix_key_type || "telefone");
     setCardPaymentUrl(offer.card_payment_url || "");
     setImageFile(null);
     setDialogOpen(true);
