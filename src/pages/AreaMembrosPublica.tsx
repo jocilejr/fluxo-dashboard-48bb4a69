@@ -326,12 +326,20 @@ export default function AreaMembrosPublica() {
       return 3; // Seen 2x+ without click — lowest
     };
 
-    // If all exhausted, reset cycle
+    // If all exhausted (seen 2x+ without click), pick the LEAST seen one to rotate
     const allExhausted = allCards.every((o: any) => {
       const imp = offerImpressions[o.id];
       return imp && imp.impression_count >= 2 && !imp.clicked;
     });
-    if (allExhausted) return [allCards[0]];
+    if (allExhausted) {
+      // Pick the one with fewest impressions to ensure rotation
+      const sorted = [...allCards].sort((a: any, b: any) => {
+        const aCount = offerImpressions[a.id]?.impression_count || 0;
+        const bCount = offerImpressions[b.id]?.impression_count || 0;
+        return aCount - bCount;
+      });
+      return [sorted[0]];
+    }
 
     const sorted = [...allCards].sort((a: any, b: any) => getPriority(a) - getPriority(b));
     return [sorted[0]];
