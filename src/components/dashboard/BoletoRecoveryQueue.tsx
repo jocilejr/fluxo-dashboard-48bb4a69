@@ -97,18 +97,7 @@ export function BoletoRecoveryQueue({
       return;
     }
 
-    if (extensionStatus !== "connected") {
-      toast({ title: "Erro", description: "Extensão WhatsApp não detectada", variant: "destructive" });
-      addActivityLog({
-        type: "warning",
-        category: "Recuperação Boleto",
-        message: "Extensão WhatsApp não conectada",
-        details: `Cliente: ${currentBoleto.customer_name}, Telefone: ${currentBoleto.customer_phone}`
-      });
-      return;
-    }
-
-    // Primeiro copia a mensagem para a área de transferência
+    // Copia a mensagem (tenta abrir chat mesmo sem status "connected" para compat com ext 1.x)
     if (currentBoleto.formattedMessage) {
       await navigator.clipboard.writeText(currentBoleto.formattedMessage);
     }

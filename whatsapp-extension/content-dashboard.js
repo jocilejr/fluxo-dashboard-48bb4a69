@@ -61,16 +61,36 @@ window.addEventListener('message', async (event) => {
     return;
   }
 
-  // Comandos para o WhatsApp
-  if (type === 'WHATSAPP_OPEN_CHAT' || type === 'WHATSAPP_SEND_TEXT' || type === 'WHATSAPP_SEND_IMAGE') {
-    // Mapeia o tipo da mensagem para o comando do background
+  // Comandos para o WhatsApp — aceita múltiplos formatos de tipo e extrai telefone com fallbacks
+  const isCommand = type === 'WHATSAPP_OPEN_CHAT' || type === 'WHATSAPP_SEND_TEXT' || type === 'WHATSAPP_SEND_IMAGE'
+    || type === 'WHATSAPP_EXTENSION_COMMAND' || type === 'OPEN_CHAT' || type === 'SEND_TEXT' || type === 'SEND_IMAGE';
+  
+  if (isCommand) {
+    const raw = event.data || {};
+    // Extract phone from any possible location
+    const phone = payload?.phone || raw.phone || payload?.phoneNumber || raw.phoneNumber || payload?.number || raw.number;
+    const text = payload?.text || raw.text;
+    const imageUrl = payload?.imageUrl || raw.imageUrl || payload?.imageDataUrl || raw.imageDataUrl;
+    // Determine action from type or action field
+    const action = raw.action || raw.command || type.replace('WHATSAPP_', '');
+
     let command;
-    if (type === 'WHATSAPP_OPEN_CHAT') {
-      command = { type: 'OPEN_CHAT', phone: payload.phone };
-    } else if (type === 'WHATSAPP_SEND_TEXT') {
-      command = { type: 'SEND_TEXT', phone: payload.phone, text: payload.text };
-    } else if (type === 'WHATSAPP_SEND_IMAGE') {
-      command = { type: 'SEND_IMAGE', phone: payload.phone, imageUrl: payload.imageUrl };
+    if (action === 'OPEN_CHAT' || type === 'WHATSAPP_OPEN_CHAT' || type === 'OPEN_CHAT') {
+      command = { type: 'OPEN_CHAT', phone };
+    } else if (action === 'SEND_TEXT' || type === 'WHATSAPP_SEND_TEXT' || type === 'SEND_TEXT') {
+      command = { type: 'SEND_TEXT', phone, text };
+    } else if (action === 'SEND_IMAGE' || type === 'WHATSAPP_SEND_IMAGE' || type === 'SEND_IMAGE') {
+      command = { type: 'SEND_IMAGE', phone, imageUrl };
+    }
+
+    if (!command || !phone) {
+      console.warn('[Dashboard Extension] Comando sem telefone, ignorando:', type, raw);
+      window.postMessage({
+        type: 'WHATSAPP_RESPONSE',
+        requestId: raw.requestId,
+        payload: { success: false, error: 'Phone number missing' }
+      }, '*');
+      return;
     }
 
     console.log('[Dashboard Extension] Enviando comando para background:', command);
