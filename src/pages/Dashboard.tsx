@@ -15,6 +15,9 @@ import {
   Wallet,
   Megaphone,
   RefreshCw,
+  Eye,
+  MousePointerClick,
+  ShoppingBag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GroupStatsCards } from "@/components/dashboard/GroupStatsCards";
