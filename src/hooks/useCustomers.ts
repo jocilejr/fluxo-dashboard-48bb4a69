@@ -82,6 +82,33 @@ function mergeCustomerRecords(customers: Customer[]): Customer[] {
     }
   }
 
+  // Second pass: merge groups that share the same last 8 digits
+  const last8ToGroup = new Map<string, number>();
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].length === 0) continue;
+    const phone = groups[i][0].normalized_phone;
+    if (!phone || phone.length < 8) continue;
+    const last8 = phone.slice(-8);
+    
+    if (last8ToGroup.has(last8)) {
+      const targetIdx = last8ToGroup.get(last8)!;
+      if (targetIdx !== i) {
+        // Merge group i into targetIdx
+        groups[targetIdx].push(...groups[i]);
+        // Update all variation mappings for merged members
+        for (const c of groups[i]) {
+          const vars = generatePhoneVariations(c.normalized_phone);
+          for (const v of vars) {
+            variationToGroup.set(v, targetIdx);
+          }
+        }
+        groups[i] = []; // Empty the merged group
+      }
+    } else {
+      last8ToGroup.set(last8, i);
+    }
+  }
+
   const mergedCustomers: Customer[] = [];
 
   for (const group of groups) {
