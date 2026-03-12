@@ -195,42 +195,42 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
         onClick={handleOpen}
       >
         {offer.image_url ? (
-          <div className="relative h-[90px] w-full overflow-hidden">
+          <div className="relative h-[160px] w-full overflow-hidden">
             <img src={offer.image_url} alt={offer.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-            <div className="absolute top-2.5 right-2.5">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold text-white/90 bg-black/40 backdrop-blur-sm">
-                <Lock className="h-2.5 w-2.5" /> Exclusivo
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="absolute top-3 right-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold text-white/90 bg-black/40 backdrop-blur-sm">
+                <Lock className="h-3 w-3" /> EXCLUSIVO
               </span>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 p-3.5">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white/90 mb-1.5" style={{ backgroundColor: `${themeColor}90` }}>
-                <Sparkles className="h-2.5 w-2.5" /> {label}
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white/90 mb-2" style={{ backgroundColor: `${themeColor}90` }}>
+                <Sparkles className="h-3 w-3" /> {label}
               </span>
-              <h3 className="font-extrabold text-white text-[15px] leading-tight drop-shadow-sm truncate">{offer.name}</h3>
+              <h3 className="font-extrabold text-white text-lg leading-tight drop-shadow-sm uppercase tracking-wide line-clamp-2">{offer.name}</h3>
             </div>
           </div>
         ) : (
-          <div className="relative h-[80px] w-full flex flex-col justify-end p-3" style={{ background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)` }}>
+          <div className="relative h-[140px] w-full flex flex-col justify-end p-4" style={{ background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)` }}>
             <div className="absolute top-3 right-3 flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">
-                <Lock className="h-2.5 w-2.5" /> Exclusivo
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-500">
+                <Lock className="h-3 w-3" /> EXCLUSIVO
               </span>
             </div>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white w-fit mb-1.5" style={{ backgroundColor: themeColor }}>
-              <Sparkles className="h-2.5 w-2.5" /> {label}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold text-white w-fit mb-2" style={{ backgroundColor: themeColor }}>
+              <Sparkles className="h-3 w-3" /> {label}
             </span>
-            <h3 className="font-extrabold text-gray-800 text-[15px] leading-tight truncate">{offer.name}</h3>
+            <h3 className="font-extrabold text-gray-800 text-lg leading-tight uppercase tracking-wide line-clamp-2">{offer.name}</h3>
           </div>
         )}
 
-        <div className="px-3 py-2.5 bg-white flex items-center justify-between gap-2">
+        <div className="px-4 py-3.5 bg-white flex items-center justify-between gap-3">
           {offer.description ? (
-            <p className="text-[12px] text-gray-500 leading-snug truncate flex-1">{offer.description}</p>
+            <p className="text-[13px] text-gray-500 leading-snug line-clamp-2 flex-1">{offer.description}</p>
           ) : (
-            <p className="text-[12px] text-gray-400 leading-snug flex-1">Toque para saber mais sobre este material</p>
+            <p className="text-[13px] text-gray-400 leading-snug flex-1">Toque para saber mais sobre este material</p>
           )}
-          <span className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full text-white shadow-sm group-hover:shadow-md transition-shadow" style={{ backgroundColor: themeColor }}>
+          <span className="shrink-0 text-xs font-bold px-4 py-2 rounded-full text-white shadow-sm group-hover:shadow-md transition-shadow uppercase tracking-wide" style={{ backgroundColor: themeColor }}>
             Conhecer
           </span>
         </div>
