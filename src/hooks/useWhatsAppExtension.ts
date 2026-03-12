@@ -23,7 +23,7 @@ interface UseWhatsAppExtensionReturn {
   retryConnection: () => void;
 }
 
-const EXTENSION_TIMEOUT = 30000;
+const EXTENSION_TIMEOUT = 10000;
 
 export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus>("connecting");
