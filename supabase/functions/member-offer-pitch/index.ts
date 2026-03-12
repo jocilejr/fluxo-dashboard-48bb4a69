@@ -106,7 +106,7 @@ ESTRUTURA DOS 3 BALÕES DE TEXTO:
 
 **Balão 2 (segundo):** ${knowledgeContext ? "Faça um breve resumo do que ela já aprendeu com os materiais que possui (use a seção CONHECIMENTO abaixo). Depois, explique como o novo material '${offerName}' complementa e expande esse conhecimento, como um próximo passo natural." : "Explique brevemente o que é o material '${offerName}' com base na descrição, e como ele pode ajudar a pessoa na sua jornada."}
 
-**Balão 4 (terceiro texto, após a imagem):** Liste especificamente o que contém dentro do material, mencionando os módulos e conteúdos que ela vai receber. Convide com gentileza.
+**Balão 4 (terceiro texto, após a imagem):** Liste especificamente o que contém dentro do material, mencionando os módulos e conteúdos que ela vai receber. ${offerPrice ? `No final, informe que a contribuição é de R$ ${Number(offerPrice).toFixed(2).replace('.', ',')} e convide com gentileza.` : "Convide com gentileza."}
 
 ${knowledgeBlock}
 PERFIL DA PESSOA:
