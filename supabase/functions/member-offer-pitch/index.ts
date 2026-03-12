@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { firstName, offerName, offerDescription, ownedProductNames, profile } = await req.json();
+    const { firstName, offerName, offerDescription, ownedProductNames, profile, offerMaterials } = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -71,6 +71,7 @@ ${profileCategory === "fiel" ? "→ É fiel e comprometida. Reconheça isso." : 
 MATERIAL CLICADO:
 - Nome: "${offerName}"
 - Descrição: "${offerDescription || 'Material especial preparado com muito carinho.'}"
+${(offerMaterials && offerMaterials.length > 0) ? `\nCONTEÚDO QUE A PESSOA VAI RECEBER:\n${offerMaterials.join("\n")}\n\n→ Na segunda mensagem, mencione ESPECIFICAMENTE alguns dos materiais/módulos que ela vai receber (use os nomes reais listados acima). Isso torna a oferta concreta e tangível.` : ""}
 
 Gere as mensagens usando a função fornecida.`;
 
