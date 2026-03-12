@@ -32,6 +32,7 @@ const LinkGenerator = ({ open, onClose, product }: LinkGeneratorProps) => {
   const [linkMessageTemplate, setLinkMessageTemplate] = useState<string>("{link}");
   const [step, setStep] = useState<"phone" | "link">("phone");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [resolvedPhone, setResolvedPhone] = useState("");
 
   useEffect(() => {
     if (open) {
