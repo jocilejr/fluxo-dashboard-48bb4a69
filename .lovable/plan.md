@@ -1,55 +1,33 @@
 
 
-## Sistema de Pixel Frames na Área de Membros
+## Problema
 
-### Conceito
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-Quando um produto é entregue (acesso liberado via `member_products`), o sistema cria um "pixel frame" pendente. Quando o membro acessa a área de membros (`/membros/:phone`), os frames pendentes são disparados automaticamente (1x cada) e marcados como "fired". Cada frame carrega o valor e nome do produto para diferenciar os eventos.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-### Mudanças
+## Solução
 
-**1. Nova tabela `member_pixel_frames` (migração SQL)**
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-```sql
-CREATE TABLE public.member_pixel_frames (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  normalized_phone text NOT NULL,
-  product_id uuid REFERENCES delivery_products(id) ON DELETE CASCADE,
-  product_name text NOT NULL,
-  product_value numeric NOT NULL DEFAULT 0,
-  fired boolean NOT NULL DEFAULT false,
-  fired_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+### Alteração em `src/hooks/useTransactions.ts`
+
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+
 ```
-- RLS: leitura e escrita pública (anon+authenticated) para funcionar na area de membros publica
-- Index em `(normalized_phone, fired)` para queries eficientes
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
 
-**2. Criar pixel frame automaticamente ao inserir em `member_products`**
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-Adicionar um trigger `after insert` em `member_products` que:
-- Busca o `delivery_products.name` e `delivery_products.value` do produto
-- Insere um registro em `member_pixel_frames` com `fired = false`
+A deduplicação acontece automaticamente pelo banco.
 
-Isso garante que toda entrega de produto gera automaticamente um frame de pixel pendente.
+### Impacto
 
-**3. Disparar pixels pendentes em `AreaMembrosPublica.tsx`**
-
-No carregamento da página:
-- Buscar `member_pixel_frames` onde `normalized_phone` IN variações e `fired = false`
-- Buscar os pixels globais de `global_delivery_pixels` (mesmos usados na Entrega)
-- Para cada frame pendente, disparar todos os pixels configurados com o `product_value` e `product_name` daquele frame
-- Após disparo, marcar `fired = true` e `fired_at = now()`
-- Reutilizar as funções de disparo de pixel já existentes em `EntregaPublica.tsx` extraindo-as para um utilitário compartilhado
-
-**4. Extrair lógica de pixel para `src/lib/pixelFiring.ts`**
-
-Mover as funções `loadMetaPixel`, `loadTikTokPixel`, `loadGoogleTag`, `loadPinterestTag`, `loadTaboolaPixel` e `firePixels` de `EntregaPublica.tsx` para um arquivo compartilhado. Ambas as páginas importarão dele.
-
-### Arquivos
-
-- **Migração SQL**: criar tabela `member_pixel_frames` + trigger em `member_products`
-- **Novo**: `src/lib/pixelFiring.ts` — funções de disparo de pixel extraídas
-- **Editado**: `src/pages/EntregaPublica.tsx` — importar de `pixelFiring.ts`
-- **Editado**: `src/pages/AreaMembrosPublica.tsx` — carregar frames pendentes, disparar pixels, marcar como fired
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
