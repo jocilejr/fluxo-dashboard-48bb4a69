@@ -635,21 +635,6 @@ export default function AreaMembrosPublica() {
         )}
       </main>
 
-      {/* Floating offer bar for secondary offer */}
-      {cardOffers.length > 1 && (() => {
-        const floatingOffer = cardOffers[cardOffers.length - 1];
-        return (
-          <FloatingOfferBar
-            offer={floatingOffer}
-            themeColor={themeColor}
-            onOpenChat={() => {
-              if (floatingOffer.purchase_url) {
-                window.open(floatingOffer.purchase_url, "_blank");
-              }
-            }}
-          />
-        );
-      })()}
       <Dialog open={!!openProductId} onOpenChange={(open) => !open && setOpenProductId(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 rounded-2xl bg-white">
           {openProduct?.delivery_products && (
