@@ -375,12 +375,12 @@ function ProductContentEditor({ productId }: { productId: string }) {
           <h4 className="font-bold text-foreground flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" /> Materiais
           </h4>
-          <Dialog open={matDialogOpen} onOpenChange={setMatDialogOpen}>
+          <Dialog open={matDialogOpen} onOpenChange={(open) => { if (!open) resetMatForm(); else setMatDialogOpen(open); }}>
             <DialogTrigger asChild>
-              <Button size="sm"><Plus className="h-3.5 w-3.5 mr-1" /> Novo Material</Button>
+              <Button size="sm" onClick={() => { resetMatForm(); setMatDialogOpen(true); }}><Plus className="h-3.5 w-3.5 mr-1" /> Novo Material</Button>
             </DialogTrigger>
             <DialogContent className="max-h-[85vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Novo Material</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingMaterial ? "Editar Material" : "Novo Material"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div><Label>Título</Label><Input value={matTitle} onChange={(e) => setMatTitle(e.target.value)} placeholder="Ex: Oração da Manhã" /></div>
                 <div><Label>Descrição (opcional)</Label><Input value={matDesc} onChange={(e) => setMatDesc(e.target.value)} /></div>
@@ -396,7 +396,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
                 </div>
                 <div>
                   <Label>Tipo de conteúdo</Label>
-                  <Select value={matType} onValueChange={setMatType}>
+                  <Select value={matType} onValueChange={setMatType} disabled={!!editingMaterial}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {contentTypes.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
@@ -435,7 +435,9 @@ function ProductContentEditor({ productId }: { productId: string }) {
                     )}
                   </div>
                 )}
-                <Button className="w-full" onClick={() => addMatMutation.mutate()} disabled={addMatMutation.isPending}>Adicionar Material</Button>
+                <Button className="w-full" onClick={() => editingMaterial ? updateMatMutation.mutate() : addMatMutation.mutate()} disabled={addMatMutation.isPending || updateMatMutation.isPending}>
+                  {editingMaterial ? "Salvar Alterações" : "Adicionar Material"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
