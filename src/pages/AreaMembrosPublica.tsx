@@ -314,37 +314,19 @@ export default function AreaMembrosPublica() {
     });
   }, [offers, products]);
 
-  // Strategic rotation: pick 1 card offer to show at a time
+  // Strategic rotation: pick 1 card offer — prioritize fewest global impressions
   const cardOffers = useMemo(() => {
     const allCards = filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase");
     if (allCards.length <= 1) return allCards;
 
-    const getPriority = (offer: any): number => {
-      const imp = offerImpressions[offer.id];
-      if (!imp || imp.impression_count === 0) return 0; // Never seen — highest
-      if (imp.impression_count === 1 && !imp.clicked) return 1; // Seen once, no click
-      if (imp.clicked) return 2; // Clicked — interested
-      return 3; // Seen 2x+ without click — lowest
-    };
-
-    // If all exhausted (seen 2x+ without click), pick the LEAST seen one to rotate
-    const allExhausted = allCards.every((o: any) => {
-      const imp = offerImpressions[o.id];
-      return imp && imp.impression_count >= 2 && !imp.clicked;
+    // Always pick the offer with fewest global impressions
+    const sorted = [...allCards].sort((a: any, b: any) => {
+      const aCount = globalImpressions[a.id] || 0;
+      const bCount = globalImpressions[b.id] || 0;
+      return aCount - bCount;
     });
-    if (allExhausted) {
-      // Pick the one with fewest impressions to ensure rotation
-      const sorted = [...allCards].sort((a: any, b: any) => {
-        const aCount = offerImpressions[a.id]?.impression_count || 0;
-        const bCount = offerImpressions[b.id]?.impression_count || 0;
-        return aCount - bCount;
-      });
-      return [sorted[0]];
-    }
-
-    const sorted = [...allCards].sort((a: any, b: any) => getPriority(a) - getPriority(b));
     return [sorted[0]];
-  }, [filteredOffers, offerImpressions]);
+  }, [filteredOffers, globalImpressions]);
 
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
   const showcaseOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "showcase"), [filteredOffers]);
