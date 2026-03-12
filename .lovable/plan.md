@@ -1,33 +1,103 @@
 
 
-## Problema
+## Rastreamento em Tempo Real de Membros
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Objetivo
+Adicionar à área de membros (admin) visibilidade completa sobre: quantos acessos cada membro teve, se está online agora, o que está fazendo na página, e quando saiu.
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+### 1. Nova tabela: `member_sessions`
 
-## Solução
+```sql
+CREATE TABLE public.member_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  normalized_phone text NOT NULL,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  last_heartbeat_at timestamptz NOT NULL DEFAULT now(),
+  ended_at timestamptz,
+  current_activity text DEFAULT 'viewing_home',
+  current_product_name text,
+  current_material_name text,
+  page_url text,
+  user_agent text
+);
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+CREATE INDEX idx_member_sessions_phone ON member_sessions(normalized_phone);
+CREATE INDEX idx_member_sessions_heartbeat ON member_sessions(last_heartbeat_at);
 
-### Alteração em `src/hooks/useTransactions.ts`
+-- RLS: public pages (anon) can insert/update, authenticated can read
+ALTER TABLE member_sessions ENABLE ROW LEVEL SECURITY;
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+CREATE POLICY "Anon can insert sessions" ON member_sessions FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "Anon can update own sessions" ON member_sessions FOR UPDATE TO anon, authenticated USING (true);
+CREATE POLICY "Authenticated can read sessions" ON member_sessions FOR SELECT TO authenticated USING (auth.uid() IS NOT NULL);
 
+-- Enable realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.member_sessions;
 ```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
+
+Também adicionar coluna `total_accesses` na tabela `member_products` (ou usar contagem da nova tabela).
+
+### 2. Tracking no lado público (`AreaMembrosPublica.tsx`)
+
+Ao carregar a página:
+- **Criar sessão**: INSERT em `member_sessions` com `current_activity: 'viewing_home'`
+- **Heartbeat**: A cada 30s, UPDATE `last_heartbeat_at` e `current_activity`
+- **Tracking de atividade**: Quando o membro abre um produto/material, atualizar `current_activity` para `'viewing_product'` ou `'reading_pdf'` ou `'watching_video'`, com nomes do produto/material
+- **Saída**: No `beforeunload` e no cleanup do useEffect, marcar `ended_at = now()`
+
+Atividades rastreadas:
+- `viewing_home` — Na página inicial da área
+- `viewing_product` — Visualizando conteúdo de um produto
+- `reading_pdf` — Lendo um PDF específico
+- `watching_video` — Assistindo um vídeo
+- `viewing_offer` — Visualizando uma oferta
+
+### 3. Nova aba "Atividade" no admin (`AreaMembros.tsx`)
+
+Nova tab com ícone `Activity` mostrando:
+
+**Painel superior — Membros Online Agora**
+- Cartões com contagem de online (heartbeat < 60s), total de sessões hoje, tempo médio de sessão
+- Lista em tempo real (Realtime subscription) dos membros ativos com:
+  - Nome/telefone
+  - Indicador verde pulsante "Online"
+  - O que está fazendo: "Lendo PDF — Apostila de Oração pág. 12"
+  - Tempo na sessão atual
+
+**Painel inferior — Histórico de Acessos**
+- Tabela com todos os acessos recentes:
+  - Telefone/nome, data/hora entrada, data/hora saída, duração, atividades realizadas
+  - Badge "Online" ou horário de saída
+  - Contagem total de acessos por membro
+
+**Notificações de saída**: Quando `ended_at` é preenchido via Realtime, exibir toast "Fulano saiu da área de membros" (opcional, configurável).
+
+### 4. Arquivos a criar/modificar
+
+| Arquivo | Ação |
+|---------|------|
+| Migration SQL | Criar tabela `member_sessions` |
+| `src/pages/AreaMembrosPublica.tsx` | Adicionar hooks de sessão, heartbeat, tracking de atividade |
+| `src/components/membros/ProductContentViewer.tsx` | Emitir evento de atividade ao abrir material |
+| `src/components/membros/MemberActivityTab.tsx` | **Novo** — Painel admin com online/histórico |
+| `src/pages/AreaMembros.tsx` | Adicionar aba "Atividade" |
+
+### 5. Fluxo técnico
+
+```text
+Membro abre /membros/:phone
+  → INSERT member_sessions (started_at, activity: viewing_home)
+  → setInterval 30s: UPDATE last_heartbeat_at + current_activity
+  → Abre produto: UPDATE current_activity = 'viewing_product', current_product_name
+  → Abre PDF: UPDATE current_activity = 'reading_pdf', current_material_name
+  → Fecha aba/sai: UPDATE ended_at = now()
+
+Admin em /area-membros → aba Atividade
+  → SELECT sessions WHERE last_heartbeat_at > now() - 60s (online)
+  → Realtime subscription para atualizações ao vivo
+  → Toast quando ended_at é preenchido
 ```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+### Critério "online"
+Membro com `last_heartbeat_at` nos últimos 60 segundos e `ended_at IS NULL` = online.
 
