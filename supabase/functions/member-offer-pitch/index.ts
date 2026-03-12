@@ -93,7 +93,6 @@ serve(async (req) => {
 ${personaBlock}
 
 REGRAS ABSOLUTAS:
-- NUNCA mencione valores, preços ou "por apenas R$..."
 - NUNCA use termos de marketing como "insights", "mindset", "jornada transformadora", "desbloqueie", "exclusivo"
 - Fale de forma natural, como uma amiga que conhece a pessoa
 - Baseie-se APENAS no título e descrição da oferta para explicar o que é
