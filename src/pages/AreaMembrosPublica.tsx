@@ -356,7 +356,8 @@ export default function AreaMembrosPublica() {
   ], [cardOffers, showcaseOffers]);
 
   useEffect(() => {
-    if (!normalizedPhone || shownOfferIds.length === 0) return;
+    if (!normalizedPhone || shownOfferIds.length === 0 || impressionsRegisteredRef.current) return;
+    impressionsRegisteredRef.current = true;
     const upserts = shownOfferIds.map((offerId: string) => ({
       normalized_phone: normalizedPhone,
       offer_id: offerId,
@@ -367,13 +368,7 @@ export default function AreaMembrosPublica() {
     supabase
       .from("member_offer_impressions")
       .upsert(upserts, { onConflict: "normalized_phone,offer_id" })
-      .then(() => {
-        const newMap = { ...offerImpressions };
-        upserts.forEach(u => {
-          newMap[u.offer_id] = { impression_count: u.impression_count, clicked: u.clicked };
-        });
-        setOfferImpressions(newMap);
-      });
+      .then(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [normalizedPhone, shownOfferIds.join(",")]);
 
