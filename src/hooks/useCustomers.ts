@@ -48,23 +48,43 @@ export interface CustomerStats {
 }
 
 function mergeCustomerRecords(customers: Customer[]): Customer[] {
-  const phoneGroups = new Map<string, Customer[]>();
-  
+  // Union-find approach: map each phone variation to a group index
+  const variationToGroup = new Map<string, number>();
+  const groups: Customer[][] = [];
+
   for (const customer of customers) {
-    const normalizedKey = normalizePhoneForMatching(customer.normalized_phone);
-    if (!normalizedKey) continue;
+    if (!customer.normalized_phone) continue;
+
+    const variations = generatePhoneVariations(customer.normalized_phone);
     
-    const existing = phoneGroups.get(normalizedKey);
-    if (existing) {
-      existing.push(customer);
+    // Find if any variation already belongs to an existing group
+    let existingGroupIdx: number | undefined;
+    for (const v of variations) {
+      if (variationToGroup.has(v)) {
+        existingGroupIdx = variationToGroup.get(v);
+        break;
+      }
+    }
+
+    if (existingGroupIdx !== undefined) {
+      // Add to existing group and map all variations
+      groups[existingGroupIdx].push(customer);
+      for (const v of variations) {
+        variationToGroup.set(v, existingGroupIdx);
+      }
     } else {
-      phoneGroups.set(normalizedKey, [customer]);
+      // Create new group
+      const newIdx = groups.length;
+      groups.push([customer]);
+      for (const v of variations) {
+        variationToGroup.set(v, newIdx);
+      }
     }
   }
-  
+
   const mergedCustomers: Customer[] = [];
-  
-  for (const [, group] of phoneGroups) {
+
+  for (const group of groups) {
     if (group.length === 1) {
       mergedCustomers.push({
         ...group[0],
@@ -73,14 +93,14 @@ function mergeCustomerRecords(customers: Customer[]): Customer[] {
     } else {
       group.sort((a, b) => new Date(b.last_seen_at).getTime() - new Date(a.last_seen_at).getTime());
       const primary = group[0];
-      
+
       const merged: Customer = {
         ...primary,
         name: primary.name || group.find(c => c.name)?.name || null,
         email: primary.email || group.find(c => c.email)?.email || null,
         document: primary.document || group.find(c => c.document)?.document || null,
         display_phone: primary.display_phone || group.find(c => c.display_phone)?.display_phone || null,
-        first_seen_at: group.reduce((earliest, c) => 
+        first_seen_at: group.reduce((earliest, c) =>
           new Date(c.first_seen_at) < new Date(earliest) ? c.first_seen_at : earliest
         , primary.first_seen_at),
         total_transactions: group.reduce((sum, c) => sum + c.total_transactions, 0),
@@ -90,11 +110,11 @@ function mergeCustomerRecords(customers: Customer[]): Customer[] {
         pix_payment_count: group.reduce((sum, c) => sum + c.pix_payment_count, 0),
         merged_phones: group.map(c => c.normalized_phone)
       };
-      
+
       mergedCustomers.push(merged);
     }
   }
-  
+
   return mergedCustomers;
 }
 
