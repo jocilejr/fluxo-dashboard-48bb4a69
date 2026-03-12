@@ -218,7 +218,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
         ) : (
           <div className="relative h-[140px] w-full flex flex-col justify-end p-4" style={{ background: `linear-gradient(135deg, ${themeColor}18 0%, ${themeColor}08 50%, ${themeColor}15 100%)` }}>
             <div className="absolute top-3 right-3 flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-500">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-red-100 text-red-600">
                 <Lock className="h-3 w-3" /> EXCLUSIVO
               </span>
             </div>
