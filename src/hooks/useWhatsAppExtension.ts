@@ -119,9 +119,10 @@ export function useWhatsAppExtension(): UseWhatsAppExtensionReturn {
   const extensionAvailable = extensionStatus === "connected";
 
   const openChat = useCallback(async (phone: string): Promise<boolean> => {
-    // Always attempt to send - extension may be active even if ping wasn't detected
-    return sendCommand("OPEN_CHAT", { phone: normalizePhone(phone) });
-  }, [sendCommand]);
+    const normalized = normalizePhone(phone);
+    console.log("[WhatsApp Hook] openChat chamado:", { raw: phone, normalized, extensionStatus });
+    return sendCommand("OPEN_CHAT", { phone: normalized });
+  }, [sendCommand, extensionStatus]);
 
   const sendText = useCallback(async (phone: string, text: string): Promise<boolean> => {
     if (!extensionAvailable) return false;
