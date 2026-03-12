@@ -78,12 +78,16 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
   // Reveal bubbles one by one with 10s delay
   useEffect(() => {
     if (bubbles.length === 0 || visibleCount >= bubbles.length) return;
+    if (visibleCount === 0) {
+      // First bubble appears immediately
+      setVisibleCount(1);
+      return;
+    }
     setShowDots(true);
-    const delay = visibleCount === 0 ? 1500 : BUBBLE_DELAY_MS;
     const t = setTimeout(() => {
       setShowDots(false);
       setVisibleCount(prev => prev + 1);
-    }, delay);
+    }, BUBBLE_DELAY_MS);
     return () => clearTimeout(t);
   }, [bubbles, visibleCount]);
 
@@ -146,6 +150,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
           firstName: firstName || "Querido(a)",
           offerName: offer.name,
           offerDescription: offer.description,
+          offerPrice: offer.price,
           ownedProductNames,
           ownedProductIds,
           profile: memberProfile,
