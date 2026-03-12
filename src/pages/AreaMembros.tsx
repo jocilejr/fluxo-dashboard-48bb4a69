@@ -252,6 +252,7 @@ function MemberOffersTab() {
   const [pixKey, setPixKey] = useState("");
   const [pixKeyType, setPixKeyType] = useState("telefone");
   const [cardPaymentUrl, setCardPaymentUrl] = useState("");
+  const [extractingKnowledge, setExtractingKnowledge] = useState<string | null>(null);
 
   const { data: products } = useQuery({
     queryKey: ["delivery-products-for-offers"],
