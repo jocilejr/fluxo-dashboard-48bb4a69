@@ -1,9 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const DEFAULT_GREETING_PROMPT = `Você é um assistente espiritual carinhoso. Gere UMA frase curta (máximo 2 linhas) e personalizada para o membro da área de membros. 
+A frase deve:
+- Ser motivacional e acolhedora
+- Mencionar pelo menos um dos produtos/materiais disponíveis
+- Incentivar o membro a explorar conteúdos que ainda não viu
+- Ter um tom religioso sutil e positivo
+- Usar emojis com moderação (1-2 no máximo)
+- NUNCA ultrapassar 150 caracteres
+Responda APENAS com a frase, sem aspas, sem prefixo.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -13,19 +24,22 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    // Fetch custom greeting prompt from settings
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: settings } = await supabase
+      .from("member_area_settings")
+      .select("greeting_prompt")
+      .limit(1)
+      .maybeSingle();
+
+    const systemPrompt = settings?.greeting_prompt || DEFAULT_GREETING_PROMPT;
+
     const productList = (products || [])
       .map((p: { name: string; materialCount: number }) => `"${p.name}" (${p.materialCount} materiais)`)
       .join(", ");
-
-    const systemPrompt = `Você é um assistente espiritual carinhoso. Gere UMA frase curta (máximo 2 linhas) e personalizada para o membro da área de membros. 
-A frase deve:
-- Ser motivacional e acolhedora
-- Mencionar pelo menos um dos produtos/materiais disponíveis
-- Incentivar o membro a explorar conteúdos que ainda não viu
-- Ter um tom religioso sutil e positivo
-- Usar emojis com moderação (1-2 no máximo)
-- NUNCA ultrapassar 150 caracteres
-Responda APENAS com a frase, sem aspas, sem prefixo.`;
 
     const userPrompt = `Nome do membro: ${firstName || "Querido(a)"}
 Produtos disponíveis: ${productList || "materiais religiosos"}`;

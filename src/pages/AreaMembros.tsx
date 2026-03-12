@@ -204,18 +204,29 @@ function MemberSettingsTab() {
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [themeColor, setThemeColor] = useState("#8B5CF6");
   const [aiPersonaPrompt, setAiPersonaPrompt] = useState("");
+  const [greetingPrompt, setGreetingPrompt] = useState("");
+  const [offerPrompt, setOfferPrompt] = useState("");
 
   useState(() => {
-    if (settings) { setTitle(settings.title || "Área de Membros"); setLogoUrl(settings.logo_url || ""); setWelcomeMessage(settings.welcome_message || ""); setThemeColor(settings.theme_color || "#8B5CF6"); setAiPersonaPrompt((settings as any).ai_persona_prompt || ""); }
+    if (settings) {
+      setTitle(settings.title || "Área de Membros");
+      setLogoUrl(settings.logo_url || "");
+      setWelcomeMessage(settings.welcome_message || "");
+      setThemeColor(settings.theme_color || "#8B5CF6");
+      setAiPersonaPrompt((settings as any).ai_persona_prompt || "");
+      setGreetingPrompt((settings as any).greeting_prompt || "");
+      setOfferPrompt((settings as any).offer_prompt || "");
+    }
   });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const payload = { title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor, ai_persona_prompt: aiPersonaPrompt || null, greeting_prompt: greetingPrompt || null, offer_prompt: offerPrompt || null } as any;
       if (settings?.id) {
-        const { error } = await supabase.from("member_area_settings").update({ title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor, ai_persona_prompt: aiPersonaPrompt || null } as any).eq("id", settings.id);
+        const { error } = await supabase.from("member_area_settings").update(payload).eq("id", settings.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("member_area_settings").insert({ title, logo_url: logoUrl || null, welcome_message: welcomeMessage, theme_color: themeColor, ai_persona_prompt: aiPersonaPrompt || null } as any);
+        const { error } = await supabase.from("member_area_settings").insert(payload);
         if (error) throw error;
       }
     },
@@ -248,6 +259,33 @@ function MemberSettingsTab() {
           />
           <p className="text-xs text-muted-foreground mt-1">Define como a IA se comporta no chat e nas ofertas</p>
         </div>
+
+        <div className="border-t border-border pt-4 mt-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Prompts de IA</h3>
+        </div>
+
+        <div>
+          <Label>Prompt da Saudação Inicial</Label>
+          <Textarea
+            value={greetingPrompt}
+            onChange={(e) => setGreetingPrompt(e.target.value)}
+            placeholder={`Você é um assistente espiritual carinhoso. Gere UMA frase curta (máximo 2 linhas) e personalizada para o membro da área de membros.\nA frase deve:\n- Ser motivacional e acolhedora\n- Mencionar pelo menos um dos produtos/materiais disponíveis\n- Incentivar o membro a explorar conteúdos que ainda não viu\n- Ter um tom religioso sutil e positivo\n- Usar emojis com moderação (1-2 no máximo)\n- NUNCA ultrapassar 150 caracteres\nResponda APENAS com a frase, sem aspas, sem prefixo.`}
+            rows={8}
+          />
+          <p className="text-xs text-muted-foreground mt-1">Prompt usado para gerar a mensagem de boas-vindas personalizada ao membro. Deixe vazio para usar o padrão.</p>
+        </div>
+
+        <div>
+          <Label>Prompt da Copy de Oferta</Label>
+          <Textarea
+            value={offerPrompt}
+            onChange={(e) => setOfferPrompt(e.target.value)}
+            placeholder={`Você vai gerar mensagens de chat simulando uma conversa pessoal sobre um material que a pessoa demonstrou interesse.\n\nREGRAS ABSOLUTAS:\n- NUNCA use termos de marketing como "insights", "mindset", "jornada transformadora"\n- Fale de forma natural, como uma amiga\n- Gere EXATAMENTE 3 mensagens (balão 1, balão 2 e balão 4)\n- Cada mensagem deve ter no máximo 2-3 frases curtas`}
+            rows={10}
+          />
+          <p className="text-xs text-muted-foreground mt-1">Prompt usado para gerar as mensagens de venda no chat de ofertas. Deixe vazio para usar o padrão. Variáveis disponíveis: {`{firstName}, {ownedNames}, {offerName}, {offerDescription}, {offerPrice}, {memberDays}, {profileCategory}`}</p>
+        </div>
+
         <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? "Salvando..." : "Salvar Configurações"}</Button>
       </CardContent>
     </Card>

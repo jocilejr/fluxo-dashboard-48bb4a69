@@ -925,9 +925,11 @@ export type Database = {
         Row: {
           ai_persona_prompt: string | null
           created_at: string
+          greeting_prompt: string | null
           id: string
           layout_order: Json | null
           logo_url: string | null
+          offer_prompt: string | null
           theme_color: string | null
           title: string
           updated_at: string
@@ -936,9 +938,11 @@ export type Database = {
         Insert: {
           ai_persona_prompt?: string | null
           created_at?: string
+          greeting_prompt?: string | null
           id?: string
           layout_order?: Json | null
           logo_url?: string | null
+          offer_prompt?: string | null
           theme_color?: string | null
           title?: string
           updated_at?: string
@@ -947,9 +951,11 @@ export type Database = {
         Update: {
           ai_persona_prompt?: string | null
           created_at?: string
+          greeting_prompt?: string | null
           id?: string
           layout_order?: Json | null
           logo_url?: string | null
+          offer_prompt?: string | null
           theme_color?: string | null
           title?: string
           updated_at?: string

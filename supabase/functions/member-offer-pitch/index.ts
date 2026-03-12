@@ -18,7 +18,7 @@ serve(async (req) => {
 
     const [openaiRes, settingsRes] = await Promise.all([
       supabase.from("openai_settings").select("api_key").limit(1).maybeSingle(),
-      supabase.from("member_area_settings").select("ai_persona_prompt").limit(1).maybeSingle(),
+      supabase.from("member_area_settings").select("ai_persona_prompt, offer_prompt").limit(1).maybeSingle(),
     ]);
 
     if (openaiRes.error || !openaiRes.data?.api_key) {
@@ -26,6 +26,7 @@ serve(async (req) => {
     }
 
     const personaPrompt = settingsRes.data?.ai_persona_prompt || "";
+    const customOfferPrompt = settingsRes.data?.offer_prompt || "";
 
     // Fetch knowledge summaries for owned products
     let knowledgeContext = "";
@@ -88,7 +89,44 @@ serve(async (req) => {
       ? `\nCONHECIMENTO QUE A PESSOA JÁ ADQUIRIU (dos materiais que ela já possui):\n${knowledgeContext}\n\n→ No SEGUNDO balão, faça referência ao que a pessoa já aprendeu/estudou (use os tópicos acima de forma natural). Isso cria conexão e mostra que você conhece a jornada dela. Exemplo: "Você já estudou sobre oração intercessora e adoração..." Depois, introduza o novo material como uma continuidade natural dessa jornada.`
       : "";
 
-    const systemPrompt = `Você vai gerar mensagens de chat simulando uma conversa pessoal sobre um material que a pessoa demonstrou interesse.
+    let systemPrompt: string;
+    
+    if (customOfferPrompt) {
+      // Use custom prompt with variable substitution
+      systemPrompt = customOfferPrompt
+        .replace(/\{firstName\}/g, firstName || "Querido(a)")
+        .replace(/\{ownedNames\}/g, ownedNames)
+        .replace(/\{offerName\}/g, offerName || "")
+        .replace(/\{offerDescription\}/g, offerDescription || "Material especial preparado com muito carinho.")
+        .replace(/\{offerPrice\}/g, offerPrice ? `R$ ${Number(offerPrice).toFixed(2).replace('.', ',')}` : "")
+        .replace(/\{memberDays\}/g, String(memberDays))
+        .replace(/\{profileCategory\}/g, profileCategory);
+      
+      // Prepend persona if not already in custom prompt
+      if (personaPrompt && !customOfferPrompt.includes("PERSONALIDADE")) {
+        systemPrompt = `SUA PERSONALIDADE:\n${personaPrompt}\n\n${systemPrompt}`;
+      }
+      
+      // Append knowledge context if available
+      if (knowledgeContext) {
+        systemPrompt += `\n\nCONHECIMENTO QUE A PESSOA JÁ ADQUIRIU:\n${knowledgeContext}`;
+      }
+      
+      // Append materials list if available
+      if (offerMaterials && offerMaterials.length > 0) {
+        systemPrompt += `\n\nCONTEÚDO QUE A PESSOA VAI RECEBER:\n${offerMaterials.join("\n")}`;
+      }
+    } else {
+      // Use default prompt (original)
+      const personaBlock = personaPrompt
+        ? `SUA PERSONALIDADE:\n${personaPrompt}`
+        : `SUA PERSONALIDADE:\nVocê é uma mulher cristã de 57 anos, líder de uma comunidade de orações. Você age de forma cristã e nunca tenta vender algo — você oferece com carinho algo que pode fazer sentido para a pessoa, e pede uma contribuição caso a pessoa possa contribuir.`;
+
+      const knowledgeBlock = knowledgeContext
+        ? `\nCONHECIMENTO QUE A PESSOA JÁ ADQUIRIU (dos materiais que ela já possui):\n${knowledgeContext}\n\n→ No SEGUNDO balão, faça referência ao que a pessoa já aprendeu/estudou (use os tópicos acima de forma natural). Isso cria conexão e mostra que você conhece a jornada dela. Exemplo: "Você já estudou sobre oração intercessora e adoração..." Depois, introduza o novo material como uma continuidade natural dessa jornada.`
+        : "";
+
+      systemPrompt = `Você vai gerar mensagens de chat simulando uma conversa pessoal sobre um material que a pessoa demonstrou interesse.
 
 ${personaBlock}
 
@@ -124,6 +162,7 @@ MATERIAL CLICADO:
 ${(offerMaterials && offerMaterials.length > 0) ? `\nCONTEÚDO QUE A PESSOA VAI RECEBER (use no Balão 4):\n${offerMaterials.join("\n")}\n\n→ No Balão 4, mencione ESPECIFICAMENTE alguns dos materiais/módulos que ela vai receber (use os nomes reais listados acima). Isso torna a oferta concreta e tangível.` : ""}
 
 Gere as mensagens usando a função fornecida.`;
+    }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
