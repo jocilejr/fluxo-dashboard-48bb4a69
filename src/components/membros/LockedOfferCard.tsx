@@ -16,6 +16,7 @@ interface Offer {
   category_tag: string | null;
   pix_key?: string | null;
   card_payment_url?: string | null;
+  product_id?: string | null;
 }
 
 interface MemberProfile {
