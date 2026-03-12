@@ -1,33 +1,31 @@
 
 
-## Problema
+## Diagnóstico
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+Identifiquei o problema. O hook `sendCommand` envia o telefone SOMENTE dentro de `payload`:
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
-
-## Solução
-
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
-
-### Alteração em `src/hooks/useTransactions.ts`
-
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```js
+// Hook envia:
+{ type: "WHATSAPP_OPEN_CHAT", requestId: "...", payload: { phone: "55..." } }
 ```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+A ponte (`content-dashboard.js`) extrai `payload.phone`. Porém, se a versão instalada da extensão espera o telefone no nível superior (`event.data.phone`), ele chega como `undefined`. Isso explica por que a extensão abre o buscador (recebe o comando OPEN_CHAT) mas não digita nada (`openChat(undefined)` clica "Nova conversa" mas `simulateTyping(el, undefined)` não digita nada).
 
-A deduplicação acontece automaticamente pelo banco.
+## Correção
 
-### Impacto
+Arquivo: `src/hooks/useWhatsAppExtension.ts`
 
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+Na função `sendCommand`, enviar o telefone (e demais dados) tanto no nível superior quanto em `payload`, garantindo compatibilidade com qualquer versão da ponte:
+
+```js
+const msg = {
+  type: `WHATSAPP_${action}`,
+  requestId,
+  ...data,        // phone no nível superior → event.data.phone
+  payload: data,  // phone em payload → event.data.payload.phone
+};
+window.postMessage(msg, "*");
+```
+
+Isso é uma mudança de 1 linha (adicionar `...data`). Ambos os formatos ficam disponíveis, e qualquer versão do content-dashboard.js funcionará.
 
