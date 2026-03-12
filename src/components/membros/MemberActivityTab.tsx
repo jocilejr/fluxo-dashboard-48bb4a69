@@ -165,6 +165,20 @@ export default function MemberActivityTab() {
 
   return (
     <div className="space-y-6">
+      {/* Test Button */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSimulateSession}
+          disabled={simulating}
+          className="gap-2"
+        >
+          <FlaskConical className="h-4 w-4" />
+          {simulating ? "Simulando..." : "Simular sessão de teste"}
+        </Button>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card className="px-4 py-3">
