@@ -867,6 +867,8 @@ export type Database = {
           product_id: string | null
           purchase_url: string | null
           sort_order: number
+          total_clicks: number
+          total_impressions: number
           updated_at: string
         }
         Insert: {
@@ -885,6 +887,8 @@ export type Database = {
           product_id?: string | null
           purchase_url?: string | null
           sort_order?: number
+          total_clicks?: number
+          total_impressions?: number
           updated_at?: string
         }
         Update: {
@@ -903,6 +907,8 @@ export type Database = {
           product_id?: string | null
           purchase_url?: string | null
           sort_order?: number
+          total_clicks?: number
+          total_impressions?: number
           updated_at?: string
         }
         Relationships: [
