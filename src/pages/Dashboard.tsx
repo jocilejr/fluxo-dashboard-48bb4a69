@@ -231,6 +231,13 @@ const Dashboard = () => {
             <StatCard title="Líquido" value={formatCurrency(stats.netRevenue)} subtitle={stats.taxRate > 0 || stats.adsSpend > 0 ? "Após deduções" : "Receita total"} icon={Wallet} variant="success" delay={400} isLoading={isLoading} />
           </div>
 
+          {/* Offer Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
+            <StatCard title="Ofertas — Views" value={(offerMetrics?.totalImpressions || 0).toLocaleString("pt-BR")} subtitle="Impressões totais" icon={Eye} variant="info" delay={420} isLoading={!offerMetrics} />
+            <StatCard title="Ofertas — Cliques" value={(offerMetrics?.totalClicks || 0).toLocaleString("pt-BR")} subtitle={`${offerMetrics?.ctr || "0"}% CTR`} icon={MousePointerClick} variant="info" delay={440} isLoading={!offerMetrics} />
+            <StatCard title="Ofertas — Vendas" value={(offerMetrics?.totalConversions || 0).toLocaleString("pt-BR")} subtitle="Conversões" icon={ShoppingBag} variant="success" delay={460} isLoading={!offerMetrics} />
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
             <div className="lg:col-span-2">
               <RevenueChart transactions={transactions} />
