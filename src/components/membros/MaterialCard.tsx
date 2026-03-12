@@ -91,25 +91,25 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
         onClick={handleOpen}
         className="group relative w-full text-left rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 overflow-hidden"
       >
-        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl transition-all duration-300 group-hover:w-1.5" style={{ backgroundColor: config.accent }} />
+        <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl transition-all duration-300 group-hover:w-2" style={{ backgroundColor: config.accent }} />
         
-        <div className="pl-5 pr-4 py-4 flex items-start gap-3.5">
+        <div className="pl-6 pr-5 py-5 flex items-start gap-4">
           <div
-            className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
+            className="h-14 w-14 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
             style={{ backgroundColor: `${config.accent}10` }}
           >
-            <Icon className="h-5 w-5" style={{ color: config.accent }} />
+            <Icon className="h-6 w-6" style={{ color: config.accent }} />
           </div>
 
-          <div className="flex-1 min-w-0 space-y-1">
-            <p className="font-semibold text-sm text-gray-800 leading-snug line-clamp-2 group-hover:text-gray-600 transition-colors">
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <p className="font-bold text-base text-gray-800 leading-snug line-clamp-2 group-hover:text-gray-600 transition-colors uppercase tracking-wide">
               {material.title}
             </p>
             {material.description && (
-              <p className="text-xs text-gray-500 line-clamp-1">{material.description}</p>
+              <p className="text-sm text-gray-500 line-clamp-2">{material.description}</p>
             )}
             <span
-              className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+              className="inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
               style={{ backgroundColor: `${config.accent}12`, color: config.accent }}
             >
               {config.label}
