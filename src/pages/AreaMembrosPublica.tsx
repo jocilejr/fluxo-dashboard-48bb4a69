@@ -101,7 +101,8 @@ export default function AreaMembrosPublica() {
     if (!phone) return;
     setLoading(true);
     setAiLoading(true);
-    const digits = phone.replace(/\D/g, "");
+    setOfferMetricsReady(false);
+    impressionsRegisteredRef.current = false;
     const variations = generatePhoneVariations(digits);
     if (variations.length === 0) { setNotFound(true); setLoading(false); return; }
 
