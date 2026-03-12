@@ -152,7 +152,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[WhatsApp Extension] Recebeu comando:', message.type);
 
   if (message.type === 'OPEN_CHAT') {
-    openChat(message.phone)
+    const phone = message.phone || message.phoneNumber || message.number;
+    if (!phone) {
+      sendResponse({ success: false, error: 'Phone number missing in OPEN_CHAT' });
+      return true;
+    }
+    openChat(phone)
       .then(result => sendResponse(result))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;

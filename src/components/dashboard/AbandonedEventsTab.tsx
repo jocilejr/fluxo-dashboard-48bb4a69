@@ -192,18 +192,7 @@ export function AbandonedEventsTab({ isAdmin = false }: AbandonedEventsTabProps)
       return;
     }
 
-    if (extensionStatus !== "connected") {
-      toast.error("Extensão WhatsApp não detectada");
-      addActivityLog({
-        type: "warning",
-        category: "Abandono",
-        message: "Extensão WhatsApp não conectada",
-        details: `Cliente: ${event.customer_name}, Telefone: ${event.customer_phone}`
-      });
-      return;
-    }
-
-    // Primeiro copia a mensagem
+    // Primeiro copia a mensagem (tenta abrir chat mesmo sem status "connected" para compat com ext 1.x)
     const message = prepareRecoveryMessage(event);
     await navigator.clipboard.writeText(message);
 
