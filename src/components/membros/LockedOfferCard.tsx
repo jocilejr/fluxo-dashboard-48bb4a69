@@ -87,7 +87,7 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
     const t = setTimeout(() => {
       setShowDots(false);
       setVisibleCount(prev => prev + 1);
-    }, delay);
+    }, BUBBLE_DELAY_MS);
     return () => clearTimeout(t);
   }, [bubbles, visibleCount]);
 
