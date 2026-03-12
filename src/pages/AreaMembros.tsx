@@ -315,6 +315,7 @@ function MemberOffersTab() {
           category_tag: categoryTag || null,
           display_type: displayType,
           pix_key: pixKey || null,
+          pix_key_type: pixKeyType || "telefone",
           card_payment_url: cardPaymentUrl || null,
         } as any).eq("id", editingOffer.id);
         if (error) throw error;
