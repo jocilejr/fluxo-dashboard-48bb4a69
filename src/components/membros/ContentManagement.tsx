@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Image, Download, Upload, Loader2, Music } from "lucide-react";
+import { Plus, Trash2, FolderPlus, FileText, ArrowLeft, Video, Image, Download, Upload, Loader2, Music, Edit } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
   const queryClient = useQueryClient();
   const [catDialogOpen, setCatDialogOpen] = useState(false);
   const [matDialogOpen, setMatDialogOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<any>(null);
   const [catName, setCatName] = useState("");
   const [catIcon, setCatIcon] = useState("📖");
   const [catDesc, setCatDesc] = useState("");
@@ -207,7 +208,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
     onSuccess: () => {
       toast.success("Material adicionado!");
       queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
-      setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setMatDialogOpen(false);
+      resetMatForm();
       // Auto-extract knowledge summary (fire-and-forget)
       supabase.functions.invoke("member-extract-knowledge", { body: { product_id: productId } }).catch(() => {});
     },
@@ -218,6 +219,46 @@ function ProductContentEditor({ productId }: { productId: string }) {
     mutationFn: async (id: string) => { const { error } = await supabase.from("member_product_materials").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { toast.success("Material removido"); queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] }); },
   });
+
+  const updateMatMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingMaterial || !matTitle) throw new Error("Título é obrigatório");
+      const updateData: any = {
+        category_id: matCategoryId && matCategoryId !== "none" ? matCategoryId : null,
+        title: matTitle,
+        description: matDesc || null,
+        content_type: matType,
+        content_url: matUrl || null,
+        content_text: matText || null,
+        button_label: matType === "text" && matButtonLabel ? matButtonLabel : null,
+      };
+      const { error } = await supabase.from("member_product_materials").update(updateData).eq("id", editingMaterial.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Material atualizado!");
+      queryClient.invalidateQueries({ queryKey: ["admin-materials", productId] });
+      resetMatForm();
+      supabase.functions.invoke("member-extract-knowledge", { body: { product_id: productId } }).catch(() => {});
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetMatForm = () => {
+    setMatTitle(""); setMatDesc(""); setMatType("text"); setMatUrl(""); setMatText(""); setMatButtonLabel(""); setMatCategoryId(""); setEditingMaterial(null); setMatDialogOpen(false);
+  };
+
+  const openEditMaterial = (mat: any) => {
+    setEditingMaterial(mat);
+    setMatTitle(mat.title || "");
+    setMatDesc(mat.description || "");
+    setMatType(mat.content_type || "text");
+    setMatUrl(mat.content_url || "");
+    setMatText(mat.content_text || "");
+    setMatButtonLabel(mat.button_label || "");
+    setMatCategoryId(mat.category_id || "none");
+    setMatDialogOpen(true);
+  };
 
   const contentTypes = [
     { value: "text", label: "Texto (com botão opcional)" },
@@ -334,12 +375,12 @@ function ProductContentEditor({ productId }: { productId: string }) {
           <h4 className="font-bold text-foreground flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" /> Materiais
           </h4>
-          <Dialog open={matDialogOpen} onOpenChange={setMatDialogOpen}>
+          <Dialog open={matDialogOpen} onOpenChange={(open) => { if (!open) resetMatForm(); else setMatDialogOpen(open); }}>
             <DialogTrigger asChild>
-              <Button size="sm"><Plus className="h-3.5 w-3.5 mr-1" /> Novo Material</Button>
+              <Button size="sm" onClick={() => { resetMatForm(); setMatDialogOpen(true); }}><Plus className="h-3.5 w-3.5 mr-1" /> Novo Material</Button>
             </DialogTrigger>
             <DialogContent className="max-h-[85vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Novo Material</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingMaterial ? "Editar Material" : "Novo Material"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div><Label>Título</Label><Input value={matTitle} onChange={(e) => setMatTitle(e.target.value)} placeholder="Ex: Oração da Manhã" /></div>
                 <div><Label>Descrição (opcional)</Label><Input value={matDesc} onChange={(e) => setMatDesc(e.target.value)} /></div>
@@ -355,7 +396,7 @@ function ProductContentEditor({ productId }: { productId: string }) {
                 </div>
                 <div>
                   <Label>Tipo de conteúdo</Label>
-                  <Select value={matType} onValueChange={setMatType}>
+                  <Select value={matType} onValueChange={setMatType} disabled={!!editingMaterial}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {contentTypes.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
@@ -394,7 +435,9 @@ function ProductContentEditor({ productId }: { productId: string }) {
                     )}
                   </div>
                 )}
-                <Button className="w-full" onClick={() => addMatMutation.mutate()} disabled={addMatMutation.isPending}>Adicionar Material</Button>
+                <Button className="w-full" onClick={() => editingMaterial ? updateMatMutation.mutate() : addMatMutation.mutate()} disabled={addMatMutation.isPending || updateMatMutation.isPending}>
+                  {editingMaterial ? "Salvar Alterações" : "Adicionar Material"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -423,9 +466,14 @@ function ProductContentEditor({ productId }: { productId: string }) {
                       )}
                     </div>
                   </div>
-                  <button onClick={() => deleteMatMutation.mutate(mat.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    <button onClick={() => openEditMaterial(mat)} className="text-muted-foreground hover:text-primary p-1">
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => deleteMatMutation.mutate(mat.id)} className="text-muted-foreground hover:text-destructive p-1">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
