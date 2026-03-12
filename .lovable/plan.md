@@ -1,53 +1,33 @@
 
 
-## Rotação Estratégica de Ofertas
+## Problema
 
-### Problema
-Atualmente, o membro sempre vê as mesmas ofertas na mesma ordem. Se não teve interesse em 1-2 acessos, continua vendo a mesma oferta sem alteração.
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-### Solução
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-Criar um sistema de rotação de ofertas baseado em impressões e cliques, usando `localStorage` para rastrear visualizações e uma lógica de priorização.
+## Solução
 
-**1. Tabela de rastreamento (nova migração)**
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-Criar tabela `member_offer_impressions`:
-- `id` (uuid, PK)
-- `normalized_phone` (text, NOT NULL)
-- `offer_id` (uuid, FK → member_area_offers)
-- `impression_count` (int, default 0) — quantas vezes a oferta apareceu
-- `clicked` (boolean, default false) — se o membro já clicou
-- `last_shown_at` (timestamptz)
-- `created_at` (timestamptz, default now())
-- Unique constraint em `(normalized_phone, offer_id)`
-- RLS: leitura e escrita pública (anon+authenticated) pois a área de membros é pública
+### Alteração em `src/hooks/useTransactions.ts`
 
-**2. Lógica de rotação em `AreaMembrosPublica.tsx`**
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-No `filteredOffers`, após filtrar ofertas de produtos já possuídos:
-- Carregar impressões do membro da tabela `member_offer_impressions`
-- Ofertas com `impression_count >= 2` e `clicked = false` são depriorizadas (vão para o final da lista ou são substituídas por outras)
-- Se todas as ofertas de um tipo (card, bottom_page) já foram vistas 2x sem clique, reiniciar o ciclo (resetar contadores)
-- Ao renderizar uma oferta, fazer upsert incrementando `impression_count`
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
 
-**3. Registro de clique em `LockedOfferCard.tsx`**
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-Quando o membro clica para abrir o diálogo de uma oferta (`handleOpen`):
-- Fazer upsert em `member_offer_impressions` marcando `clicked = true`
-- Ofertas clicadas mantêm prioridade (a pessoa demonstrou interesse)
+A deduplicação acontece automaticamente pelo banco.
 
-**4. Ordem de exibição**
+### Impacto
 
-Prioridade (maior para menor):
-1. Ofertas nunca vistas (`impression_count = 0`)
-2. Ofertas vistas 1x sem clique
-3. Ofertas clicadas (a pessoa já se interessou, pode converter)
-4. Ofertas vistas 2x+ sem clique (menor prioridade)
-
-### Arquivos
-
-- **Migração SQL**: criar tabela `member_offer_impressions` com RLS
-- **Editado**: `src/pages/AreaMembrosPublica.tsx` — carregar impressões, reordenar ofertas, registrar impressão
-- **Editado**: `src/components/membros/LockedOfferCard.tsx` — registrar clique ao abrir diálogo
-- **Editado**: `src/components/membros/BottomPageOffer.tsx` — registrar clique (se aplicável)
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 

@@ -998,6 +998,44 @@ export type Database = {
           },
         ]
       }
+      member_offer_impressions: {
+        Row: {
+          clicked: boolean
+          created_at: string
+          id: string
+          impression_count: number
+          last_shown_at: string | null
+          normalized_phone: string
+          offer_id: string
+        }
+        Insert: {
+          clicked?: boolean
+          created_at?: string
+          id?: string
+          impression_count?: number
+          last_shown_at?: string | null
+          normalized_phone: string
+          offer_id: string
+        }
+        Update: {
+          clicked?: boolean
+          created_at?: string
+          id?: string
+          impression_count?: number
+          last_shown_at?: string | null
+          normalized_phone?: string
+          offer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_offer_impressions_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "member_area_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_product_categories: {
         Row: {
           created_at: string

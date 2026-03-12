@@ -84,6 +84,7 @@ export default function AreaMembrosPublica() {
   const [progressMap, setProgressMap] = useState<Record<string, ContentProgress[]>>({});
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
+  const [offerImpressions, setOfferImpressions] = useState<Record<string, { impression_count: number; clicked: boolean }>>({});
 
   const normalizedPhone = useMemo(() => phone?.replace(/\D/g, "") || "", [phone]);
 
@@ -149,6 +150,17 @@ export default function AreaMembrosPublica() {
       }
     });
     setProgressMap(progByProd);
+
+    // Load offer impressions for rotation
+    const impressionsRes = await supabase
+      .from("member_offer_impressions")
+      .select("offer_id, impression_count, clicked")
+      .eq("normalized_phone", digits);
+    const impMap: Record<string, { impression_count: number; clicked: boolean }> = {};
+    (impressionsRes.data || []).forEach((imp: any) => {
+      impMap[imp.offer_id] = { impression_count: imp.impression_count, clicked: imp.clicked };
+    });
+    setOfferImpressions(impMap);
 
     setLoading(false);
     loadAiContext(name, memberProds, memberOffers, matsByProd, progressData, customerProfile);
@@ -273,22 +285,69 @@ export default function AreaMembrosPublica() {
     setAiLoading(false);
   };
 
-  // Filter out offers for products the member already owns (by product_id or name match)
+  // Filter out offers for products the member already owns, then sort by strategic rotation
   const filteredOffers = useMemo(() => {
-    const ownedProductIds = new Set(products.map(p => p.product_id));
-    const ownedProductNames = new Set(
+    const ownedProdIds = new Set(products.map(p => p.product_id));
+    const ownedProdNames = new Set(
       products.filter(p => p.delivery_products?.name).map(p => p.delivery_products!.name.toLowerCase().trim())
     );
-    return offers.filter((offer: any) => {
-      if (offer.product_id && ownedProductIds.has(offer.product_id)) return false;
-      if (offer.name && ownedProductNames.has(offer.name.toLowerCase().trim())) return false;
+    const available = offers.filter((offer: any) => {
+      if (offer.product_id && ownedProdIds.has(offer.product_id)) return false;
+      if (offer.name && ownedProdNames.has(offer.name.toLowerCase().trim())) return false;
       return true;
     });
-  }, [offers, products]);
+
+    // Strategic rotation: prioritize unseen/fresh offers
+    const getPriority = (offer: any): number => {
+      const imp = offerImpressions[offer.id];
+      if (!imp || imp.impression_count === 0) return 0; // Never seen — highest priority
+      if (imp.impression_count === 1 && !imp.clicked) return 1; // Seen once, no click
+      if (imp.clicked) return 2; // Clicked — interested
+      return 3; // Seen 2x+ without click — lowest priority
+    };
+
+    // Check if ALL offers in a group have been exhausted (seen 2x+ without click)
+    const allExhausted = available.every((o: any) => {
+      const imp = offerImpressions[o.id];
+      return imp && imp.impression_count >= 2 && !imp.clicked;
+    });
+
+    // If all exhausted, reset by treating all as equal (original sort_order)
+    if (allExhausted) return available;
+
+    return [...available].sort((a: any, b: any) => getPriority(a) - getPriority(b));
+  }, [offers, products, offerImpressions]);
 
   const cardOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type !== "bottom_page" && o.display_type !== "showcase"), [filteredOffers]);
   const bottomPageOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "bottom_page"), [filteredOffers]);
   const showcaseOffers = useMemo(() => filteredOffers.filter((o: any) => o.display_type === "showcase"), [filteredOffers]);
+
+  // Register impressions for visible offers
+  useEffect(() => {
+    if (!normalizedPhone || filteredOffers.length === 0) return;
+    const offerIds = filteredOffers.map((o: any) => o.id);
+    // Upsert impressions for all currently visible offers
+    const upserts = offerIds.map((offerId: string) => ({
+      normalized_phone: normalizedPhone,
+      offer_id: offerId,
+      impression_count: (offerImpressions[offerId]?.impression_count || 0) + 1,
+      clicked: offerImpressions[offerId]?.clicked || false,
+      last_shown_at: new Date().toISOString(),
+    }));
+    supabase
+      .from("member_offer_impressions")
+      .upsert(upserts, { onConflict: "normalized_phone,offer_id" })
+      .then(() => {
+        // Update local state
+        const newMap = { ...offerImpressions };
+        upserts.forEach(u => {
+          newMap[u.offer_id] = { impression_count: u.impression_count, clicked: u.clicked };
+        });
+        setOfferImpressions(newMap);
+      });
+    // Only run once per page load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedPhone, filteredOffers.length > 0]);
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime());

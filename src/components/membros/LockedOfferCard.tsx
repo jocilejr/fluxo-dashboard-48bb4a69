@@ -101,6 +101,19 @@ export default function LockedOfferCard({ offer, themeColor, ownedProductNames, 
     setCtaVisible(false);
     setShowDots(true);
 
+    // Register click in offer impressions for strategic rotation
+    if (memberPhone) {
+      supabase
+        .from("member_offer_impressions")
+        .upsert({
+          normalized_phone: memberPhone,
+          offer_id: offer.id,
+          clicked: true,
+          last_shown_at: new Date().toISOString(),
+        }, { onConflict: "normalized_phone,offer_id" })
+        .then(() => {});
+    }
+
     if (pitchCache.current[offer.id]) {
       setBubbles(pitchCache.current[offer.id].bubbles);
       setAiLoading(false);
