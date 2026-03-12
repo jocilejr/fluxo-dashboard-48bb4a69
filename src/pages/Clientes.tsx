@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useCustomers, useCustomerEvents, useCustomerPaymentMethods, Customer, CustomerEvent, CustomerStats } from "@/hooks/useCustomers";
-import { normalizePhoneForMatching } from "@/lib/phoneNormalization";
+import { generatePhoneVariations } from "@/lib/phoneNormalization";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
