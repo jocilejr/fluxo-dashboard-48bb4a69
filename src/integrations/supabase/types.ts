@@ -862,6 +862,7 @@ export type Database = {
           is_active: boolean
           name: string
           pix_key: string | null
+          pix_key_type: string | null
           price: number | null
           product_id: string | null
           purchase_url: string | null
@@ -879,6 +880,7 @@ export type Database = {
           is_active?: boolean
           name: string
           pix_key?: string | null
+          pix_key_type?: string | null
           price?: number | null
           product_id?: string | null
           purchase_url?: string | null
@@ -896,6 +898,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           pix_key?: string | null
+          pix_key_type?: string | null
           price?: number | null
           product_id?: string | null
           purchase_url?: string | null

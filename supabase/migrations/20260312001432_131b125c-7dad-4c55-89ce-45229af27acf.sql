@@ -1,0 +1,1 @@
+ALTER TABLE public.member_area_offers ADD COLUMN pix_key_type text DEFAULT 'telefone';
