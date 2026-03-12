@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { firstName, offerName, offerDescription, ownedProductNames, ownedProductIds, profile, offerMaterials } = await req.json();
+    const { firstName, offerName, offerDescription, offerPrice, ownedProductNames, ownedProductIds, profile, offerMaterials } = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
