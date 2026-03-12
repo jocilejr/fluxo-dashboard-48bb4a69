@@ -125,6 +125,31 @@ export default function MemberActivityTab() {
   const todaySessions = sessions || [];
   const uniqueVisitorsToday = useMemo(() => new Set(todaySessions.map((s: MemberSession) => s.normalized_phone)).size, [todaySessions]);
 
+  const handleSimulateSession = async () => {
+    setSimulating(true);
+    try {
+      const testPhone = "5500000000000";
+      const { data, error } = await supabase.from("member_sessions").insert({
+        normalized_phone: testPhone,
+        current_activity: "viewing_home",
+        page_url: "/teste-simulado",
+        user_agent: "Teste Admin",
+      }).select("id").single();
+
+      if (error) {
+        console.error("[SimulateSession] Error:", error);
+        toast.error(`Erro ao simular: ${error.message}`);
+      } else {
+        toast.success(`Sessão de teste criada (ID: ${data.id})`);
+        refetch();
+      }
+    } catch (e: any) {
+      toast.error(`Erro: ${e.message}`);
+    } finally {
+      setSimulating(false);
+    }
+  };
+
   const avgDurationMins = useMemo(() => {
     const ended = todaySessions.filter((s: MemberSession) => s.ended_at);
     if (!ended.length) return 0;
