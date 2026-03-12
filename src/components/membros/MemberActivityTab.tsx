@@ -316,7 +316,7 @@ export default function MemberActivityTab() {
                           }
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          <SessionDuration startedAt={session.started_at} endedAt={session.ended_at} />
+                          <SessionDuration startedAt={session.started_at} endedAt={session.ended_at} lastHeartbeatAt={session.last_heartbeat_at} />
                         </TableCell>
                         <TableCell className="text-center">
                           <span className="text-sm font-semibold">{accessCountMap[session.normalized_phone] || 1}</span>
