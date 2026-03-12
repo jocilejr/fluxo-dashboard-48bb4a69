@@ -51,7 +51,7 @@ function getContextLabel(offer: Offer, index?: number): string {
   return CONTEXTUAL_LABELS[i % CONTEXTUAL_LABELS.length];
 }
 
-export default function LockedOfferCard({ offer, themeColor, ownedProductNames, firstName, memberProfile, memberPhone }: Props) {
+export default function LockedOfferCard({ offer, themeColor, ownedProductNames, ownedProductIds, firstName, memberProfile, memberPhone }: Props) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [aiMessages, setAiMessages] = useState<string[]>([]);
