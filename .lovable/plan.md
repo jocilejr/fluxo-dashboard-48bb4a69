@@ -1,48 +1,33 @@
 
 
-## Diagnóstico
+## Problema
 
-A tabela `member_sessions` existe e tem 0 registros. Os tipos TypeScript incluem `member_sessions` corretamente, mas o hook usa `as any` desnecessariamente — isso pode estar mascarando erros silenciosos.
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-O problema principal: o insert no hook `useMemberSession` **engole erros silenciosamente**. Se o insert falha (por qualquer razão — ex.: problema de RLS com anon, erro de rede), `data` retorna `null`, e o hook simplesmente retorna sem criar sessão nem logar o erro.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-Além disso, a página pública (`/membros/:phone`) usa o cliente Supabase com a chave anon (sem usuário autenticado). A RLS permite insert para `anon`, mas o hook faz o insert via SDK sem verificar o `error` retornado.
+## Solução
 
-## Correções
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-### 1. Remover `as any` e adicionar tratamento de erro no hook
-**Arquivo:** `src/hooks/useMemberSession.ts`
-- Remover todos os `as any` — a tabela já existe nos types
-- Logar `error` no `startSession` para diagnosticar falhas
-- Logar `error` no heartbeat update
-- Logar `error` no `updateActivity`
+### Alteração em `src/hooks/useTransactions.ts`
 
-### 2. Adicionar console.log de diagnóstico temporário
-Na função `startSession`:
-```typescript
-const { data, error } = await supabase
-  .from("member_sessions")
-  .insert({ ... })
-  .select("id")
-  .single();
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-if (error) {
-  console.error("[MemberSession] Failed to create session:", error);
-  return;
-}
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
 ```
 
-No heartbeat e updateActivity, mesma lógica de captura de erro.
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-### 3. Garantir que `sessionActive` fica `true`
-Verificar que `loading` realmente vira `false` após o carregamento dos dados do membro. Se `loadMemberData` falhar, `loading` pode nunca mudar e `sessionActive` ficaria `false` para sempre.
+A deduplicação acontece automaticamente pelo banco.
 
-**Arquivo:** `src/pages/AreaMembrosPublica.tsx` — verificar que o `finally` do `loadMemberData` seta `setLoading(false)`.
+### Impacto
 
-### Resumo de mudanças
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useMemberSession.ts` | Remover `as any`, adicionar captura de erro com `console.error` em insert, heartbeat e updateActivity |
-
-Com isso, ao abrir a área de membros pública, veremos no console exatamente por que o insert está falhando (ou se está funcionando e o problema é outro).
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
