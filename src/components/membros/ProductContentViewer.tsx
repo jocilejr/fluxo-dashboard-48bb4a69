@@ -109,15 +109,19 @@ export default function ProductContentViewer({ productId, productName, themeColo
 
   const uncategorized = allMaterials.filter((m: any) => !m.category_id);
 
-  const renderMaterialCard = (mat: any) => (
-    <MaterialCard
-      key={mat.id}
-      material={mat}
-      themeColor={themeColor}
-      preloadedPdf={mostRecentPdf?.id === mat.id ? preloadedPdf : undefined}
-      phone={phone}
-    />
-  );
+  const renderMaterialCard = (mat: any) => {
+    const activityType = mat.content_type === "pdf" ? "reading_pdf" : mat.content_type === "video" ? "watching_video" : "viewing_product";
+    return (
+      <MaterialCard
+        key={mat.id}
+        material={mat}
+        themeColor={themeColor}
+        preloadedPdf={mostRecentPdf?.id === mat.id ? preloadedPdf : undefined}
+        phone={phone}
+        onOpen={() => onActivityChange?.(activityType, productName, mat.title)}
+      />
+    );
+  };
 
   return (
     <div className="space-y-8">
