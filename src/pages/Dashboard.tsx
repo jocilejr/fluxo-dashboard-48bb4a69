@@ -116,6 +116,40 @@ const Dashboard = () => {
     enabled: isRealAdmin === true,
   });
 
+  // Offer metrics
+  const { data: offerMetrics } = useQuery({
+    queryKey: ["offer-metrics-dashboard"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("member_area_offers")
+        .select("id, name, total_impressions, total_clicks, product_id")
+        .eq("is_active", true);
+      const offers = data || [];
+      const totalImpressions = offers.reduce((s: number, o: any) => s + (o.total_impressions || 0), 0);
+      const totalClicks = offers.reduce((s: number, o: any) => s + (o.total_clicks || 0), 0);
+
+      // Count conversions (members who have the offer's product)
+      const productIds = offers.filter((o: any) => o.product_id).map((o: any) => o.product_id);
+      let totalConversions = 0;
+      if (productIds.length > 0) {
+        const { count } = await supabase
+          .from("member_products")
+          .select("id", { count: "exact", head: true })
+          .in("product_id", productIds)
+          .eq("is_active", true);
+        totalConversions = count || 0;
+      }
+
+      return {
+        totalImpressions,
+        totalClicks,
+        totalConversions,
+        ctr: totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(1) : "0",
+      };
+    },
+    enabled: isRealAdmin === true,
+  });
+
   // Transactions are already filtered by date range from the hook
   const filteredTransactions = transactions;
 
