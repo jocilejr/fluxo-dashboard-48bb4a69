@@ -84,6 +84,7 @@ export default function AreaMembrosPublica() {
   const [progressMap, setProgressMap] = useState<Record<string, ContentProgress[]>>({});
   const [memberProfile, setMemberProfile] = useState<MemberProfile | null>(null);
   const [materialsByProduct, setMaterialsByProduct] = useState<Record<string, any[]>>({});
+  const [offerImpressions, setOfferImpressions] = useState<Record<string, { impression_count: number; clicked: boolean }>>({});
 
   const normalizedPhone = useMemo(() => phone?.replace(/\D/g, "") || "", [phone]);
 
