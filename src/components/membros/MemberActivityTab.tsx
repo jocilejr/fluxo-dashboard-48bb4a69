@@ -22,6 +22,20 @@ interface MemberSession {
   current_material_name: string | null;
 }
 
+interface MemberSummary {
+  key: string;
+  phone: string;
+  name: string | null;
+  isOnline: boolean;
+  latestActivity: string;
+  latestProductName: string | null;
+  latestMaterialName: string | null;
+  firstAccess: string;
+  lastAccess: string;
+  totalMinutes: number;
+  totalSessions: number;
+}
+
 const ACTIVITY_LABELS: Record<string, string> = {
   viewing_home: "Na página inicial",
   viewing_product: "Visualizando produto",
@@ -30,34 +44,42 @@ const ACTIVITY_LABELS: Record<string, string> = {
   viewing_offer: "Visualizando oferta",
 };
 
-function getActivityLabel(session: MemberSession): string {
-  const base = ACTIVITY_LABELS[session.current_activity] || session.current_activity;
-  if (session.current_material_name) return `${base} — ${session.current_material_name}`;
-  if (session.current_product_name) return `${base} — ${session.current_product_name}`;
+function getActivityLabelFromSummary(summary: MemberSummary): string {
+  const base = ACTIVITY_LABELS[summary.latestActivity] || summary.latestActivity;
+  if (summary.latestMaterialName) return `${base} — ${summary.latestMaterialName}`;
+  if (summary.latestProductName) return `${base} — ${summary.latestProductName}`;
   return base;
 }
 
-function isOnline(session: MemberSession): boolean {
+function isSessionOnline(session: MemberSession): boolean {
   if (session.ended_at) return false;
   const diff = differenceInSeconds(new Date(), new Date(session.last_heartbeat_at));
   return diff < 90;
 }
 
-function SessionDuration({ startedAt, endedAt, lastHeartbeatAt }: { startedAt: string; endedAt: string | null; lastHeartbeatAt: string }) {
+function getSessionDurationMins(session: MemberSession): number {
   let end: Date;
-  if (endedAt) {
-    end = new Date(endedAt);
+  if (session.ended_at) {
+    end = new Date(session.ended_at);
   } else {
-    // If offline (heartbeat > 90s ago), use last heartbeat as effective end
-    const hbAge = differenceInSeconds(new Date(), new Date(lastHeartbeatAt));
-    end = hbAge > 90 ? new Date(lastHeartbeatAt) : new Date();
+    const hbAge = differenceInSeconds(new Date(), new Date(session.last_heartbeat_at));
+    end = hbAge > 90 ? new Date(session.last_heartbeat_at) : new Date();
   }
-  const mins = differenceInMinutes(end, new Date(startedAt));
-  if (mins < 1) return <span>{"< 1min"}</span>;
-  if (mins < 60) return <span>{mins}min</span>;
+  return Math.max(0, differenceInMinutes(end, new Date(session.started_at)));
+}
+
+function formatDuration(mins: number): string {
+  if (mins < 1) return "< 1min";
+  if (mins < 60) return `${mins}min`;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return <span>{h}h {m}min</span>;
+  return `${h}h ${m}min`;
+}
+
+/** Group key: last 8 digits of phone */
+function phoneGroupKey(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return digits.slice(-8);
 }
 
 export default function MemberActivityTab() {
@@ -84,7 +106,7 @@ export default function MemberActivityTab() {
       }
       const rows = (data || []) as MemberSession[];
 
-      // Auto-close orphaned sessions (no heartbeat for 5+ min, no ended_at)
+      // Auto-close orphaned sessions
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
       const orphaned = rows.filter(s => !s.ended_at && new Date(s.last_heartbeat_at) < fiveMinAgo);
       if (orphaned.length > 0) {
@@ -131,25 +153,82 @@ export default function MemberActivityTab() {
     return map;
   }, [customers, uniquePhones]);
 
+  // Build consolidated member summaries using 8-digit grouping
+  const memberSummaries = useMemo((): MemberSummary[] => {
+    if (!sessions?.length) return [];
+
+    const groups = new Map<string, MemberSession[]>();
+    for (const s of sessions) {
+      const key = phoneGroupKey(s.normalized_phone);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(s);
+    }
+
+    const summaries: MemberSummary[] = [];
+    for (const [key, memberSessions] of groups) {
+      // Sort by started_at desc to get latest first
+      const sorted = [...memberSessions].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+      const latest = sorted[0];
+      const oldest = sorted[sorted.length - 1];
+
+      const online = sorted.some(isSessionOnline);
+      const latestOnline = online ? sorted.find(isSessionOnline)! : latest;
+
+      const totalMins = sorted.reduce((sum, s) => sum + getSessionDurationMins(s), 0);
+
+      // Find name from any phone variation
+      const name = sorted.map(s => phoneNameMap[s.normalized_phone]).find(Boolean) || null;
+
+      // Last access = most recent heartbeat or started_at
+      const lastAccessDate = sorted.reduce((max, s) => {
+        const t = Math.max(new Date(s.started_at).getTime(), new Date(s.last_heartbeat_at).getTime());
+        return t > max ? t : max;
+      }, 0);
+
+      summaries.push({
+        key,
+        phone: latest.normalized_phone,
+        name,
+        isOnline: online,
+        latestActivity: latestOnline.current_activity,
+        latestProductName: latestOnline.current_product_name,
+        latestMaterialName: latestOnline.current_material_name,
+        firstAccess: oldest.started_at,
+        lastAccess: new Date(lastAccessDate).toISOString(),
+        totalMinutes: totalMins,
+        totalSessions: sorted.length,
+      });
+    }
+
+    // Online first, then by last access desc
+    summaries.sort((a, b) => {
+      if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+      return new Date(b.lastAccess).getTime() - new Date(a.lastAccess).getTime();
+    });
+
+    return summaries;
+  }, [sessions, phoneNameMap, now]);
+
   // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel("member-sessions-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "member_sessions" }, (payload) => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_sessions" }, () => {
         refetch();
-        if (payload.eventType === "UPDATE" && (payload.new as any)?.ended_at && !(payload.old as any)?.ended_at) {
-          const phone = (payload.new as any)?.normalized_phone || "";
-          const name = phoneNameMap[phone] || phone;
-          toast.info(`${name} saiu da área de membros`);
-        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [refetch, phoneNameMap]);
+  }, [refetch]);
 
-  const onlineSessions = useMemo(() => (sessions || []).filter(isOnline), [sessions, now]);
-  const todaySessions = sessions || [];
-  const uniqueVisitorsToday = useMemo(() => new Set(todaySessions.map((s: MemberSession) => s.normalized_phone)).size, [todaySessions]);
+  const onlineCount = useMemo(() => memberSummaries.filter(m => m.isOnline).length, [memberSummaries]);
+  const uniqueVisitorsToday = memberSummaries.length;
+  const totalSessions = sessions?.length || 0;
+
+  const avgDurationMins = useMemo(() => {
+    const withTime = memberSummaries.filter(m => m.totalMinutes > 0);
+    if (!withTime.length) return 0;
+    return Math.round(withTime.reduce((sum, m) => sum + m.totalMinutes, 0) / withTime.length);
+  }, [memberSummaries]);
 
   const handleSimulateSession = async () => {
     setSimulating(true);
@@ -176,30 +255,11 @@ export default function MemberActivityTab() {
     }
   };
 
-  const avgDurationMins = useMemo(() => {
-    const ended = todaySessions.filter((s: MemberSession) => s.ended_at);
-    if (!ended.length) return 0;
-    const total = ended.reduce((sum, s: MemberSession) => sum + differenceInMinutes(new Date(s.ended_at!), new Date(s.started_at)), 0);
-    return Math.round(total / ended.length);
-  }, [todaySessions]);
-
-  const accessCountMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    (sessions || []).forEach((s: MemberSession) => { map[s.normalized_phone] = (map[s.normalized_phone] || 0) + 1; });
-    return map;
-  }, [sessions]);
-
   return (
     <div className="space-y-6">
       {/* Test Button */}
       <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSimulateSession}
-          disabled={simulating}
-          className="gap-2"
-        >
+        <Button variant="outline" size="sm" onClick={handleSimulateSession} disabled={simulating} className="gap-2">
           <FlaskConical className="h-4 w-4" />
           {simulating ? "Simulando..." : "Simular sessão de teste"}
         </Button>
@@ -210,7 +270,7 @@ export default function MemberActivityTab() {
         <Card className="px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
-            <p className="text-2xl font-bold text-primary">{onlineSessions.length}</p>
+            <p className="text-2xl font-bold text-primary">{onlineCount}</p>
           </div>
           <p className="text-xs text-muted-foreground">Online agora</p>
         </Card>
@@ -219,7 +279,7 @@ export default function MemberActivityTab() {
           <p className="text-xs text-muted-foreground">Visitantes (24h)</p>
         </Card>
         <Card className="px-4 py-3">
-          <p className="text-2xl font-bold text-foreground">{todaySessions.length}</p>
+          <p className="text-2xl font-bold text-foreground">{totalSessions}</p>
           <p className="text-xs text-muted-foreground">Sessões (24h)</p>
         </Card>
         <Card className="px-4 py-3">
@@ -229,26 +289,24 @@ export default function MemberActivityTab() {
       </div>
 
       {/* Online Members */}
-      {onlineSessions.length > 0 && (
+      {onlineCount > 0 && (
         <Card>
           <CardContent className="p-4">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
               <Wifi className="h-4 w-4 text-primary" /> Membros Online
             </h3>
             <div className="space-y-2">
-              {onlineSessions.map((session: MemberSession) => (
-                <div key={session.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/10">
+              {memberSummaries.filter(m => m.isOnline).map((member) => (
+                <div key={member.key} className="flex items-center gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/10">
                   <div className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
-                      {phoneNameMap[session.normalized_phone] || session.normalized_phone}
+                      {member.name || member.phone}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">{getActivityLabel(session)}</p>
+                    <p className="text-xs text-muted-foreground truncate">{getActivityLabelFromSummary(member)}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs text-muted-foreground">
-                      <SessionDuration startedAt={session.started_at} endedAt={null} lastHeartbeatAt={session.last_heartbeat_at} />
-                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDuration(member.totalMinutes)}</p>
                   </div>
                 </div>
               ))}
@@ -257,13 +315,13 @@ export default function MemberActivityTab() {
         </Card>
       )}
 
-      {/* Session History */}
+      {/* Consolidated Member History */}
       <Card>
         <CardContent className="p-4">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-3">
-            <Clock className="h-4 w-4 text-muted-foreground" /> Histórico de Sessões (24h)
+            <Clock className="h-4 w-4 text-muted-foreground" /> Membros (24h)
           </h3>
-          {!todaySessions.length ? (
+          {!memberSummaries.length ? (
             <div className="text-center py-8 text-muted-foreground">
               <Activity className="h-10 w-10 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Nenhuma sessão registrada</p>
@@ -275,55 +333,49 @@ export default function MemberActivityTab() {
                   <TableRow>
                     <TableHead>Membro</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Atividade</TableHead>
-                    <TableHead>Entrada</TableHead>
-                    <TableHead>Saída</TableHead>
-                    <TableHead>Duração</TableHead>
+                    <TableHead>Última Atividade</TableHead>
+                    <TableHead>Primeiro Acesso</TableHead>
+                    <TableHead>Último Acesso</TableHead>
+                    <TableHead>Tempo Total</TableHead>
                     <TableHead className="text-center">Acessos</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {todaySessions.map((session: MemberSession) => {
-                    const online = isOnline(session);
-                    return (
-                      <TableRow key={session.id}>
-                        <TableCell className="font-medium text-sm">
-                          {phoneNameMap[session.normalized_phone] || session.normalized_phone}
-                        </TableCell>
-                        <TableCell>
-                          {online ? (
-                            <Badge className="bg-primary/10 text-primary border-primary/20 gap-1">
-                              <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                              Online
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="gap-1">
-                              <WifiOff className="h-3 w-3" />
-                              Offline
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                          {getActivityLabel(session)}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          {format(new Date(session.started_at), "HH:mm", { locale: ptBR })}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          {session.ended_at
-                            ? format(new Date(session.ended_at), "HH:mm", { locale: ptBR })
-                            : "—"
-                          }
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                          <SessionDuration startedAt={session.started_at} endedAt={session.ended_at} lastHeartbeatAt={session.last_heartbeat_at} />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className="text-sm font-semibold">{accessCountMap[session.normalized_phone] || 1}</span>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {memberSummaries.map((member) => (
+                    <TableRow key={member.key}>
+                      <TableCell className="font-medium text-sm">
+                        {member.name || member.phone}
+                      </TableCell>
+                      <TableCell>
+                        {member.isOnline ? (
+                          <Badge className="bg-primary/10 text-primary border-primary/20 gap-1">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                            Online
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="gap-1">
+                            <WifiOff className="h-3 w-3" />
+                            Offline
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                        {getActivityLabelFromSummary(member)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                        {format(new Date(member.firstAccess), "HH:mm", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                        {format(new Date(member.lastAccess), "HH:mm", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                        {formatDuration(member.totalMinutes)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="text-sm font-semibold">{member.totalSessions}</span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
