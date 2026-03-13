@@ -254,7 +254,7 @@ function MemberSettingsTab() {
           <Textarea
             value={aiPersonaPrompt}
             onChange={(e) => setAiPersonaPrompt(e.target.value)}
-            placeholder="Ex: Você é uma mulher cristã de 57 anos, líder de uma comunidade de orações..."
+            placeholder="Você é uma mulher cristã de 57 anos, líder de uma comunidade de orações. Fala com carinho, como uma amiga próxima. Nunca usa termos de marketing."
             rows={4}
           />
           <p className="text-xs text-muted-foreground mt-1">Define como a IA se comporta no chat e nas ofertas</p>
