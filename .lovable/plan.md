@@ -2,32 +2,29 @@
 
 ## Problema
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
-
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+A tabela mostra uma linha por sessão individual, resultando em várias linhas repetidas para a mesma pessoa (ex: "Aparecida rosa pereira machado" aparece 4 vezes). O usuário quer ver **uma linha por pessoa** com dados consolidados.
 
 ## Solução
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+Refatorar o histórico para agrupar todas as sessões por telefone (usando a regra dos 8 dígitos finais) e mostrar **uma única linha por membro** com dados acumulados.
 
-### Alteração em `src/hooks/useTransactions.ts`
+### Mudanças em `src/components/membros/MemberActivityTab.tsx`
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+1. **Criar estrutura `MemberSummary`** que agrupa sessões por pessoa:
+   - Nome / telefone
+   - Status: Online se qualquer sessão ativa, senão Offline
+   - Última atividade: da sessão mais recente
+   - Primeiro acesso (24h): `started_at` mais antigo
+   - Último acesso: `started_at` ou `last_heartbeat_at` mais recente
+   - Tempo total: soma das durações de todas as sessões
+   - Total de acessos: contagem de sessões
 
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
+2. **Agrupar sessões** usando os últimos 8 dígitos do telefone para unificar variações de formato
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+3. **Atualizar a tabela** com colunas:
+   - Membro | Status | Última Atividade | Primeiro Acesso | Último Acesso | Tempo Total | Acessos
 
-A deduplicação acontece automaticamente pelo banco.
+4. **Seção "Online"** também consolida por pessoa (uma entrada por membro online, mostrando atividade da sessão mais recente)
 
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+5. **Stats cards** permanecem iguais (já usam `uniqueVisitorsToday` corretamente)
 
