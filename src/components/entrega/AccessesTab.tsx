@@ -42,7 +42,7 @@ const AccessesTab = () => {
   const [productFilter, setProductFilter] = useState<string>("all");
 
   const { data: products } = useQuery({
-    queryKey: ["delivery-products-list"],
+    queryKey: ["delivery-products-accesses"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("delivery_products")
