@@ -26,7 +26,7 @@ export default function ContentManagement() {
   const { data: products } = useQuery({
     queryKey: ["delivery-products-list"],
     queryFn: async () => {
-      const { data } = await supabase.from("delivery_products").select("id, name").eq("is_active", true);
+      const { data } = await supabase.from("delivery_products").select("id, name, member_cover_image, page_logo").eq("is_active", true);
       return data || [];
     },
   });
