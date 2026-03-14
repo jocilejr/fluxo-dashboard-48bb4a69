@@ -39,15 +39,29 @@ export default function ContentManagement() {
           {products?.map((p) => (
             <Card
               key={p.id}
-              className="p-5 cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 border-l-4 border-l-primary/30 hover:border-l-primary group"
+              className="cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 border-l-4 border-l-primary/30 hover:border-l-primary group overflow-hidden"
               onClick={() => setSelectedProductId(p.id)}
             >
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
-                  <FileText className="h-5 w-5 text-primary" />
+              {(p.member_cover_image || p.page_logo) ? (
+                <div className="relative h-24 w-full">
+                  <img
+                    src={p.member_cover_image || p.page_logo}
+                    alt={p.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <span className="absolute bottom-2 left-3 right-3 font-bold text-white text-sm truncate drop-shadow-md">
+                    {p.name}
+                  </span>
                 </div>
-                <span className="font-semibold text-foreground">{p.name}</span>
-              </div>
+              ) : (
+                <div className="p-5 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <span className="font-semibold text-foreground">{p.name}</span>
+                </div>
+              )}
             </Card>
           ))}
         </div>
