@@ -28,7 +28,7 @@ function MemberProductsTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: products } = useQuery({
-    queryKey: ["delivery-products-list"],
+    queryKey: ["delivery-products-names"],
     queryFn: async () => {
       const { data } = await supabase.from("delivery_products").select("id, name").eq("is_active", true);
       return data || [];
