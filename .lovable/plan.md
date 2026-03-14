@@ -1,33 +1,20 @@
 
 
-## Problema
+## Plano: Adicionar preview da imagem de capa nos cards de produto (admin)
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Problema
+Os cards de produto na aba "Conteúdo" mostram apenas um ícone genérico e o nome. O usuário quer ver a imagem de capa (`member_cover_image` ou `page_logo`) como preview, similar ao que o membro vê na página pública.
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+### Mudanças
 
-## Solução
+**Arquivo:** `src/components/membros/ContentManagement.tsx`
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+1. **Alterar a query de produtos** para incluir `member_cover_image` e `page_logo`:
+   - De: `select("id, name")`
+   - Para: `select("id, name, member_cover_image, page_logo")`
 
-### Alteração em `src/hooks/useTransactions.ts`
-
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
-```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
-```
-
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
-
-A deduplicação acontece automaticamente pelo banco.
-
-### Impacto
-
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+2. **Atualizar o card** para exibir a imagem de capa como banner no topo:
+   - Se `member_cover_image` ou `page_logo` existir, mostrar como imagem de fundo/banner (estilo horizontal, ~100px de altura) acima do nome
+   - Caso contrário, manter o ícone genérico atual como fallback
+   - Manter o estilo visual consistente com os cards da página pública (imagem com overlay escuro e nome em cima)
 
