@@ -390,7 +390,7 @@ export default function AreaMembrosPublica() {
       const variations = generatePhoneVariations(normalizedPhone);
       if (variations.length === 0) return;
 
-      const [framesRes, pixelsRes] = await Promise.all([
+      const [framesRes, pixelsRes, customerRes] = await Promise.all([
         supabase
           .from("member_pixel_frames")
           .select("id, product_name, product_value")
@@ -400,16 +400,31 @@ export default function AreaMembrosPublica() {
           .from("global_delivery_pixels")
           .select("platform, pixel_id, event_name")
           .eq("is_active", true),
+        supabase
+          .from("customers")
+          .select("name, email")
+          .in("normalized_phone", variations)
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       const frames = framesRes.data || [];
       const globalPixels = (pixelsRes.data || []) as PixelInfo[];
       if (frames.length === 0 || globalPixels.length === 0) return;
 
-      console.log(`[PixelFrames] Firing ${frames.length} pending frames with ${globalPixels.length} pixels`);
+      // Build Advanced Matching user data from customer record
+      const customer = customerRes.data;
+      const nameParts = customer?.name?.trim().split(/\s+/) || [];
+      const userData = {
+        email: customer?.email || null,
+        firstName: nameParts[0] || null,
+        lastName: nameParts.length > 1 ? nameParts[nameParts.length - 1] : null,
+      };
+
+      console.log(`[PixelFrames] Firing ${frames.length} pending frames with ${globalPixels.length} pixels, customer: ${customer?.name || 'unknown'}`);
 
       for (const frame of frames) {
-        firePixels(globalPixels, Number(frame.product_value) || 0, normalizedPhone);
+        firePixels(globalPixels, Number(frame.product_value) || 0, normalizedPhone, userData);
       }
 
       const frameIds = frames.map(f => f.id);
