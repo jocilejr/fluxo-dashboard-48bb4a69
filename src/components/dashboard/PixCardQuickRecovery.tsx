@@ -113,10 +113,10 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
     // Copia a mensagem
     await navigator.clipboard.writeText(message);
 
-    // Abre o chat sem enviar mensagem
-    const phone = transaction.customer_phone.replace(/\D/g, "");
-    console.log("[PixCardRecovery] customer_phone:", transaction.customer_phone, "normalizado:", phone);
-    const success = await openChat(phone);
+    // Passa o telefone raw direto, igual ao BoletoQuickRecovery
+    // O hook openChat já normaliza internamente via normalizePhone
+    console.log("[PixCardRecovery] customer_phone (raw):", transaction.customer_phone);
+    const success = await openChat(transaction.customer_phone!);
     
     if (success) {
       toast.success("Mensagem copiada! Cole com Ctrl+V");
@@ -129,6 +129,7 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
       message: `WhatsApp aberto para ${transaction.customer_name || "cliente"}`,
       details: `Tipo: ${transaction.type}, Telefone: ${transaction.customer_phone}, Valor: R$ ${transaction.amount}`
     });
+    // Fecha o popover DEPOIS de toda operação, para não desmontar o hook antes da resposta
     setIsOpen(false);
   };
 
