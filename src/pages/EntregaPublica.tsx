@@ -26,6 +26,7 @@ const EntregaPublica = () => {
   const [countdown, setCountdown] = useState(3);
   const [alreadyAccessed, setAlreadyAccessed] = useState(false);
   const [pixelsFired, setPixelsFired] = useState(false);
+  const [customerData, setCustomerData] = useState<{ email?: string | null; firstName?: string | null; lastName?: string | null }>({});
   const pixelsRef = useRef<PixelInfo[]>([]);
 
   useEffect(() => {
