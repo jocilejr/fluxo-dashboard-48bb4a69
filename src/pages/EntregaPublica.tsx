@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { firePixels, type PixelInfo } from "@/lib/pixelFiring";
+import { generatePhoneVariations } from "@/lib/phoneNormalization";
 
 interface ProductInfo {
   name: string;
@@ -25,6 +26,7 @@ const EntregaPublica = () => {
   const [countdown, setCountdown] = useState(3);
   const [alreadyAccessed, setAlreadyAccessed] = useState(false);
   const [pixelsFired, setPixelsFired] = useState(false);
+  const [customerData, setCustomerData] = useState<{ email?: string | null; firstName?: string | null; lastName?: string | null }>({});
   const pixelsRef = useRef<PixelInfo[]>([]);
 
   useEffect(() => {
@@ -53,6 +55,26 @@ const EntregaPublica = () => {
 
         if (!data.already_accessed && data.pixels?.length > 0) {
           pixelsRef.current = data.pixels;
+          // Fetch customer data for Advanced Matching
+          if (telefone) {
+            const variations = generatePhoneVariations(telefone);
+            if (variations.length > 0) {
+              const { data: customer } = await supabase
+                .from("customers")
+                .select("name, email")
+                .in("normalized_phone", variations)
+                .limit(1)
+                .maybeSingle();
+              if (customer) {
+                const nameParts = customer.name?.trim().split(/\s+/) || [];
+                setCustomerData({
+                  email: customer.email,
+                  firstName: nameParts[0] || null,
+                  lastName: nameParts.length > 1 ? nameParts[nameParts.length - 1] : null,
+                });
+              }
+            }
+          }
         }
 
         setLoading(false);
@@ -70,12 +92,12 @@ const EntregaPublica = () => {
   useEffect(() => {
     if (!loading && !error && product && pixelsRef.current.length > 0 && !pixelsFired) {
       const timer = setTimeout(() => {
-        firePixels(pixelsRef.current, product.value || 0, telefone);
+        firePixels(pixelsRef.current, product.value || 0, telefone, customerData);
         setPixelsFired(true);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [loading, error, product, pixelsFired, telefone]);
+  }, [loading, error, product, pixelsFired, telefone, customerData]);
 
   // Countdown and redirect
   useEffect(() => {
