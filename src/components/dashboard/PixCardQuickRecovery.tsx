@@ -22,6 +22,7 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const { openChat, extensionStatus } = useWhatsAppExtension();
 
@@ -107,30 +108,34 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
       return;
     }
 
-    // Registra o clique primeiro
-    await registerClick();
+    setIsSending(true);
 
-    // Copia a mensagem
-    await navigator.clipboard.writeText(message);
+    try {
+      // Registra o clique primeiro
+      await registerClick();
 
-    // Passa o telefone raw direto, igual ao BoletoQuickRecovery
-    // O hook openChat já normaliza internamente via normalizePhone
-    console.log("[PixCardRecovery] customer_phone (raw):", transaction.customer_phone);
-    const success = await openChat(transaction.customer_phone!);
-    
-    if (success) {
-      toast.success("Mensagem copiada! Cole com Ctrl+V");
-    } else {
-      toast.error("Não foi possível abrir o chat. Verifique a extensão.");
+      // Copia a mensagem
+      await navigator.clipboard.writeText(message);
+
+      // Passa o telefone raw direto, igual ao BoletoQuickRecovery
+      console.log("[PixCardRecovery] customer_phone (raw):", transaction.customer_phone);
+      const success = await openChat(transaction.customer_phone!);
+      
+      if (success) {
+        toast.success("Mensagem copiada! Cole com Ctrl+V");
+      } else {
+        toast.error("Não foi possível abrir o chat. Verifique a extensão.");
+      }
+      addActivityLog({
+        type: "success",
+        category: "Recuperação PIX/Cartão",
+        message: `WhatsApp aberto para ${transaction.customer_name || "cliente"}`,
+        details: `Tipo: ${transaction.type}, Telefone: ${transaction.customer_phone}, Valor: R$ ${transaction.amount}`
+      });
+    } finally {
+      setIsSending(false);
+      setIsOpen(false);
     }
-    addActivityLog({
-      type: "success",
-      category: "Recuperação PIX/Cartão",
-      message: `WhatsApp aberto para ${transaction.customer_name || "cliente"}`,
-      details: `Tipo: ${transaction.type}, Telefone: ${transaction.customer_phone}, Valor: R$ ${transaction.amount}`
-    });
-    // Fecha o popover DEPOIS de toda operação, para não desmontar o hook antes da resposta
-    setIsOpen(false);
   };
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -140,7 +145,7 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 );
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={(open) => { if (!isSending) setIsOpen(open); }}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
