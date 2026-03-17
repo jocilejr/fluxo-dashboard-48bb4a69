@@ -1,31 +1,33 @@
 
 
-## Problema Identificado
+## Problema
 
-A tabela `global_delivery_pixels` tem uma política RLS que **bloqueia leitura para usuários anônimos**:
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-```
-Policy: "Users can view global pixels"
-Condition: auth.uid() IS NOT NULL
-```
-
-A área de membros (`/membros/:phone`) é acessada por **usuários não autenticados** (role `anon`). Quando o código tenta buscar os pixels globais, a query retorna vazio. O código então sai na verificação `if (globalPixels.length === 0) return;` e nunca dispara os pixels.
-
-Isso explica por que parou de funcionar — provavelmente uma migração recente alterou a política de acesso dessa tabela.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
 ## Solução
 
-**Migração SQL** — Criar uma política SELECT que permita leitura anônima dos pixels ativos:
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-```sql
-CREATE POLICY "Anon can view active global pixels"
-ON public.global_delivery_pixels
-FOR SELECT
-TO anon
-USING (is_active = true);
+### Alteração em `src/hooks/useTransactions.ts`
+
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
 ```
 
-Isso permitirá que a área de membros (acesso anônimo) consulte os pixels globais ativos e dispare os eventos de conversão normalmente.
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-**Nenhuma alteração de código** é necessária — apenas a política RLS.
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
