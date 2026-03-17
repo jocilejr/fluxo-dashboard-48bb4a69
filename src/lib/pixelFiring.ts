@@ -30,11 +30,9 @@ export const formatPhoneForMeta = (phone: string | null): string | null => {
   return digits;
 };
 
-/** Load and fire Meta Pixel using official IIFE with Advanced Matching */
-export const loadMetaPixel = (pixelId: string, eventName: string, value: number, phone: string | null) => {
-  const formattedPhone = formatPhoneForMeta(phone);
-  console.log(`[Pixel] Loading Meta Pixel: ${pixelId}, event: ${eventName}, value: ${value}`);
-
+/** Initialize Meta Pixel SDK once */
+const ensureMetaSdk = () => {
+  if (window.fbq) return;
   (function (f: any, b: any, e: any, v: any, n?: any, t?: any, s?: any) {
     if (f.fbq) return;
     n = f.fbq = function () {
@@ -51,6 +49,16 @@ export const loadMetaPixel = (pixelId: string, eventName: string, value: number,
     s = b.getElementsByTagName(e)[0];
     s.parentNode.insertBefore(t, s);
   })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+};
+
+/** Fire all Meta pixels at once using trackSingle to avoid duplicate events */
+export const fireMetaPixels = (pixels: { pixel_id: string; event_name: string }[], value: number, phone: string | null) => {
+  if (pixels.length === 0) return;
+
+  const formattedPhone = formatPhoneForMeta(phone);
+  console.log(`[Pixel] Firing ${pixels.length} Meta pixels with value ${value}, phone: ${formattedPhone}`);
+
+  ensureMetaSdk();
 
   const advancedMatchingData: { ph?: string; external_id?: string } = {};
   if (formattedPhone) {
@@ -58,14 +66,23 @@ export const loadMetaPixel = (pixelId: string, eventName: string, value: number,
     advancedMatchingData.external_id = formattedPhone;
   }
 
-  window.fbq('init', pixelId, advancedMatchingData);
+  // Init each pixel with Advanced Matching data
+  for (const p of pixels) {
+    window.fbq('init', p.pixel_id, advancedMatchingData);
+  }
+
+  // Single PageView for all pixels
   window.fbq('track', 'PageView');
-  window.fbq('track', eventName || 'Purchase', {
-    value,
-    currency: 'BRL',
-    content_type: 'product',
-  });
-  console.log(`[Pixel] Meta ${eventName} queued for ${pixelId}`);
+
+  // Use trackSingle to fire exactly 1 event per pixel (no pyramid effect)
+  for (const p of pixels) {
+    window.fbq('trackSingle', p.pixel_id, p.event_name || 'Purchase', {
+      value,
+      currency: 'BRL',
+      content_type: 'product',
+    });
+    console.log(`[Pixel] Meta trackSingle ${p.event_name} for ${p.pixel_id}`);
+  }
 };
 
 /** Load and fire TikTok Pixel */
@@ -166,13 +183,27 @@ export const loadTaboolaPixel = (pixelId: string, eventName: string, value: numb
   document.head.appendChild(script);
 };
 
-/** Fire all tracking pixels */
+/** Fire all tracking pixels — groups Meta pixels to avoid duplicate events */
 export const firePixels = (pixels: PixelInfo[], value: number, phone: string | null) => {
   console.log(`[Pixel] Firing ${pixels.length} pixels with value ${value}`);
-  pixels.forEach((pixel) => {
+
+  // Separate Meta pixels from others
+  const metaPixels = pixels.filter(p => p.platform === 'meta');
+  const otherPixels = pixels.filter(p => p.platform !== 'meta');
+
+  // Fire all Meta pixels together (trackSingle per pixel, no duplicates)
+  if (metaPixels.length > 0) {
+    fireMetaPixels(
+      metaPixels.map(p => ({ pixel_id: p.pixel_id, event_name: p.event_name })),
+      value,
+      phone
+    );
+  }
+
+  // Fire other platforms individually
+  otherPixels.forEach((pixel) => {
     try {
       switch (pixel.platform) {
-        case "meta": loadMetaPixel(pixel.pixel_id, pixel.event_name, value, phone); break;
         case "tiktok": loadTikTokPixel(pixel.pixel_id, pixel.event_name, value); break;
         case "google": loadGoogleTag(pixel.pixel_id, pixel.event_name, value); break;
         case "pinterest": loadPinterestTag(pixel.pixel_id, pixel.event_name, value); break;
