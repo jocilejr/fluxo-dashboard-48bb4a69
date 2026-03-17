@@ -92,12 +92,12 @@ const EntregaPublica = () => {
   useEffect(() => {
     if (!loading && !error && product && pixelsRef.current.length > 0 && !pixelsFired) {
       const timer = setTimeout(() => {
-        firePixels(pixelsRef.current, product.value || 0, telefone);
+        firePixels(pixelsRef.current, product.value || 0, telefone, customerData);
         setPixelsFired(true);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [loading, error, product, pixelsFired, telefone]);
+  }, [loading, error, product, pixelsFired, telefone, customerData]);
 
   // Countdown and redirect
   useEffect(() => {
