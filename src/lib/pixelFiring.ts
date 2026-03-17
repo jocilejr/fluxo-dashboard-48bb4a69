@@ -19,6 +19,14 @@ export interface PixelInfo {
   event_name: string;
 }
 
+/** Extra user data for Advanced Matching (Meta) */
+export interface AdvancedMatchingData {
+  phone: string | null;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}
+
 /** Format phone for Meta Advanced Matching (digits only with country code) */
 export const formatPhoneForMeta = (phone: string | null): string | null => {
   if (!phone) return null;
