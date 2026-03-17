@@ -2,21 +2,32 @@
 
 ## Problema
 
-A recuperação de boletos funciona mas PIX/Cartão não abre o chat. A lógica é quase idêntica, mas há duas diferenças sutis no `PixCardQuickRecovery`:
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-1. **Normalização dupla do telefone**: O código faz `transaction.customer_phone.replace(/\D/g, "")` antes de passar para `openChat`, que internamente já normaliza via `normalizePhone`. O BoletoQuickRecovery passa `transaction.customer_phone!` direto (raw).
-
-2. **Popover fecha durante operação**: `setIsOpen(false)` ao final do `handleOpenChat` desmonta o componente (e o hook `useWhatsAppExtension`) enquanto o comando ainda pode estar sendo processado. O BoletoQuickRecovery usa Dialog que permanece aberto.
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
 ## Solução
 
-**Arquivo:** `src/components/dashboard/PixCardQuickRecovery.tsx`
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
 
-Alinhar com a lógica do BoletoQuickRecovery:
+### Alteração em `src/hooks/useTransactions.ts`
 
-1. Passar `transaction.customer_phone!` direto para `openChat` (sem `.replace()`), igual ao boleto
-2. Mover `setIsOpen(false)` para depois do toast de sucesso, para não desmontar o hook antes da resposta
-3. Copiar mensagem antes de abrir o chat (já faz isso, manter)
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
 
-Mudança concentrada na função `handleOpenChat` (linhas 98-133).
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
+```
+
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+
+A deduplicação acontece automaticamente pelo banco.
+
+### Impacto
+
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 
