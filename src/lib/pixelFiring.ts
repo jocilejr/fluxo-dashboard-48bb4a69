@@ -60,23 +60,41 @@ const ensureMetaSdk = () => {
 };
 
 /** Fire all Meta pixels at once using trackSingle to avoid duplicate events */
-export const fireMetaPixels = (pixels: { pixel_id: string; event_name: string }[], value: number, phone: string | null) => {
+export const fireMetaPixels = (
+  pixels: { pixel_id: string; event_name: string }[],
+  value: number,
+  userData: AdvancedMatchingData
+) => {
   if (pixels.length === 0) return;
 
-  const formattedPhone = formatPhoneForMeta(phone);
+  const formattedPhone = formatPhoneForMeta(userData.phone);
   console.log(`[Pixel] Firing ${pixels.length} Meta pixels with value ${value}, phone: ${formattedPhone}`);
 
   ensureMetaSdk();
 
-  const advancedMatchingData: { ph?: string; external_id?: string } = {};
+  // Build Advanced Matching payload — Meta hashes these automatically
+  const matchingData: Record<string, string> = {};
   if (formattedPhone) {
-    advancedMatchingData.ph = formattedPhone;
-    advancedMatchingData.external_id = formattedPhone;
+    matchingData.ph = formattedPhone;
+    matchingData.external_id = formattedPhone;
   }
+  if (userData.email) {
+    matchingData.em = userData.email.toLowerCase().trim();
+  }
+  if (userData.firstName) {
+    matchingData.fn = userData.firstName.toLowerCase().trim();
+  }
+  if (userData.lastName) {
+    matchingData.ln = userData.lastName.toLowerCase().trim();
+  }
+  // Brazil country code for better geo matching
+  matchingData.country = 'br';
+
+  console.log(`[Pixel] Advanced Matching data keys: ${Object.keys(matchingData).join(', ')}`);
 
   // Init each pixel with Advanced Matching data
   for (const p of pixels) {
-    window.fbq('init', p.pixel_id, advancedMatchingData);
+    window.fbq('init', p.pixel_id, matchingData);
   }
 
   // Single PageView for all pixels
