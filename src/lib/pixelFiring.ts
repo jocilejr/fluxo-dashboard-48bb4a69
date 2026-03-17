@@ -210,7 +210,12 @@ export const loadTaboolaPixel = (pixelId: string, eventName: string, value: numb
 };
 
 /** Fire all tracking pixels — groups Meta pixels to avoid duplicate events */
-export const firePixels = (pixels: PixelInfo[], value: number, phone: string | null) => {
+export const firePixels = (
+  pixels: PixelInfo[],
+  value: number,
+  phone: string | null,
+  userData?: Omit<AdvancedMatchingData, 'phone'>
+) => {
   console.log(`[Pixel] Firing ${pixels.length} pixels with value ${value}`);
 
   // Separate Meta pixels from others
@@ -222,7 +227,7 @@ export const firePixels = (pixels: PixelInfo[], value: number, phone: string | n
     fireMetaPixels(
       metaPixels.map(p => ({ pixel_id: p.pixel_id, event_name: p.event_name })),
       value,
-      phone
+      { phone, ...userData }
     );
   }
 
