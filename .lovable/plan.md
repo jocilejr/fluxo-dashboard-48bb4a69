@@ -1,47 +1,33 @@
 
 
-## Implementar Meta Conversions API (CAPI) Server-Side
+## Problema
 
-### Visão geral
-Criar uma edge function que envia eventos de conversão diretamente para a API do Meta via servidor, usando o `access_token` já armazenado na tabela `global_delivery_pixels`. O pixel no navegador continua funcionando em paralelo, e a deduplicação é feita via `event_id`.
+Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
 
-### Arquitetura
+1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
+2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
 
-```text
-Usuário acessa página
-       │
-       ├──► Browser: fbq('trackSingle', ..., {event_id})  ← já existe
-       │
-       └──► Backend: POST /meta-conversions-api
-                │
-                └──► Meta CAPI: graph.facebook.com/v21.0/{pixel_id}/events
-                     (phone SHA256, email SHA256, event_id para dedup)
+## Solução
+
+Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+
+### Alteração em `src/hooks/useTransactions.ts`
+
+Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
+
+```
+.or(`created_at.gte.${start},paid_at.gte.${start}`)
 ```
 
-### Mudanças
+Na prática, a query fará duas buscas combinadas:
+- Transações criadas no período (comportamento atual)
+- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
 
-**1. Nova edge function `meta-conversions-api/index.ts`**
-- Recebe: `pixel_id`, `access_token`, `event_name`, `value`, `phone`, `email`, `first_name`, `last_name`, `event_id`
-- Hasheia dados pessoais com SHA256 (requisito Meta)
-- Envia POST para `https://graph.facebook.com/v21.0/{pixel_id}/events`
-- Payload: `user_data` (ph, em, fn, ln, external_id, country) + `custom_data` (value, currency)
-- Retorna sucesso/erro
+A deduplicação acontece automaticamente pelo banco.
 
-**2. Atualizar `supabase/config.toml`**
-- Adicionar entrada `[functions.meta-conversions-api]` com `verify_jwt = false`
+### Impacto
 
-**3. Atualizar `src/lib/pixelFiring.ts`**
-- Gerar `event_id` único (crypto.randomUUID) para cada evento
-- Passar `event_id` no `fbq('trackSingle', ...)` para deduplicação
-- Após disparar pixel browser, chamar a edge function para pixels Meta que tenham `access_token` configurado
-- Pixels sem `access_token` continuam apenas com pixel browser
-
-**4. Atualizar `src/pages/AreaMembrosPublica.tsx` e `EntregaPublica.tsx`**
-- Passar `access_token` junto com os dados de pixel para `firePixels`
-
-### Resultado esperado
-- Cada conversão é enviada **duas vezes** (browser + servidor)
-- Meta deduplica automaticamente pelo `event_id`
-- Match rate sobe significativamente porque o servidor envia dados completos hasheados
-- Pixels sem token continuam funcionando normalmente só pelo browser
+- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
+- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
+- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
 

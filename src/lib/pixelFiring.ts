@@ -17,6 +17,7 @@ export interface PixelInfo {
   platform: string;
   pixel_id: string;
   event_name: string;
+  access_token?: string | null;
 }
 
 /** Extra user data for Advanced Matching (Meta) */
@@ -59,16 +60,62 @@ const ensureMetaSdk = () => {
   })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
 };
 
+/** Send server-side event via Meta Conversions API */
+const fireMetaCAPI = async (
+  pixels: { pixel_id: string; access_token: string; event_name: string }[],
+  value: number,
+  userData: AdvancedMatchingData,
+  eventId: string,
+  sourceUrl: string
+) => {
+  if (pixels.length === 0) return;
+
+  try {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    const response = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/meta-conversions-api`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({
+          pixels: pixels.map(p => ({
+            pixel_id: p.pixel_id,
+            access_token: p.access_token,
+            event_name: p.event_name,
+          })),
+          event_id: eventId,
+          value,
+          phone: userData.phone,
+          email: userData.email || null,
+          first_name: userData.firstName || null,
+          last_name: userData.lastName || null,
+          source_url: sourceUrl,
+        }),
+      }
+    );
+    const result = await response.json();
+    console.log(`[CAPI] Server-side response:`, result);
+  } catch (err) {
+    console.error(`[CAPI] Error calling server-side API:`, err);
+  }
+};
+
 /** Fire all Meta pixels at once using trackSingle to avoid duplicate events */
 export const fireMetaPixels = (
-  pixels: { pixel_id: string; event_name: string }[],
+  pixels: { pixel_id: string; event_name: string; access_token?: string | null }[],
   value: number,
   userData: AdvancedMatchingData
 ) => {
   if (pixels.length === 0) return;
 
   const formattedPhone = formatPhoneForMeta(userData.phone);
-  console.log(`[Pixel] Firing ${pixels.length} Meta pixels with value ${value}, phone: ${formattedPhone}`);
+  const eventId = crypto.randomUUID();
+  console.log(`[Pixel] Firing ${pixels.length} Meta pixels with value ${value}, phone: ${formattedPhone}, event_id: ${eventId}`);
 
   ensureMetaSdk();
 
@@ -100,14 +147,27 @@ export const fireMetaPixels = (
   // Single PageView for all pixels
   window.fbq('track', 'PageView');
 
-  // Use trackSingle to fire exactly 1 event per pixel (no pyramid effect)
+  // Use trackSingle with event_id to fire exactly 1 event per pixel (no pyramid effect)
   for (const p of pixels) {
     window.fbq('trackSingle', p.pixel_id, p.event_name || 'Purchase', {
       value,
       currency: 'BRL',
       content_type: 'product',
+      event_id: eventId,
     });
-    console.log(`[Pixel] Meta trackSingle ${p.event_name} for ${p.pixel_id}`);
+    console.log(`[Pixel] Meta trackSingle ${p.event_name} for ${p.pixel_id} with event_id ${eventId}`);
+  }
+
+  // Fire CAPI for pixels that have access_token (server-side dedup via event_id)
+  const capiPixels = pixels.filter(p => p.access_token);
+  if (capiPixels.length > 0) {
+    fireMetaCAPI(
+      capiPixels as { pixel_id: string; access_token: string; event_name: string }[],
+      value,
+      userData,
+      eventId,
+      window.location.href
+    );
   }
 };
 
@@ -222,10 +282,10 @@ export const firePixels = (
   const metaPixels = pixels.filter(p => p.platform === 'meta');
   const otherPixels = pixels.filter(p => p.platform !== 'meta');
 
-  // Fire all Meta pixels together (trackSingle per pixel, no duplicates)
+  // Fire all Meta pixels together (trackSingle per pixel + CAPI for those with token)
   if (metaPixels.length > 0) {
     fireMetaPixels(
-      metaPixels.map(p => ({ pixel_id: p.pixel_id, event_name: p.event_name })),
+      metaPixels.map(p => ({ pixel_id: p.pixel_id, event_name: p.event_name, access_token: p.access_token })),
       value,
       { phone, ...userData }
     );

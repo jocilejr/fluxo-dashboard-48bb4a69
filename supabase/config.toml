@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.member-extract-knowledge]
 verify_jwt = true
+
+[functions.meta-conversions-api]
+verify_jwt = false
