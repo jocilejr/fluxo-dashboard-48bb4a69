@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
 import { firePixels, type PixelInfo } from "@/lib/pixelFiring";
+import { generatePhoneVariations } from "@/lib/phoneNormalization";
 
 interface ProductInfo {
   name: string;
