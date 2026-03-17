@@ -22,6 +22,7 @@ export function PixCardQuickRecovery({ transaction }: PixCardQuickRecoveryProps)
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const { openChat, extensionStatus } = useWhatsAppExtension();
 
