@@ -145,7 +145,7 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
 );
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={(open) => { if (!isSending) setIsOpen(open); }}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
