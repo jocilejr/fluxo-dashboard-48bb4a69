@@ -398,7 +398,7 @@ export default function AreaMembrosPublica() {
           .eq("fired", false),
         supabase
           .from("global_delivery_pixels")
-          .select("platform, pixel_id, event_name")
+          .select("platform, pixel_id, event_name, access_token")
           .eq("is_active", true),
         supabase
           .from("customers")
