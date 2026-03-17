@@ -55,6 +55,26 @@ const EntregaPublica = () => {
 
         if (!data.already_accessed && data.pixels?.length > 0) {
           pixelsRef.current = data.pixels;
+          // Fetch customer data for Advanced Matching
+          if (telefone) {
+            const variations = generatePhoneVariations(telefone);
+            if (variations.length > 0) {
+              const { data: customer } = await supabase
+                .from("customers")
+                .select("name, email")
+                .in("normalized_phone", variations)
+                .limit(1)
+                .maybeSingle();
+              if (customer) {
+                const nameParts = customer.name?.trim().split(/\s+/) || [];
+                setCustomerData({
+                  email: customer.email,
+                  firstName: nameParts[0] || null,
+                  lastName: nameParts.length > 1 ? nameParts[nameParts.length - 1] : null,
+                });
+              }
+            }
+          }
         }
 
         setLoading(false);
