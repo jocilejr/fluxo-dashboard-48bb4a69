@@ -39,6 +39,22 @@
       return false;
     }
 
+    if (!wpRequire && typeof window.__webpack_require__ === 'function') {
+      wpRequire = window.__webpack_require__;
+      console.log(LOG, 'Recovered webpack require from window.__webpack_require__');
+    }
+
+    if (!wpRequire) {
+      const runtimeChunk = chunkArray.find((chunk) => Array.isArray(chunk) && typeof chunk[2] === 'function');
+      if (runtimeChunk) {
+        try {
+          runtimeChunk[2](function (require) {
+            if (!wpRequire && require) wpRequire = require;
+          });
+        } catch (_) {}
+      }
+    }
+
     if (!wpRequire) {
       console.warn(LOG, 'No webpack require resolved');
       return false;
