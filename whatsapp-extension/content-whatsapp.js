@@ -1,7 +1,7 @@
 // Content Script - WhatsApp Web
 // Single-path approach: New Chat button → type number → click result
 
-console.log('[WA Ext] Content script carregado (v7.2 - fixed contact selection)');
+console.log('[WA Ext] Content script carregado (v7.3 - added delays and improved focus)');
 
 chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' });
 
@@ -42,7 +42,7 @@ function findNewChatButton() {
 }
 
 // ============================================
-// Step 2: Find search input (improved targeting)
+// Step 2: Find search input
 // ============================================
 function findSearchInput() {
   const ariaLabels = [
@@ -110,10 +110,22 @@ async function typeInSearchField(el, text) {
   if (!el) return false;
 
   console.log('[WA Ext] Attempting to type:', text);
+  
+  // 0.5s delay before focus
+  await sleep(500);
   el.focus();
-  await sleep(100);
+  
+  // 0.5s delay after focus to ensure selection
+  await sleep(500);
 
   try {
+    // Select all existing text before typing
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    
     document.execCommand('selectAll', false, null);
     document.execCommand('insertText', false, text);
   } catch (e) {
@@ -136,7 +148,8 @@ async function typeInSearchField(el, text) {
     el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: text }));
   }
 
-  // Trigger search with Enter
+  // 0.5s delay before triggering search
+  await sleep(500);
   el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
   el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, bubbles: true }));
 
@@ -147,7 +160,7 @@ async function typeInSearchField(el, text) {
 }
 
 // ============================================
-// Step 3: Find and click first result (Improved for non-contacts)
+// Step 3: Find and click first result
 // ============================================
 function findFirstResult() {
   const selectors = [
@@ -157,7 +170,7 @@ function findFirstResult() {
     '[data-testid*="cell-frame"]',
     '[role="listitem"]',
     '[role="option"]',
-    'div[role="button"]', // Generic button in search results
+    'div[role="button"]',
   ];
 
   const searchInput = findSearchInput();
@@ -171,7 +184,6 @@ function findFirstResult() {
     'não está na sua lista de contatos', 'not in your contacts'
   ];
 
-  // Strategy 1: Look for elements with specific text content (the phone number)
   const allDivs = document.querySelectorAll('div');
   for (const div of allDivs) {
     if (!isVisible(div)) continue;
@@ -179,7 +191,6 @@ function findFirstResult() {
     if (rect.top < searchBottom - 5 || rect.left > window.innerWidth * 0.65) continue;
     
     const text = (div.textContent || '').trim();
-    // If the div contains the number and is a clickable item
     if (text.includes('+') && text.replace(/\D/g, '').length >= 8) {
       const clickable = div.closest('[role="button"]') || div.closest('[data-testid="cell-frame-container"]') || div;
       if (clickable && clickable !== document.body) {
@@ -189,7 +200,6 @@ function findFirstResult() {
     }
   }
 
-  // Strategy 2: Standard selectors
   for (const sel of selectors) {
     const nodes = document.querySelectorAll(sel);
     for (const node of nodes) {
@@ -241,31 +251,45 @@ async function openChat(phoneRaw) {
     console.log('[WA Ext] Step 1: New chat button clicked');
   }
 
+  // 0.5s delay after clicking New Chat
+  await sleep(500);
+
   const searchInput = await waitForElement(findSearchInput, 4000);
   if (!searchInput) return { success: false, error: 'search_input_not_found' };
 
   await typeInSearchField(searchInput, phone);
   console.log('[WA Ext] Step 2: Number typed:', phone);
 
+  // 0.5s delay before looking for results
+  await sleep(500);
+  
   // Wait for results to load (WhatsApp can be slow for non-contacts)
   await sleep(2500);
 
   const result = findFirstResult();
   if (!result) {
     console.log('[WA Ext] Step 3: No result found, retrying search...');
-    // Try typing again or pressing enter
     searchInput.focus();
     searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
     await sleep(1500);
     const resultRetry = findFirstResult();
     if (!resultRetry) return { success: false, error: 'no_result_found' };
-    result.click();
+    
+    // 0.5s delay before clicking retry result
+    await sleep(500);
+    resultRetry.click();
   } else {
     console.log('[WA Ext] Step 3: Clicking result');
+    
+    // 0.5s delay before clicking result
+    await sleep(500);
     result.click();
-    // Force click on children if it's a container
+    
     const inner = result.querySelector('div[role="button"]') || result.querySelector('[data-testid="cell-frame-container"]');
-    if (inner) inner.click();
+    if (inner) {
+      await sleep(200);
+      inner.click();
+    }
   }
   
   const msgInput = await waitForElement(findMessageInput, 5000);
@@ -280,10 +304,15 @@ async function openChat(phoneRaw) {
 async function prepareText(phone, text) {
   const opened = await openChat(phone);
   if (!opened.success) return opened;
+  
+  // 0.5s delay before focusing message input
+  await sleep(500);
+  
   const input = await waitForElement(findMessageInput, 3000);
   if (!input) return { success: false, error: 'message_input_not_found' };
   
   input.focus();
+  await sleep(200);
   document.execCommand('selectAll', false, null);
   document.execCommand('insertText', false, text || '');
   input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -293,11 +322,14 @@ async function prepareText(phone, text) {
 async function prepareImage(phone, imageDataUrl) {
   const opened = await openChat(phone);
   if (!opened.success) return opened;
+  
   await sleep(500);
   const attach = document.querySelector('[data-testid="attach-menu"]') || document.querySelector('div[title="Anexar"]') || document.querySelector('span[data-icon="plus"]');
   if (!attach) return { success: false, error: 'attach_button_not_found' };
+  
   (attach.closest('button') || attach).click();
-  await sleep(250);
+  await sleep(500); // 0.5s delay after clicking attach
+  
   const input = document.querySelector('input[accept*="image"]');
   if (!input) return { success: false, error: 'image_input_not_found' };
   const blob = await fetch(imageDataUrl).then((r) => r.blob());
