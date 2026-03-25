@@ -21,12 +21,44 @@ let currentData = null;
 let currentTab = 'lead';
 
 // ============================================
-// FUNÇÕES DE DOM ORIGINAIS
+// FUNÇÕES VIA STORE API (sem seletores CSS)
 // ============================================
 chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' });
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Track WStore readiness from inject-store.js (runs in MAIN world)
+let wstoreReady = false;
+
+window.addEventListener('WStoreReady', () => {
+  wstoreReady = true;
+  console.log('[WhatsApp Extension] WStore ready!');
+});
+
+// Bridge: content script calls MAIN world's WStore via CustomEvents
+function callWStore(method, args) {
+  return new Promise((resolve) => {
+    const callId = 'wsc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    
+    const handler = (e) => {
+      if (e.detail?.callId === callId) {
+        window.removeEventListener('WStoreResponse', handler);
+        resolve(e.detail.result);
+      }
+    };
+    window.addEventListener('WStoreResponse', handler);
+    setTimeout(() => {
+      window.removeEventListener('WStoreResponse', handler);
+      resolve({ success: false, error: 'WStore call timeout' });
+    }, 10000);
+    
+    window.dispatchEvent(new CustomEvent('WStoreCall', {
+      detail: { callId, method, args }
+    }));
+  });
+}
+
+// DOM fallback helpers
 async function waitForElement(selectors, timeout = 5000) {
   const list = Array.isArray(selectors) ? selectors : [selectors];
   const start = Date.now();
@@ -53,7 +85,6 @@ async function simulateTypingWithBreaks(el, text) {
   el.focus();
   await sleep(50);
   el.textContent = "";
-  
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
     if (lines[i]) {
@@ -63,14 +94,31 @@ async function simulateTypingWithBreaks(el, text) {
       document.execCommand("insertLineBreak");
     }
   }
-  
   el.dispatchEvent(new InputEvent("input", { bubbles: true }));
   await sleep(150);
 }
 
+// ============================================
+// OPEN CHAT — Store API first, DOM fallback
+// ============================================
 async function openChat(phone) {
+  console.log('[WhatsApp Extension] openChat:', phone, 'wstoreReady:', wstoreReady);
+
+  // Method 1: WStore API (no CSS selectors)
+  if (wstoreReady) {
+    const result = await callWStore('openChat', [phone]);
+    if (result?.success) {
+      console.log('[WhatsApp Extension] Chat opened via Store:', result.method);
+      return { success: true };
+    }
+    console.warn('[WhatsApp Extension] Store failed:', result?.error, '→ DOM fallback');
+  }
+
+  // Method 2: DOM fallback
   const newChatBtn = document.querySelector('button[data-tab="2"]') || 
-                     document.querySelector('button[aria-label="Nova conversa"]');
+                     document.querySelector('button[aria-label="Nova conversa"]') ||
+                     document.querySelector('[data-testid="chat-list-search"]') ||
+                     document.querySelector('span[data-icon="new-chat-outline"]')?.closest('button');
   
   if (newChatBtn) {
     newChatBtn.click();
@@ -81,7 +129,8 @@ async function openChat(phone) {
   
   const searchInput = await waitForElement([
     'div[contenteditable="true"][data-tab="3"]',
-    'div[title="Pesquisar nome ou número"]'
+    'div[title="Pesquisar nome ou número"]',
+    'div[role="textbox"][data-tab="3"]'
   ], 3000);
   
   if (!searchInput) return { success: false, error: "Search not found" };
@@ -92,11 +141,11 @@ async function openChat(phone) {
   const contact = await waitForElement([
     `span[title*="${phone.slice(-4)}"]`,
     'div[data-testid="cell-frame-container"]',
-    'div._ak8l'
+    'div[role="listitem"]'
   ], 2000);
   
   if (contact) {
-    (contact.closest('div[role="listitem"]') || contact.closest('div._ak8l') || contact).click();
+    (contact.closest('div[role="listitem"]') || contact).click();
     await sleep(500);
     return { success: true };
   }
@@ -113,7 +162,8 @@ async function prepareText(phone, text) {
   const input = await waitForElement([
     'div[contenteditable="true"][data-tab="10"]',
     'footer div[contenteditable="true"]',
-    'div[title="Digite uma mensagem"]'
+    'div[title="Digite uma mensagem"]',
+    'div[role="textbox"][data-tab="10"]'
   ], 2500);
   
   if (!input) return { success: false, error: "Input not found" };
@@ -128,7 +178,11 @@ async function prepareImage(phone, imageDataUrl) {
   
   await sleep(500);
   
-  const attachBtn = await waitForElement(['div[title="Anexar"]', 'span[data-icon="plus"]'], 2000);
+  const attachBtn = await waitForElement([
+    'div[title="Anexar"]', 
+    'span[data-icon="plus"]',
+    'span[data-icon="attach-menu-plus"]'
+  ], 2000);
   if (!attachBtn) return { success: false, error: "Attach not found" };
   
   attachBtn.click();
