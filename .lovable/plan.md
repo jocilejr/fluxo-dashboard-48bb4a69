@@ -1,60 +1,76 @@
 
-### Objetivo
-Substituir a dependência do clique no “primeiro card” por uma abertura **interna real** do chat (API interna do WhatsApp Web), deixando o DOM apenas como fallback de contingência.
 
-### Diagnóstico (resumo)
-**Do I know what the issue is? Sim.**  
-O problema principal não é só o clique do card: o fluxo está caindo no DOM porque o `WStore` quase nunca fica pronto (`No webpack require resolved`), então a camada interna falha cedo. No fallback DOM, o script encontra elementos visuais, mas não aciona de forma confiável o handler correto do item de resultado.
+## Plano: Simplificar extensão — 1 caminho único, sem fallbacks, sem reload
 
-### Problema exato
-1. `inject-store.js` depende de um bootstrap frágil de `require` e não está robusto para variações atuais do loader.
-2. Sem camada interna estável, o fluxo depende do card do modal.
-3. No modal “Nova conversa”, o alvo clicado nem sempre é o nó interativo real do resultado.
+### Diagnóstico
 
-### Plano de implementação
-1. **Reestruturar `whatsapp-extension/inject-store.js` para abertura interna prioritária**
-   - Implementar resolvedor de runtime em cascata: `window.require` → `__webpack_require__` → chunk injection compatível com versões novas.
-   - Parar de depender só de “achar módulos por shape”; priorizar **módulos nomeados** (`WAWebWidFactory`, `WAWebCollections`, `WAWebFindChatAction`, `WAWebCmd`).
-   - Expor `WStore.openChat(phone)` usando fluxo interno:
-     - criar `wid` do número
-     - `Chat.get(wid)` ou `findOrCreateLatestChat(wid)`
-     - abrir via `Cmd.openChatBottom` (com assinaturas alternativas), fallback `openChatAt`
-   - `WStoreReady` só será `true` quando os módulos mínimos internos existirem.
+O código atual tem **3 camadas** (WStore, DOM, URL) com **4+ estratégias de clique** (React Fiber, native events, elementFromPoint, interactive child). Cada camada interfere na anterior. O WStore quase nunca bootstrapa. O URL reload é inaceitável. O resultado: nada funciona de forma confiável.
 
-2. **Fortalecer contrato entre `content-whatsapp.js` e WStore**
-   - Antes do DOM fallback, aguardar bootstrap interno com timeout curto e retries controlados.
-   - Tentar `openChat` interno novamente após breve recheck (para evitar queda prematura no DOM).
-   - Propagar no retorno o método real usado (`store-openChatBottom`, `store-openChatAt`, etc.) para diagnóstico.
+### Solução: 1 fluxo único, 3 passos simples
 
-3. **Manter fallback DOM, mas com alvo determinístico (sem teclado)**
-   - Restringir busca de resultados ao container do modal “Nova conversa”.
-   - Priorizar nós semanticamente clicáveis (`[role=button]`, `a[href*="/send"]`, items com `data-testid` de resultado).
-   - Clicar no nó interativo mais próximo do texto/número encontrado (não no wrapper genérico).
-   - Validar sucesso por mudança de chat ativa e fechamento do modal; se não confirmar, nova tentativa DOM estruturada (sem `ArrowDown/Enter`).
-
-4. **Melhorar telemetria para encerrar loop de tentativas cegas**
-   - Logs objetivos por etapa: `store-bootstrap`, `store-open`, `dom-target-selected`, `chat-confirmed`.
-   - Erros retornados com causa técnica curta (ex.: `store_modules_missing`, `chat_not_confirmed_after_click`).
-
-5. **Reempacotar extensão**
-   - Atualizar `public/whatsapp-extension.zip` com os arquivos alterados.
-
-### Detalhes técnicos (referência)
 ```text
 OPEN_CHAT(phone)
-  ├─ Layer A (preferencial): WStore internal modules
-  │    WidFactory -> FindOrCreateLatestChat -> Cmd.openChatBottom/openChatAt
-  │    confirmação de chat ativa
-  └─ Layer B (fallback): DOM modal Nova conversa
-       digita número -> resolve item clicável real -> clique nativo -> confirma chat
+  1. Abrir painel "Nova conversa" (clicar no botão)
+  2. Digitar o número (execCommand no campo de busca)
+  3. Clicar no resultado (clique nativo simples no primeiro item)
 ```
 
-### Arquivos que serão alterados
-- `whatsapp-extension/inject-store.js` (principal)
-- `whatsapp-extension/content-whatsapp.js`
-- `public/whatsapp-extension.zip`
+Sem WStore. Sem URL. Sem React Fiber. Sem elementFromPoint. Sem múltiplas estratégias.
 
-### Critérios de aceite
-- Número não salvo abre conversa **sem depender** do clique frágil no card (via camada interna).
-- Se camada interna indisponível, fallback DOM abre o primeiro resultado corretamente sem teclado.
-- Fluxo não usa `ArrowDown + Enter`.
+### Implementação
+
+**1. `whatsapp-extension/content-whatsapp.js` — reescrever drasticamente (~150 linhas)**
+
+Manter apenas:
+- `findNewChatButton()` — encontrar botão "Nova conversa" (já funciona)
+- `waitForSearchInput()` — aguardar campo de busca aparecer via MutationObserver
+- `insertTextInEditable()` — digitar número via `document.execCommand('insertText')` (já funciona)
+- `waitForFirstResult()` — aguardar primeiro resultado aparecer via MutationObserver
+- `clickFirstResult()` — `.click()` nativo no primeiro `[data-testid*="cell-frame"]` ou `[role="listitem"]`
+- `waitForMessageInput()` — confirmar que o chat abriu (input de mensagem visível)
+
+Remover TUDO de:
+- WStore bridge (`wstoreReady`, `callWStore`, listeners)
+- `openResultFromList` com 4 estratégias de clique
+- `triggerReactClick`, `getReactFiberKey`, `getReactPropsKey`
+- `fireNativeClick` com pointer/mouse events complexos
+- `openChatViaURL` (pushState + location.assign)
+- `getActiveChatSignature`, `isChatSelectionConfirmed`, `waitForChatSelection`
+- `isNewChatPanelOpen` com busca por texto em todos os spans
+- Múltiplos seletores redundantes para busca de resultado
+
+Fluxo `openChat(phone)`:
+```
+1. btn = querySelector('[data-testid="chatlist-header-new-chat-button"]') ou span[data-icon="new-chat-outline"]
+2. btn.click() → esperar campo de busca (MutationObserver, max 3s)
+3. execCommand('insertText', phone) no campo de busca → esperar resultado (MutationObserver, max 3s)
+4. resultado.click() → esperar input de mensagem (max 3s)
+5. Retornar success/failure
+```
+
+**2. `whatsapp-extension/inject-store.js` — REMOVER**
+
+O WStore nunca funciona de forma confiável. Remover completamente.
+
+**3. `whatsapp-extension/manifest.json` — remover entrada do inject-store.js**
+
+Remover o bloco content_scripts que referencia `inject-store.js` com `world: "MAIN"`.
+
+**4. Reempacotar `public/whatsapp-extension.zip`**
+
+### O que NÃO terá
+
+- Nenhum fallback com reload
+- Nenhum pushState/popstate
+- Nenhum WStore/moduleRaid
+- Nenhum React Fiber click
+- Nenhum ArrowDown/Enter
+- Nenhum elementFromPoint multi-ponto
+- Nenhuma camada alternativa
+
+### Arquivos alterados
+- `whatsapp-extension/content-whatsapp.js` (reescrito, ~150 linhas vs 753 atual)
+- `whatsapp-extension/inject-store.js` (removido)
+- `whatsapp-extension/manifest.json` (remover inject-store)
+- `public/whatsapp-extension.zip` (reempacotado)
+
