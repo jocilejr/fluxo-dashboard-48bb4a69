@@ -387,23 +387,49 @@ async function openResultFromList(phone) {
   const selectors = [
     '[data-testid="cell-frame-container"]',
     '[data-testid="chat-cell-frame-container"]',
-    '[role="listitem"]',
+    '[data-testid="contact-list-item"]',
     '[data-testid="search-result"]',
+    '[data-testid="chatlist-panel-row"]',
+    '[role="listitem"]',
+    '[role="option"]',
+    '[role="row"]',
+    'div[tabindex="-1"][class]',
   ];
 
-  const nodes = Array.from(document.querySelectorAll(selectors.join(','))).filter(isVisible);
+  const leftPane = document.querySelector('#pane-side') || document.querySelector('[data-testid="chatlist-panel"]') || document.body;
+  const nodes = Array.from(leftPane.querySelectorAll(selectors.join(','))).filter(isVisible);
 
-  const byPhone = nodes.find((node) => {
+  // Also try broader: any clickable row in the left side that contains the phone
+  const broadNodes = nodes.length > 0 ? nodes : Array.from(
+    document.querySelectorAll('div[role="listitem"], div[role="option"], div[role="row"], div[tabindex="-1"]')
+  ).filter((el) => {
+    if (!isVisible(el)) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.left < window.innerWidth * 0.5 && rect.height > 30 && rect.height < 120;
+  });
+
+  const allNodes = nodes.length > 0 ? nodes : broadNodes;
+
+  const byPhone = allNodes.find((node) => {
     const text = (node.textContent || '').toLowerCase();
     if (!text) return false;
     if (blocked.some((b) => text.includes(b))) return false;
     return text.includes(last4) || text.includes(phone);
   });
 
-  const target = byPhone || null;
+  // If no match by phone, pick first non-blocked result
+  const firstValid = !byPhone ? allNodes.find((node) => {
+    const text = (node.textContent || '').toLowerCase();
+    if (!text || text.length < 3) return false;
+    return !blocked.some((b) => text.includes(b));
+  }) : null;
+
+  const target = byPhone || firstValid || null;
   if (!target) return false;
 
-  (target.closest('[role="listitem"]') || target).click();
+  const clickTarget = target.closest('[role="listitem"]') || target.closest('[role="option"]') || target.closest('[role="row"]') || target;
+  console.log('[WA Ext] Clicking result:', clickTarget.textContent?.slice(0, 60));
+  clickTarget.click();
   await sleep(500);
   return !!findMessageInput();
 }
@@ -445,7 +471,7 @@ async function openChatViaDOM(phone) {
   if (!typedText.includes(phone.slice(-4))) {
     await insertTextInEditable(input, phone);
   }
-  await sleep(600);
+  await sleep(1200);
 
   // try enter first (WhatsApp often opens first match)
   dispatchKey(input, 'Enter');
@@ -459,6 +485,13 @@ async function openChatViaDOM(phone) {
   const clicked = await openResultFromList(phone);
   if (clicked) {
     return { success: true, method: 'dom-click' };
+  }
+
+  // retry after more wait (results may load slowly)
+  await sleep(1500);
+  const clicked2 = await openResultFromList(phone);
+  if (clicked2) {
+    return { success: true, method: 'dom-click-retry' };
   }
 
   return { success: false, error: 'Contato não encontrado após digitação' };
