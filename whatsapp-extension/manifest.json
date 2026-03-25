@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Origem Viva - WhatsApp Dashboard",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Dashboard de leads integrado ao WhatsApp Web",
   "permissions": [
     "activeTab",
@@ -25,7 +25,14 @@
     {
       "matches": ["https://web.whatsapp.com/*"],
       "js": ["content-whatsapp.js"],
-      "css": ["styles.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.lovable.app/*",
+        "https://*.lovableproject.com/*"
+      ],
+      "js": ["content-dashboard.js"],
       "run_at": "document_idle"
     }
   ],
