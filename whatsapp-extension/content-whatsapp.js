@@ -80,9 +80,28 @@ function waitForElement(finder, timeout = 3000) {
 async function typeInEditable(el, text) {
   if (!el) return;
   // O campo já está focado ao abrir o painel. Apenas inserir o texto.
-  document.execCommand('insertText', false, text);
-  el.dispatchEvent(new Event('input', { bubbles: true }));
-  await sleep(200);
+  // Tentar via InputEvent (método preferido no WhatsApp Web)
+  const inputEvent = new InputEvent('input', {
+    bubbles: true,
+    cancelable: true,
+    inputType: 'insertText',
+    data: text,
+  });
+  el.textContent = text;
+  el.dispatchEvent(inputEvent);
+  await sleep(300);
+
+  // Se não funcionou, tentar execCommand como fallback
+  if (!el.textContent || el.textContent.trim() === '') {
+    console.log('[WA Ext] Fallback: execCommand');
+    el.focus();
+    document.execCommand('selectAll', false, null);
+    document.execCommand('insertText', false, text);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(300);
+  }
+
+  console.log('[WA Ext] Campo preenchido:', el.textContent);
 }
 
 // ============================================
