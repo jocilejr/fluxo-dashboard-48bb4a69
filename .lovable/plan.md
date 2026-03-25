@@ -1,33 +1,126 @@
 
 
-## Problema
+## Abrir chat via API interna do WhatsApp Web (sem seletores CSS)
 
-Boletos criados em dias anteriores e pagos hoje não aparecem na aba "Aprovados" quando o filtro é "Hoje". Isso acontece porque:
+### Problema atual
+A extensão usa seletores CSS (`button[data-tab="2"]`, `div[contenteditable="true"][data-tab="3"]`, etc.) que quebram toda vez que o WhatsApp atualiza a interface.
 
-1. O hook `useTransactions` faz a query ao banco filtrando por `created_at` (data de criação)
-2. A tabela de transações tenta filtrar por `paid_at` para pagos, mas o registro nunca chega do banco
+### Solução: Usar os módulos internos do WhatsApp Web
 
-## Solução
+O WhatsApp Web é uma aplicação React empacotada via webpack. Internamente, ele expõe módulos JavaScript que podem ser acessados diretamente — sem depender de nenhum seletor CSS. Ferramentas como `whatsapp-web.js` e `wa-js` usam essa técnica.
 
-Modificar o `useTransactions` para que, ao buscar transações, inclua também registros cujo `paid_at` esteja dentro do período selecionado. Isso garante que boletos criados em dias anteriores mas pagos no período filtrado apareçam corretamente.
+A ideia é **injetar um script que escaneia os módulos webpack** do WhatsApp Web e expõe um objeto `window.Store` com acesso direto a funções como `openChatByPhone`. Isso é **100% independente de seletores CSS** — funciona mesmo que o WhatsApp mude toda a interface.
 
-### Alteração em `src/hooks/useTransactions.ts`
+### Como funciona
 
-Modificar a query para usar um filtro OR: trazer transações cujo `created_at` OU `paid_at` estejam no período. Usando a sintaxe do Supabase, será feito com `.or()`:
-
+```text
+Extensão envia comando OPEN_CHAT(phone)
+    │
+    └──► content-whatsapp.js
+            │
+            ├── [ANTES] Clicava botão "Nova conversa" → buscava input → digitava → clicava contato
+            │           (tudo via querySelector — quebrava com updates)
+            │
+            └── [AGORA] Chama window.Store.OpenChat.openChatByPhone(phone)
+                        OU window.WPP.chat.openChatByPhone(phone)
+                        → Abre o chat diretamente pela API interna
+                        → Zero dependência de seletores CSS
 ```
-.or(`created_at.gte.${start},paid_at.gte.${start}`)
+
+### Mudanças
+
+**1. `whatsapp-extension/content-whatsapp.js`**
+
+Adicionar um módulo de injeção que:
+- Escaneia `window.require` (webpack) para encontrar os módulos internos do WhatsApp
+- Expõe `window.WStore` com referências para `Chat`, `Cmd`, `OpenChat`, `SendMessage`
+- Cria funções robustas: `openChatByPhone(phone)` que formata o JID (`55xxxxx@c.us`) e chama a API interna diretamente
+
+Refatorar `openChat()`:
+```javascript
+// ANTES (quebra com updates CSS):
+// const newChatBtn = document.querySelector('button[data-tab="2"]');
+// newChatBtn.click(); ...
+
+// DEPOIS (API interna, sem seletores):
+async function openChat(phone) {
+  const jid = phone.includes('@') ? phone : `${phone}@c.us`;
+  
+  if (window.WStore?.Chat?.find) {
+    // Método 1: Store.Chat.find
+    const chat = await window.WStore.Chat.find(jid);
+    if (chat) return { success: true };
+  }
+  
+  if (window.WStore?.OpenChat) {
+    // Método 2: Store.OpenChat
+    await window.WStore.OpenChat(jid);
+    return { success: true };
+  }
+  
+  // Método 3: Fallback — dispara evento interno
+  const link = document.createElement('a');
+  link.href = `whatsapp://send?phone=${phone}`;
+  link.click();
+  
+  return { success: false, error: 'Store not available' };
+}
 ```
 
-Na prática, a query fará duas buscas combinadas:
-- Transações criadas no período (comportamento atual)
-- Transações pagas no período (novo - captura boletos de dias anteriores pagos hoje)
+Refatorar `prepareText()` — em vez de buscar `footer div[contenteditable]`:
+```javascript
+async function prepareText(phone, text) {
+  if (window.WStore?.SendMessage) {
+    const jid = `${phone}@c.us`;
+    const chat = await window.WStore.Chat.find(jid);
+    // Coloca texto no input via Store, não via DOM
+  }
+}
+```
 
-A deduplicação acontece automaticamente pelo banco.
+**2. Novo arquivo: `whatsapp-extension/inject-store.js`**
 
-### Impacto
+Script injetado na página (via `world: "MAIN"` no manifest) que:
+- Intercepta `window.require` do webpack
+- Mapeia módulos por nome (`WAWebCmd`, `WAWebChatCollection`, etc.)
+- Expõe `window.WStore` com os módulos necessários
+- Re-tenta periodicamente se os módulos não estiverem prontos
 
-- A aba "Aprovados" passará a mostrar corretamente boletos pagos no dia, independentemente da data de criação
-- Nenhuma mudança visual - apenas a consulta de dados será mais abrangente
-- O filtro de data da tabela já usa `paid_at` para transações pagas, então a exibição final não muda
+**3. `whatsapp-extension/manifest.json`**
+
+Adicionar o script de injeção no `content_scripts` com `"world": "MAIN"` para rodar no contexto da página (necessário para acessar `window.require` do webpack).
+
+```json
+"content_scripts": [
+  {
+    "matches": ["https://web.whatsapp.com/*"],
+    "js": ["inject-store.js"],
+    "run_at": "document_start",
+    "world": "MAIN"
+  },
+  {
+    "matches": ["https://web.whatsapp.com/*"],
+    "js": ["content-whatsapp.js"],
+    "css": ["styles.css"],
+    "run_at": "document_idle"
+  }
+]
+```
+
+**4. `src/hooks/useWhatsAppExtension.ts`**
+Sem mudanças necessárias — o protocolo de comunicação (postMessage/chrome.runtime) permanece o mesmo.
+
+### Vantagens
+- **Zero dependência de seletores CSS** — imune a atualizações visuais do WhatsApp
+- **Mais rápido** — não precisa esperar elementos renderizarem, clicar botões, digitar
+- **Mais confiável** — usa a mesma API que o próprio WhatsApp usa internamente
+
+### Risco
+- O WhatsApp pode mudar os nomes internos dos módulos webpack (raro, ~1-2x por ano)
+- Mitigação: o script tenta múltiplos nomes de módulos conhecidos como fallback
+
+### Arquivos a modificar/criar
+- `whatsapp-extension/inject-store.js` — novo, injeção dos módulos internos
+- `whatsapp-extension/content-whatsapp.js` — refatorar `openChat`, `prepareText`, `prepareImage`
+- `whatsapp-extension/manifest.json` — adicionar inject-store.js com `world: "MAIN"`
 
