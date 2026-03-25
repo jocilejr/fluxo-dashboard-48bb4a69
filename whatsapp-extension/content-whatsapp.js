@@ -79,47 +79,9 @@ function waitForElement(finder, timeout = 3000) {
 
 async function typeInEditable(el, text) {
   if (!el) return;
-
-  // Step A: Click to activate the input field (enter typing mode)
-  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-  el.focus();
-  await sleep(200);
-
-  // Step B: Clear existing content
-  try {
-    const sel = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-    document.execCommand('delete', false);
-  } catch (_) {}
-  el.textContent = '';
+  // O campo já está focado ao abrir o painel. Apenas inserir o texto.
+  document.execCommand('insertText', false, text);
   el.dispatchEvent(new Event('input', { bubbles: true }));
-  await sleep(100);
-
-  // Step C: Place cursor and type
-  el.focus();
-  try {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    range.collapse(false);
-    window.getSelection()?.removeAllRanges();
-    window.getSelection()?.addRange(range);
-  } catch (_) {}
-
-  if (document.execCommand('insertText', false, text)) {
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  } else {
-    for (const ch of text) {
-      document.execCommand('insertText', false, ch);
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      await sleep(10);
-    }
-  }
-
   await sleep(200);
 }
 
