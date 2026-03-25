@@ -4,7 +4,7 @@
 console.log('[WA Ext] Content script carregado');
 
 const CONFIG = {
-  VERSION: '4.1.0',
+  VERSION: '5.0.0',
   API_URL: 'https://suaznqybxvborpkrtdpm.supabase.co/rest/v1',
   API_KEY:
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1YXpucXlieHZib3Jwa3J0ZHBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2ODk5MjgsImV4cCI6MjA4MDI2NTkyOH0.2NXt5eOqM6wCTmlNFpP5H8VxLdVBuarFUwphWbq9kQA',
@@ -121,10 +121,10 @@ function getVisibleSearchInput(options = {}) {
 
   return candidates.find((el) => {
     if (!isVisible(el)) return false;
-    if (el.closest('footer')) return false; // message composer
+    if (el.closest('footer')) return false;
 
     const rect = el.getBoundingClientRect();
-    if (rect.left > window.innerWidth * 0.65) return false; // search box should be on left pane
+    if (rect.left > window.innerWidth * 0.65) return false;
 
     const title = (el.getAttribute('title') || '').toLowerCase();
     const aria = (el.getAttribute('aria-label') || '').toLowerCase();
@@ -140,11 +140,7 @@ function getVisibleSearchInput(options = {}) {
       return rect.top < window.innerHeight * 0.35;
     }
 
-    if (isSearchField) {
-      return true;
-    }
-
-    // fallback for new chat panel: top-left textbox, not footer
+    if (isSearchField) return true;
     return rect.top < window.innerHeight * 0.35;
   }) || null;
 }
@@ -172,10 +168,7 @@ function findNewChatButton() {
 function waitForSearchInput(timeout = 4000, requireNewChat = false) {
   return new Promise((resolve) => {
     const existing = getVisibleSearchInput({ requireNewChat });
-    if (existing) {
-      resolve(existing);
-      return;
-    }
+    if (existing) { resolve(existing); return; }
 
     let done = false;
     const observer = new MutationObserver(() => {
@@ -186,25 +179,14 @@ function waitForSearchInput(timeout = 4000, requireNewChat = false) {
       observer.disconnect();
       resolve(input);
     });
-
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-    setTimeout(() => {
-      if (done) return;
-      done = true;
-      observer.disconnect();
-      resolve(null);
-    }, timeout);
+    setTimeout(() => { if (done) return; done = true; observer.disconnect(); resolve(null); }, timeout);
   });
 }
 
 function waitForNewChatPanel(timeout = 3500) {
   return new Promise((resolve) => {
-    if (isNewChatPanelOpen()) {
-      resolve(true);
-      return;
-    }
-
+    if (isNewChatPanelOpen()) { resolve(true); return; }
     let done = false;
     const observer = new MutationObserver(() => {
       if (done) return;
@@ -213,15 +195,8 @@ function waitForNewChatPanel(timeout = 3500) {
       observer.disconnect();
       resolve(true);
     });
-
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-    setTimeout(() => {
-      if (done) return;
-      done = true;
-      observer.disconnect();
-      resolve(false);
-    }, timeout);
+    setTimeout(() => { if (done) return; done = true; observer.disconnect(); resolve(false); }, timeout);
   });
 }
 
@@ -243,22 +218,16 @@ async function insertTextInEditable(el, text) {
   if (!el) return;
 
   const focusAndClick = () => {
-    try {
-      el.focus();
-      el.click();
-    } catch (_) {}
+    try { el.focus(); el.click(); } catch (_) {}
   };
 
   if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
     focusAndClick();
-
     const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-
     dispatchBeforeInput(el, finalText);
     if (setter) setter.call(el, finalText);
     else el.value = finalText;
-
     dispatchInput(el, finalText);
     el.dispatchEvent(new Event('change', { bubbles: true }));
     await sleep(180);
@@ -323,9 +292,7 @@ async function insertTextInEditable(el, text) {
     el.textContent = finalText;
     dispatchInput(el, finalText);
     await sleep(40);
-    for (const ch of finalText) {
-      dispatchKey(el, ch);
-    }
+    for (const ch of finalText) dispatchKey(el, ch);
   }
 
   await sleep(160);
@@ -339,7 +306,6 @@ function findMessageInput() {
     'div[contenteditable="true"][data-tab="10"]',
     'div[contenteditable="true"][data-tab="6"]',
   ];
-
   for (const selector of candidates) {
     const el = document.querySelector(selector);
     if (isVisible(el)) return el;
@@ -350,11 +316,7 @@ function findMessageInput() {
 function waitForMessageInput(timeout = 3000) {
   return new Promise((resolve) => {
     const existing = findMessageInput();
-    if (existing) {
-      resolve(existing);
-      return;
-    }
-
+    if (existing) { resolve(existing); return; }
     let done = false;
     const observer = new MutationObserver(() => {
       if (done) return;
@@ -364,15 +326,8 @@ function waitForMessageInput(timeout = 3000) {
       observer.disconnect();
       resolve(input);
     });
-
     observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-    setTimeout(() => {
-      if (done) return;
-      done = true;
-      observer.disconnect();
-      resolve(null);
-    }, timeout);
+    setTimeout(() => { if (done) return; done = true; observer.disconnect(); resolve(null); }, timeout);
   });
 }
 
@@ -383,7 +338,6 @@ function getActiveChatSignature() {
     '#main header h1',
     '#main header [dir="auto"]',
   ];
-
   for (const selector of selectors) {
     const nodes = Array.from(document.querySelectorAll(selector)).filter(isVisible);
     for (const node of nodes) {
@@ -391,20 +345,16 @@ function getActiveChatSignature() {
       if (text && text.length <= 80) return text;
     }
   }
-
   return '';
 }
 
 function isChatSelectionConfirmed(phone, beforeSignature) {
   if (isNewChatPanelOpen()) return false;
-
   const currentSignature = getActiveChatSignature();
   const digits = currentSignature.replace(/\D/g, '');
   const last4 = phone.slice(-4);
-
   const hasPhoneMatch = !!(digits && (digits.includes(phone) || digits.includes(last4)));
   const changedChat = !!(currentSignature && currentSignature !== beforeSignature);
-
   return hasPhoneMatch || changedChat;
 }
 
@@ -421,23 +371,79 @@ function cleanPhone(phone) {
   return String(phone || '').replace(/\D/g, '');
 }
 
+// ============================================
+// React Fiber click — invokes React's internal handler directly
+// ============================================
+function getReactFiberKey(el) {
+  if (!el) return null;
+  return Object.keys(el).find((k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$')) || null;
+}
+
+function getReactPropsKey(el) {
+  if (!el) return null;
+  return Object.keys(el).find((k) => k.startsWith('__reactProps$')) || null;
+}
+
+function triggerReactClick(el) {
+  if (!el) return false;
+
+  // Walk up the tree to find an element with React onClick/onMouseDown handler
+  let current = el;
+  for (let i = 0; i < 12 && current && current !== document.body; i++) {
+    const propsKey = getReactPropsKey(current);
+    if (propsKey) {
+      const props = current[propsKey];
+      if (props) {
+        // Try onClick
+        if (typeof props.onClick === 'function') {
+          console.log('[WA Ext] React onClick found on', current.tagName, current.getAttribute?.('data-testid'));
+          const rect = current.getBoundingClientRect();
+          const syntheticEvent = {
+            type: 'click',
+            target: current,
+            currentTarget: current,
+            bubbles: true,
+            cancelable: true,
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + rect.height / 2,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            nativeEvent: new MouseEvent('click'),
+          };
+          try { props.onClick(syntheticEvent); return true; } catch (e) { console.warn('[WA Ext] React onClick error:', e.message); }
+        }
+        // Try onMouseDown
+        if (typeof props.onMouseDown === 'function') {
+          console.log('[WA Ext] React onMouseDown found on', current.tagName);
+          const rect = current.getBoundingClientRect();
+          try {
+            props.onMouseDown({ type: 'mousedown', target: current, currentTarget: current, bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2, preventDefault: () => {}, stopPropagation: () => {} });
+            return true;
+          } catch (e) { console.warn('[WA Ext] React onMouseDown error:', e.message); }
+        }
+      }
+    }
+    current = current.parentElement;
+  }
+  return false;
+}
+
+// ============================================
+// DOM: click on search result
+// ============================================
 async function openResultFromList(phone) {
   const beforeSignature = getActiveChatSignature();
   const last4 = phone.slice(-4);
   const blocked = [
-    'novo grupo',
-    'novo contato',
-    'nova comunidade',
-    'new group',
-    'new contact',
-    'new community',
-    'não está na sua lista de contatos',
-    'not in your contacts',
+    'novo grupo', 'novo contato', 'nova comunidade',
+    'new group', 'new contact', 'new community',
+    'não está na sua lista de contatos', 'not in your contacts',
   ];
 
   const searchInput = getVisibleSearchInput({ requireNewChat: true }) || getVisibleSearchInput();
   const searchBottom = searchInput?.getBoundingClientRect()?.bottom || 0;
 
+  // Collect candidate result nodes
   const selectors = [
     '[data-testid="cell-frame-container"]',
     '[data-testid="chat-cell-frame-container"]',
@@ -454,7 +460,6 @@ async function openResultFromList(phone) {
   ];
 
   const leftPane = document.querySelector('#pane-side') || document.querySelector('[data-testid="chatlist-panel"]') || document.body;
-
   const rawNodes = Array.from(leftPane.querySelectorAll(selectors.join(',')));
   const broadNodes = rawNodes.length > 0
     ? rawNodes
@@ -471,12 +476,11 @@ async function openResultFromList(phone) {
     })
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
 
+  // Find by phone match from leaf nodes
   const byPhoneFromLeaf = Array.from(leftPane.querySelectorAll('span, div[title], [aria-label]'))
     .filter(isVisible)
     .find((node) => {
-      const text = ((node.textContent || node.getAttribute?.('title') || node.getAttribute?.('aria-label') || '')
-        .toLowerCase())
-        .trim();
+      const text = ((node.textContent || node.getAttribute?.('title') || node.getAttribute?.('aria-label') || '').toLowerCase()).trim();
       if (!text) return false;
       const digits = text.replace(/\D/g, '');
       return text.includes(phone) || text.includes(last4) || digits.includes(phone) || digits.includes(last4);
@@ -498,132 +502,126 @@ async function openResultFromList(phone) {
   }) : null;
 
   const target = byPhone || byPhoneFromLeaf || firstValid || null;
-  if (!target) return false;
+  if (!target) {
+    console.log('[WA Ext] openResultFromList: no target found. allNodes:', allNodes.length);
+    return false;
+  }
 
-  const clickTarget =
-    target.closest('[role="button"][data-tab]') ||
-    target.closest('div[data-tab][tabindex="0"]') ||
-    target.closest('[role="listitem"]') ||
-    target.closest('[role="option"]') ||
-    target.closest('[role="row"]') ||
-    target.querySelector('[role="button"][data-tab], div[data-tab][tabindex="0"], [role="listitem"], [role="option"], [role="row"], button, [tabindex="0"], [tabindex="-1"]') ||
-    target;
+  console.log('[WA Ext] Target found:', target.textContent?.slice(0, 60), 'tag:', target.tagName, 'testid:', target.getAttribute?.('data-testid'));
 
+  // Strategy 1: React fiber click (most reliable for React apps)
+  target.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+  await sleep(100);
+
+  if (triggerReactClick(target)) {
+    console.log('[WA Ext] React click dispatched, waiting for chat selection...');
+    if (await waitForChatSelection(phone, beforeSignature, 2000)) {
+      console.log('[WA Ext] ✓ Chat opened via React click');
+      return true;
+    }
+  }
+
+  // Strategy 2: Native DOM events on the target and its children
   const fireNativeClick = (el) => {
     const rect = el.getBoundingClientRect();
-    const clientX = rect.left + Math.max(8, Math.min(rect.width - 8, rect.width / 2));
-    const clientY = rect.top + Math.max(8, Math.min(rect.height - 8, rect.height / 2));
-    const realTarget =
-      document
-        .elementFromPoint(clientX, clientY)
-        ?.closest('[role="button"], [role="listitem"], [role="option"], [role="row"], div[data-tab], button, [tabindex]') || el;
+    const clientX = rect.left + rect.width / 2;
+    const clientY = rect.top + rect.height / 2;
 
-    if (typeof PointerEvent !== 'undefined') {
-      for (const type of ['pointerdown', 'pointerup']) {
-        realTarget.dispatchEvent(
-          new PointerEvent(type, {
-            bubbles: true,
-            cancelable: true,
-            pointerId: 1,
-            pointerType: 'mouse',
-            clientX,
-            clientY,
-          })
-        );
-      }
+    for (const type of ['pointerdown', 'pointerup']) {
+      el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', clientX, clientY }));
     }
-
     for (const type of ['mousedown', 'mouseup', 'click']) {
-      realTarget.dispatchEvent(
-        new MouseEvent(type, {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-          clientX,
-          clientY,
-        })
-      );
+      el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window, clientX, clientY }));
     }
-
-    realTarget.click?.();
+    el.click?.();
   };
 
-  console.log('[WA Ext] Clicking result:', clickTarget.textContent?.slice(0, 60));
-  clickTarget.scrollIntoView?.({ block: 'center', inline: 'nearest' });
-  clickTarget.focus?.();
-  fireNativeClick(clickTarget);
+  // Click on target directly
+  fireNativeClick(target);
   if (await waitForChatSelection(phone, beforeSignature, 1200)) return true;
 
-  fireNativeClick(clickTarget);
-  if (await waitForChatSelection(phone, beforeSignature, 900)) return true;
+  // Strategy 3: elementFromPoint — hit the exact visual center and walk up
+  const rect = target.getBoundingClientRect();
+  const points = [
+    { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.5 },
+    { x: rect.left + rect.width * 0.3, y: rect.top + rect.height * 0.4 },
+    { x: rect.left + rect.width * 0.7, y: rect.top + rect.height * 0.6 },
+  ];
 
-  // Try clicking multiple points inside the card area
-  if (!(await waitForChatSelection(phone, beforeSignature, 400))) {
-    const rect = clickTarget.getBoundingClientRect();
-    const points = [
-      { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.5 },
-      { x: rect.left + rect.width * 0.3, y: rect.top + rect.height * 0.5 },
-      { x: rect.left + rect.width * 0.7, y: rect.top + rect.height * 0.5 },
-      { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.3 },
-      { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.7 },
-    ];
-    for (const pt of points) {
-      const hitEl = document.elementFromPoint(pt.x, pt.y);
-      if (!hitEl) continue;
-      console.log('[WA Ext] Hit element at point:', hitEl.tagName, hitEl.className?.slice?.(0, 40));
-      // Walk up to find clickable ancestor
-      let candidate = hitEl;
-      for (let i = 0; i < 8 && candidate && candidate !== document.body; i++) {
-        const r = candidate.getBoundingClientRect();
-        if (r.height >= 40 && r.height <= 120 && r.width > 100) {
-          candidate.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', clientX: pt.x, clientY: pt.y }));
-          candidate.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', clientX: pt.x, clientY: pt.y }));
-          candidate.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, clientX: pt.x, clientY: pt.y }));
-          candidate.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window, clientX: pt.x, clientY: pt.y }));
-          candidate.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: pt.x, clientY: pt.y }));
-          candidate.click?.();
-          console.log('[WA Ext] Clicked candidate:', candidate.tagName, candidate.getAttribute?.('data-testid'), 'size:', r.width, 'x', r.height);
-          if (await waitForChatSelection(phone, beforeSignature, 900)) break;
-        }
-        candidate = candidate.parentElement;
-      }
-      if (await waitForChatSelection(phone, beforeSignature, 600)) break;
+  for (const pt of points) {
+    const hitEl = document.elementFromPoint(pt.x, pt.y);
+    if (!hitEl) continue;
+
+    // Try React click on hit element
+    if (triggerReactClick(hitEl)) {
+      if (await waitForChatSelection(phone, beforeSignature, 1500)) return true;
     }
+
+    // Try native click on hit element and ancestors
+    let candidate = hitEl;
+    for (let i = 0; i < 6 && candidate && candidate !== document.body; i++) {
+      fireNativeClick(candidate);
+      if (await waitForChatSelection(phone, beforeSignature, 600)) return true;
+      candidate = candidate.parentElement;
+    }
+  }
+
+  // Strategy 4: Find any interactive child inside target
+  const interactiveChild = target.querySelector('[role="button"], button, [tabindex="0"], a');
+  if (interactiveChild && interactiveChild !== target) {
+    triggerReactClick(interactiveChild);
+    fireNativeClick(interactiveChild);
+    if (await waitForChatSelection(phone, beforeSignature, 1200)) return true;
   }
 
   return waitForChatSelection(phone, beforeSignature, 800);
 }
 
 // ============================================
-// openChat (3 layers)
+// openChat (3 layers + WStore retry)
 // ============================================
 async function openChat(phoneRaw) {
   const phone = cleanPhone(phoneRaw);
-  if (!phone) return { success: false, error: 'Telefone inválido' };
+  if (!phone) return { success: false, error: 'invalid_phone' };
 
   console.log('[WA Ext] openChat:', phone, 'wstoreReady:', wstoreReady);
 
-  // Layer 1: internal Store API
+  // Layer 1: WStore internal API (try immediately)
   if (wstoreReady) {
     const storeResult = await callWStore('openChat', [phone]);
     if (storeResult?.success) {
-      return { success: true, method: 'store' };
+      console.log('[WA Ext] ✓ Store opened chat:', storeResult.method);
+      return { success: true, method: storeResult.method || 'store' };
     }
     console.warn('[WA Ext] Store falhou:', storeResult?.error);
   }
 
-  // Layer 2: resilient DOM flow
+  // Layer 1b: WStore retry — wait briefly in case it's still bootstrapping
+  if (!wstoreReady) {
+    console.log('[WA Ext] WStore not ready, waiting 3s for bootstrap...');
+    await sleep(3000);
+    if (wstoreReady) {
+      const storeResult = await callWStore('openChat', [phone]);
+      if (storeResult?.success) {
+        console.log('[WA Ext] ✓ Store opened chat (retry):', storeResult.method);
+        return { success: true, method: storeResult.method || 'store-retry' };
+      }
+    }
+  }
+
+  // Layer 2: DOM flow
+  console.log('[WA Ext] Falling back to DOM flow');
   const domResult = await openChatViaDOM(phone);
   if (domResult.success) return domResult;
 
-  // Layer 3: SPA route fallback
-  return openChatViaSPA(phone);
+  // Layer 3: URL navigation (reliable but causes page reload-like behavior)
+  return openChatViaURL(phone);
 }
 
 async function openChatViaDOM(phone) {
   const input = await ensureSearchInputOpen();
   if (!input) {
-    return { success: false, error: 'Input de busca não encontrado' };
+    return { success: false, error: 'search_input_not_found' };
   }
 
   await insertTextInEditable(input, phone);
@@ -633,34 +631,39 @@ async function openChatViaDOM(phone) {
   }
   await sleep(1200);
 
-  // click matched result
   const clicked = await openResultFromList(phone);
-  if (clicked) {
-    return { success: true, method: 'dom-click' };
-  }
+  if (clicked) return { success: true, method: 'dom-click' };
 
-  // retry after more wait (results may load slowly)
+  // Retry with longer wait (results may load slowly)
   await sleep(1500);
   const clicked2 = await openResultFromList(phone);
-  if (clicked2) {
-    return { success: true, method: 'dom-click-retry' };
-  }
+  if (clicked2) return { success: true, method: 'dom-click-retry' };
 
-  return { success: false, error: 'Contato não encontrado após digitação' };
+  return { success: false, error: 'contact_not_found_after_search' };
 }
 
-async function openChatViaSPA(phone) {
+async function openChatViaURL(phone) {
   try {
-    const targetPath = `/send?phone=${phone}`;
-    history.pushState({}, '', targetPath);
-    window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
-    await sleep(900);
-    if (findMessageInput()) {
-      return { success: true, method: 'spa' };
-    }
-    return { success: false, error: 'SPA abriu rota, mas não abriu a conversa' };
+    // Use WhatsApp Web's native URL routing
+    const targetUrl = `https://web.whatsapp.com/send?phone=${phone}`;
+    console.log('[WA Ext] URL fallback:', targetUrl);
+
+    // Method 1: pushState + popstate (SPA-friendly, no reload)
+    try {
+      const path = `/send?phone=${phone}`;
+      history.pushState({}, '', path);
+      window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
+      await sleep(1500);
+      if (findMessageInput()) {
+        return { success: true, method: 'url-pushstate' };
+      }
+    } catch (_) {}
+
+    // Method 2: location.assign (causes reload but reliable)
+    window.location.assign(targetUrl);
+    return { success: true, method: 'url-redirect' };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: `url_fallback_failed: ${error.message}` };
   }
 }
 
@@ -669,7 +672,7 @@ async function prepareText(phone, text) {
   if (!opened.success) return opened;
 
   const input = await waitForMessageInput(3500);
-  if (!input) return { success: false, error: 'Campo de mensagem não encontrado' };
+  if (!input) return { success: false, error: 'message_input_not_found' };
 
   await insertTextInEditable(input, text || '');
   return { success: true };
@@ -688,13 +691,13 @@ async function prepareImage(phone, imageDataUrl) {
     document.querySelector('span[data-icon="plus"]') ||
     document.querySelector('span[data-icon="attach-menu-plus"]');
 
-  if (!attach) return { success: false, error: 'Botão de anexo não encontrado' };
+  if (!attach) return { success: false, error: 'attach_button_not_found' };
 
   (attach.closest('button') || attach).click();
   await sleep(250);
 
   const input = document.querySelector('input[accept*="image"]');
-  if (!input) return { success: false, error: 'Input de imagem não encontrado' };
+  if (!input) return { success: false, error: 'image_input_not_found' };
 
   const blob = await fetch(imageDataUrl).then((r) => r.blob());
   const file = new File([blob], 'boleto.jpg', { type: 'image/jpeg' });
@@ -716,10 +719,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'OPEN_CHAT') {
     const phone = message.phone || message.phoneNumber || message.number;
     if (!phone) {
-      sendResponse({ success: false, error: 'Telefone ausente em OPEN_CHAT' });
+      sendResponse({ success: false, error: 'phone_missing' });
       return true;
     }
-
     openChat(phone)
       .then((result) => sendResponse(result))
       .catch((error) => sendResponse({ success: false, error: error.message }));
