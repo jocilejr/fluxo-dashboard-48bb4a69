@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Origem Viva - WhatsApp Dashboard",
-  "version": "3.1.3",
+  "version": "3.1.4",
   "description": "Dashboard de leads integrado ao WhatsApp Web",
   "permissions": [
     "activeTab",

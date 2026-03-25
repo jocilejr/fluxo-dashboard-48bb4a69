@@ -1,7 +1,7 @@
 // Content Script - WhatsApp Web
 // Single-path approach: New Chat button → type number → click result
 
-console.log('[WA Ext] Content script carregado (v7.3 - added delays and improved focus)');
+console.log('[WA Ext] Content script carregado (v7.4 - fixed premature selection)');
 
 chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' });
 
@@ -62,26 +62,6 @@ function findSearchInput() {
       return el;
     }
   }
-
-  const active = document.activeElement;
-  if (active && active.getAttribute('contenteditable') === 'true' && isVisible(active)) {
-    const rect = active.getBoundingClientRect();
-    if (rect.left < window.innerWidth * 0.65 && rect.top < window.innerHeight * 0.4 && !active.closest('footer')) {
-      return active;
-    }
-  }
-
-  const candidates = document.querySelectorAll(
-    'div[contenteditable="true"][role="textbox"], div[contenteditable="true"], input[type="text"]'
-  );
-  for (const el of candidates) {
-    if (!isVisible(el)) continue;
-    if (el.closest('footer')) continue;
-    const rect = el.getBoundingClientRect();
-    if (rect.left > window.innerWidth * 0.65) continue;
-    if (rect.top > window.innerHeight * 0.4) continue;
-    return el;
-  }
   return null;
 }
 
@@ -111,21 +91,11 @@ async function typeInSearchField(el, text) {
 
   console.log('[WA Ext] Attempting to type:', text);
   
-  // 0.5s delay before focus
   await sleep(500);
   el.focus();
-  
-  // 0.5s delay after focus to ensure selection
   await sleep(500);
 
   try {
-    // Select all existing text before typing
-    const sel = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    sel.removeAllRanges();
-    sel.addRange(range);
-    
     document.execCommand('selectAll', false, null);
     document.execCommand('insertText', false, text);
   } catch (e) {
@@ -137,42 +107,22 @@ async function typeInSearchField(el, text) {
     while (el.firstChild) el.removeChild(el.firstChild);
     const textNode = document.createTextNode(text);
     el.appendChild(textNode);
-    const sel = window.getSelection();
-    if (sel) {
-      const range = document.createRange();
-      range.setStartAfter(textNode);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
     el.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: text }));
   }
 
-  // 0.5s delay before triggering search
   await sleep(500);
   el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
   el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', keyCode: 13, bubbles: true }));
 
   await sleep(500);
   const content = (el.textContent || '').trim();
-  console.log('[WA Ext] Search field content after insert:', JSON.stringify(content));
   return content.includes(text) || content.length > 0;
 }
 
 // ============================================
-// Step 3: Find and click first result
+// Step 3: Find and click first result (STRICT VERSION)
 // ============================================
-function findFirstResult() {
-  const selectors = [
-    '[data-testid="cell-frame-container"]',
-    '[data-testid="chat-cell-frame-container"]',
-    '[data-testid="contact-list-item"]',
-    '[data-testid*="cell-frame"]',
-    '[role="listitem"]',
-    '[role="option"]',
-    'div[role="button"]',
-  ];
-
+function findFirstResult(targetPhone) {
   const searchInput = findSearchInput();
   const searchRect = searchInput?.getBoundingClientRect();
   const searchBottom = searchRect?.bottom || 0;
@@ -184,39 +134,28 @@ function findFirstResult() {
     'não está na sua lista de contatos', 'not in your contacts'
   ];
 
+  // Strategy: Only look for elements that contain the phone number digits
+  const cleanTarget = cleanPhone(targetPhone);
   const allDivs = document.querySelectorAll('div');
+  
   for (const div of allDivs) {
     if (!isVisible(div)) continue;
     const rect = div.getBoundingClientRect();
     if (rect.top < searchBottom - 5 || rect.left > window.innerWidth * 0.65) continue;
     
     const text = (div.textContent || '').trim();
-    if (text.includes('+') && text.replace(/\D/g, '').length >= 8) {
+    const cleanText = cleanPhone(text);
+    
+    // Check if the element text contains our target phone number
+    if (cleanText.includes(cleanTarget) && cleanText.length >= 8) {
       const clickable = div.closest('[role="button"]') || div.closest('[data-testid="cell-frame-container"]') || div;
       if (clickable && clickable !== document.body) {
-        console.log('[WA Ext] Found result via phone number text:', text.substring(0, 20));
+        console.log('[WA Ext] Found result matching target phone:', text.substring(0, 20));
         return clickable;
       }
     }
   }
 
-  for (const sel of selectors) {
-    const nodes = document.querySelectorAll(sel);
-    for (const node of nodes) {
-      if (!isVisible(node)) continue;
-      const rect = node.getBoundingClientRect();
-      if (rect.top < searchBottom - 5) continue;
-      if (rect.left > window.innerWidth * 0.65) continue;
-      if (rect.height < 30 || rect.height > 180) continue;
-      
-      const text = (node.textContent || '').toLowerCase();
-      if (blocked.some((b) => text.includes(b))) continue;
-      if (text.length < 2) continue;
-      
-      console.log('[WA Ext] Found result via selector:', sel, text.substring(0, 20));
-      return node;
-    }
-  }
   return null;
 }
 
@@ -251,8 +190,7 @@ async function openChat(phoneRaw) {
     console.log('[WA Ext] Step 1: New chat button clicked');
   }
 
-  // 0.5s delay after clicking New Chat
-  await sleep(500);
+  await sleep(800);
 
   const searchInput = await waitForElement(findSearchInput, 4000);
   if (!searchInput) return { success: false, error: 'search_input_not_found' };
@@ -260,36 +198,23 @@ async function openChat(phoneRaw) {
   await typeInSearchField(searchInput, phone);
   console.log('[WA Ext] Step 2: Number typed:', phone);
 
-  // 0.5s delay before looking for results
-  await sleep(500);
-  
-  // Wait for results to load (WhatsApp can be slow for non-contacts)
-  await sleep(2500);
+  // Wait for results to load (CRITICAL: Wait enough for search to update)
+  await sleep(3000);
 
-  const result = findFirstResult();
+  const result = findFirstResult(phone);
   if (!result) {
-    console.log('[WA Ext] Step 3: No result found, retrying search...');
-    searchInput.focus();
-    searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }));
-    await sleep(1500);
-    const resultRetry = findFirstResult();
-    if (!resultRetry) return { success: false, error: 'no_result_found' };
-    
-    // 0.5s delay before clicking retry result
-    await sleep(500);
-    resultRetry.click();
-  } else {
-    console.log('[WA Ext] Step 3: Clicking result');
-    
-    // 0.5s delay before clicking result
-    await sleep(500);
-    result.click();
-    
-    const inner = result.querySelector('div[role="button"]') || result.querySelector('[data-testid="cell-frame-container"]');
-    if (inner) {
-      await sleep(200);
-      inner.click();
-    }
+    console.log('[WA Ext] Step 3: No matching result found for', phone);
+    return { success: false, error: 'no_matching_result_found' };
+  }
+
+  console.log('[WA Ext] Step 3: Clicking matching result');
+  await sleep(500);
+  result.click();
+  
+  const inner = result.querySelector('div[role="button"]') || result.querySelector('[data-testid="cell-frame-container"]');
+  if (inner) {
+    await sleep(200);
+    inner.click();
   }
   
   const msgInput = await waitForElement(findMessageInput, 5000);
@@ -304,13 +229,9 @@ async function openChat(phoneRaw) {
 async function prepareText(phone, text) {
   const opened = await openChat(phone);
   if (!opened.success) return opened;
-  
-  // 0.5s delay before focusing message input
   await sleep(500);
-  
   const input = await waitForElement(findMessageInput, 3000);
   if (!input) return { success: false, error: 'message_input_not_found' };
-  
   input.focus();
   await sleep(200);
   document.execCommand('selectAll', false, null);
@@ -322,14 +243,11 @@ async function prepareText(phone, text) {
 async function prepareImage(phone, imageDataUrl) {
   const opened = await openChat(phone);
   if (!opened.success) return opened;
-  
   await sleep(500);
   const attach = document.querySelector('[data-testid="attach-menu"]') || document.querySelector('div[title="Anexar"]') || document.querySelector('span[data-icon="plus"]');
   if (!attach) return { success: false, error: 'attach_button_not_found' };
-  
   (attach.closest('button') || attach).click();
-  await sleep(500); // 0.5s delay after clicking attach
-  
+  await sleep(500);
   const input = document.querySelector('input[accept*="image"]');
   if (!input) return { success: false, error: 'image_input_not_found' };
   const blob = await fetch(imageDataUrl).then((r) => r.blob());
