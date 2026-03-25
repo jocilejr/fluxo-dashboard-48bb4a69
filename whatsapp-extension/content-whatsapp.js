@@ -376,11 +376,53 @@ function waitForMessageInput(timeout = 3000) {
   });
 }
 
+function getActiveChatSignature() {
+  const selectors = [
+    '#main header [data-testid="conversation-info-header-chat-title"]',
+    '#main header span[title]',
+    '#main header h1',
+    '#main header [dir="auto"]',
+  ];
+
+  for (const selector of selectors) {
+    const nodes = Array.from(document.querySelectorAll(selector)).filter(isVisible);
+    for (const node of nodes) {
+      const text = (node.textContent || node.getAttribute?.('title') || '').trim();
+      if (text && text.length <= 80) return text;
+    }
+  }
+
+  return '';
+}
+
+function isChatSelectionConfirmed(phone, beforeSignature) {
+  if (isNewChatPanelOpen()) return false;
+
+  const currentSignature = getActiveChatSignature();
+  const digits = currentSignature.replace(/\D/g, '');
+  const last4 = phone.slice(-4);
+
+  const hasPhoneMatch = !!(digits && (digits.includes(phone) || digits.includes(last4)));
+  const changedChat = !!(currentSignature && currentSignature !== beforeSignature);
+
+  return hasPhoneMatch || changedChat;
+}
+
+async function waitForChatSelection(phone, beforeSignature, timeout = 1800) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeout) {
+    if (isChatSelectionConfirmed(phone, beforeSignature)) return true;
+    await sleep(120);
+  }
+  return isChatSelectionConfirmed(phone, beforeSignature);
+}
+
 function cleanPhone(phone) {
   return String(phone || '').replace(/\D/g, '');
 }
 
 async function openResultFromList(phone) {
+  const beforeSignature = getActiveChatSignature();
   const last4 = phone.slice(-4);
   const blocked = [
     'novo grupo',
@@ -429,6 +471,18 @@ async function openResultFromList(phone) {
     })
     .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
 
+  const byPhoneFromLeaf = Array.from(leftPane.querySelectorAll('span, div[title], [aria-label]'))
+    .filter(isVisible)
+    .find((node) => {
+      const text = ((node.textContent || node.getAttribute?.('title') || node.getAttribute?.('aria-label') || '')
+        .toLowerCase())
+        .trim();
+      if (!text) return false;
+      const digits = text.replace(/\D/g, '');
+      return text.includes(phone) || text.includes(last4) || digits.includes(phone) || digits.includes(last4);
+    })
+    ?.closest('[role="button"][data-tab], div[data-tab][tabindex="0"], [role="listitem"], [role="option"], [role="row"], [data-testid*="cell-frame"]');
+
   const byPhone = allNodes.find((node) => {
     const text = (node.textContent || '').toLowerCase();
     const digits = text.replace(/\D/g, '');
@@ -443,7 +497,7 @@ async function openResultFromList(phone) {
     return !blocked.some((b) => text.includes(b));
   }) : null;
 
-  const target = byPhone || firstValid || null;
+  const target = byPhone || byPhoneFromLeaf || firstValid || null;
   if (!target) return false;
 
   const clickTarget =
@@ -498,15 +552,13 @@ async function openResultFromList(phone) {
   clickTarget.scrollIntoView?.({ block: 'center', inline: 'nearest' });
   clickTarget.focus?.();
   fireNativeClick(clickTarget);
-  await sleep(900);
+  if (await waitForChatSelection(phone, beforeSignature, 1200)) return true;
 
-  if (!findMessageInput()) {
-    fireNativeClick(clickTarget);
-    await sleep(500);
-  }
+  fireNativeClick(clickTarget);
+  if (await waitForChatSelection(phone, beforeSignature, 900)) return true;
 
   // Try clicking multiple points inside the card area
-  if (!findMessageInput()) {
+  if (!(await waitForChatSelection(phone, beforeSignature, 400))) {
     const rect = clickTarget.getBoundingClientRect();
     const points = [
       { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.5 },
@@ -531,16 +583,15 @@ async function openResultFromList(phone) {
           candidate.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: pt.x, clientY: pt.y }));
           candidate.click?.();
           console.log('[WA Ext] Clicked candidate:', candidate.tagName, candidate.getAttribute?.('data-testid'), 'size:', r.width, 'x', r.height);
-          await sleep(600);
-          if (findMessageInput()) break;
+          if (await waitForChatSelection(phone, beforeSignature, 900)) break;
         }
         candidate = candidate.parentElement;
       }
-      if (findMessageInput()) break;
+      if (await waitForChatSelection(phone, beforeSignature, 600)) break;
     }
   }
 
-  return !!findMessageInput();
+  return waitForChatSelection(phone, beforeSignature, 800);
 }
 
 // ============================================
