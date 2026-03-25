@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Origem Viva - WhatsApp Dashboard",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Dashboard de leads integrado ao WhatsApp Web",
   "permissions": [
     "activeTab",
@@ -12,10 +12,19 @@
     "https://web.whatsapp.com/*",
     "https://suaznqybxvborpkrtdpm.supabase.co/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://web.whatsapp.com/*"],
-      "js": ["content.js"],
+      "js": ["inject-store.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content-whatsapp.js"],
       "css": ["styles.css"],
       "run_at": "document_idle"
     }
