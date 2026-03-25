@@ -79,11 +79,15 @@ function waitForElement(finder, timeout = 3000) {
 
 async function typeInEditable(el, text) {
   if (!el) return;
-  el.focus();
-  el.click();
-  await sleep(50);
 
-  // Clear existing content
+  // Step A: Click to activate the input field (enter typing mode)
+  el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  el.focus();
+  await sleep(200);
+
+  // Step B: Clear existing content
   try {
     const sel = window.getSelection();
     const range = document.createRange();
@@ -94,9 +98,9 @@ async function typeInEditable(el, text) {
   } catch (_) {}
   el.textContent = '';
   el.dispatchEvent(new Event('input', { bubbles: true }));
-  await sleep(50);
+  await sleep(100);
 
-  // Type via execCommand
+  // Step C: Place cursor and type
   el.focus();
   try {
     const range = document.createRange();
@@ -109,7 +113,6 @@ async function typeInEditable(el, text) {
   if (document.execCommand('insertText', false, text)) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
   } else {
-    // Fallback: character by character
     for (const ch of text) {
       document.execCommand('insertText', false, ch);
       el.dispatchEvent(new Event('input', { bubbles: true }));
