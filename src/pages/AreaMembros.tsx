@@ -48,9 +48,24 @@ function MemberProductsTab() {
         query = query.ilike("normalized_phone", `%${digits}%`);
       }
 
-      const { data, error } = await query.limit(100);
-      if (error) throw error;
-      return data || [];
+      // Paginate to fetch ALL member products (no arbitrary limit)
+      const allData: any[] = [];
+      const pageSize = 1000;
+      let from = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await query.range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allData.push(...data);
+          from += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      return allData;
     },
   });
 
