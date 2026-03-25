@@ -505,25 +505,41 @@ async function openResultFromList(phone) {
     await sleep(500);
   }
 
-  if (!findMessageInput() && searchInput) {
-    searchInput.focus?.();
-    dispatchKey(searchInput, 'ArrowDown');
-    await sleep(120);
-    dispatchKey(clickTarget, 'Enter');
-    dispatchKey(searchInput, 'Enter');
-    await sleep(700);
+  // Try clicking multiple points inside the card area
+  if (!findMessageInput()) {
+    const rect = clickTarget.getBoundingClientRect();
+    const points = [
+      { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.5 },
+      { x: rect.left + rect.width * 0.3, y: rect.top + rect.height * 0.5 },
+      { x: rect.left + rect.width * 0.7, y: rect.top + rect.height * 0.5 },
+      { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.3 },
+      { x: rect.left + rect.width * 0.5, y: rect.top + rect.height * 0.7 },
+    ];
+    for (const pt of points) {
+      const hitEl = document.elementFromPoint(pt.x, pt.y);
+      if (!hitEl) continue;
+      console.log('[WA Ext] Hit element at point:', hitEl.tagName, hitEl.className?.slice?.(0, 40));
+      // Walk up to find clickable ancestor
+      let candidate = hitEl;
+      for (let i = 0; i < 8 && candidate && candidate !== document.body; i++) {
+        const r = candidate.getBoundingClientRect();
+        if (r.height >= 40 && r.height <= 120 && r.width > 100) {
+          candidate.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', clientX: pt.x, clientY: pt.y }));
+          candidate.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'mouse', clientX: pt.x, clientY: pt.y }));
+          candidate.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, clientX: pt.x, clientY: pt.y }));
+          candidate.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window, clientX: pt.x, clientY: pt.y }));
+          candidate.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: pt.x, clientY: pt.y }));
+          candidate.click?.();
+          console.log('[WA Ext] Clicked candidate:', candidate.tagName, candidate.getAttribute?.('data-testid'), 'size:', r.width, 'x', r.height);
+          await sleep(600);
+          if (findMessageInput()) break;
+        }
+        candidate = candidate.parentElement;
+      }
+      if (findMessageInput()) break;
+    }
   }
 
-  return !!findMessageInput();
-}
-
-async function openFirstResultWithKeyboard(searchInput) {
-  if (!searchInput) return false;
-  searchInput.focus?.();
-  dispatchKey(searchInput, 'ArrowDown');
-  await sleep(120);
-  dispatchKey(searchInput, 'Enter');
-  await sleep(700);
   return !!findMessageInput();
 }
 
@@ -566,20 +582,7 @@ async function openChatViaDOM(phone) {
   }
   await sleep(1200);
 
-  // try enter first (WhatsApp often opens first match)
-  dispatchKey(input, 'Enter');
-  await sleep(700);
-
-  if (findMessageInput()) {
-    return { success: true, method: 'dom-enter' };
-  }
-
-  const keyboardOpened = await openFirstResultWithKeyboard(input);
-  if (keyboardOpened) {
-    return { success: true, method: 'dom-arrow-enter' };
-  }
-
-  // fallback: click matched result
+  // click matched result
   const clicked = await openResultFromList(phone);
   if (clicked) {
     return { success: true, method: 'dom-click' };
