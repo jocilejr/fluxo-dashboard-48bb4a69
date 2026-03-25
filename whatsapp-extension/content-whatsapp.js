@@ -71,6 +71,10 @@ function dispatchKey(el, key) {
   el.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
 }
 
+function getEditableText(el) {
+  return (el?.innerText || el?.textContent || '').replace(/\u200b/g, '').trim();
+}
+
 function getVisibleSearchInput() {
   const candidates = Array.from(document.querySelectorAll('div[contenteditable="true"][role="textbox"], div[contenteditable="true"]'));
 
@@ -154,47 +158,63 @@ async function ensureSearchInputOpen() {
 }
 
 async function insertTextInEditable(el, text) {
-  el.focus();
-  await sleep(60);
+  const finalText = String(text || '');
 
-  // clear current text
-  try {
-    document.execCommand('selectAll', false);
-    document.execCommand('delete', false);
-  } catch (_) {
+  const clearEditable = () => {
+    el.focus();
+    try {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      document.execCommand('delete', false);
+    } catch (_) {}
     el.textContent = '';
-  }
+    dispatchInput(el, '');
+  };
 
-  await sleep(60);
+  const setCaretToEnd = () => {
+    try {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } catch (_) {}
+  };
 
-  const lines = String(text || '').split('\n');
-  let usedExec = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    if (line) {
+  const typeByExecCommand = async () => {
+    for (const ch of finalText) {
       try {
-        const ok = document.execCommand('insertText', false, line);
-        usedExec = usedExec || ok;
-      } catch (_) {}
-    }
-
-    if (i < lines.length - 1) {
-      try {
-        document.execCommand('insertLineBreak', false);
+        document.execCommand('insertText', false, ch);
       } catch (_) {
-        el.appendChild(document.createElement('br'));
+        el.textContent = `${getEditableText(el)}${ch}`;
       }
+      dispatchInput(el, ch);
+      await sleep(8);
+    }
+  };
+
+  clearEditable();
+  await sleep(60);
+  setCaretToEnd();
+  await typeByExecCommand();
+
+  const typed = getEditableText(el);
+  if (finalText && !typed.includes(finalText.slice(0, Math.min(6, finalText.length)))) {
+    clearEditable();
+    await sleep(60);
+    el.textContent = finalText;
+    dispatchInput(el, finalText);
+    await sleep(40);
+    for (const ch of finalText) {
+      dispatchKey(el, ch);
     }
   }
 
-  if (!usedExec) {
-    el.textContent = text;
-  }
-
-  dispatchInput(el, text);
-  await sleep(120);
+  await sleep(160);
 }
 
 function findMessageInput() {
@@ -307,6 +327,10 @@ async function openChatViaDOM(phone) {
   }
 
   await insertTextInEditable(input, phone);
+  const typedText = getEditableText(input);
+  if (!typedText.includes(phone.slice(-4))) {
+    await insertTextInEditable(input, phone);
+  }
   await sleep(600);
 
   // try enter first (WhatsApp often opens first match)
