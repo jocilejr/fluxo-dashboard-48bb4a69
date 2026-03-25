@@ -1,365 +1,415 @@
-// Content Script — WhatsApp Web (headless bridge)
-// No UI, no sidebar. Just command handling.
+// Content Script - WhatsApp Web
+// Headless bridge only (no UI/sidebar)
 
-console.log('[WA Ext] Content script loaded');
+console.log('[WA Ext] Content script carregado');
 
 const CONFIG = {
-  VERSION: '4.0.0',
+  VERSION: '4.1.0',
   API_URL: 'https://suaznqybxvborpkrtdpm.supabase.co/rest/v1',
-  API_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1YXpucXlieHZib3Jwa3J0ZHBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2ODk5MjgsImV4cCI6MjA4MDI2NTkyOH0.2NXt5eOqM6wCTmlNFpP5H8VxLdVBuarFUwphWbq9kQA'
+  API_KEY:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1YXpucXlieHZib3Jwa3J0ZHBtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2ODk5MjgsImV4cCI6MjA4MDI2NTkyOH0.2NXt5eOqM6wCTmlNFpP5H8VxLdVBuarFUwphWbq9kQA',
 };
 
 chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' });
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ============================================
-// WSTORE BRIDGE (content → MAIN world)
+// WStore bridge (MAIN world)
 // ============================================
 let wstoreReady = false;
-window.addEventListener('WStoreReady', () => {
-  wstoreReady = true;
-  console.log('[WA Ext] WStore ready');
+window.addEventListener('WStoreReady', (event) => {
+  const modules = event.detail?.modules || [];
+  const ready = event.detail?.ready === true && modules.length > 0;
+  wstoreReady = ready;
+  console.log('[WA Ext] WStore status:', { ready, modules });
 });
 
 function callWStore(method, args) {
   return new Promise((resolve) => {
-    const callId = 'wsc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-    const handler = (e) => {
-      if (e.detail?.callId === callId) {
-        window.removeEventListener('WStoreResponse', handler);
-        resolve(e.detail.result);
-      }
+    const callId = `wsc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const handler = (event) => {
+      if (event.detail?.callId !== callId) return;
+      window.removeEventListener('WStoreResponse', handler);
+      resolve(event.detail?.result || { success: false, error: 'Sem resultado do WStore' });
     };
+
     window.addEventListener('WStoreResponse', handler);
+
     setTimeout(() => {
       window.removeEventListener('WStoreResponse', handler);
-      resolve({ success: false, error: 'WStore call timeout' });
+      resolve({ success: false, error: 'WStore timeout' });
     }, 10000);
-    window.dispatchEvent(new CustomEvent('WStoreCall', { detail: { callId, method, args } }));
+
+    window.dispatchEvent(
+      new CustomEvent('WStoreCall', {
+        detail: { callId, method, args },
+      })
+    );
   });
 }
 
 // ============================================
-// DOM HELPERS — resilient, no fixed data-tab
+// DOM helpers
 // ============================================
+function isVisible(el) {
+  return !!el && el.offsetParent !== null;
+}
 
-// Wait for element using MutationObserver (much more reliable than polling)
-function waitForNewElement(parentSelector, matchFn, timeout = 5000) {
+function dispatchInput(el, data = '') {
+  try {
+    el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data }));
+  } catch (_) {
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+function dispatchKey(el, key) {
+  el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keypress', { key, bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+}
+
+function getVisibleSearchInput() {
+  const candidates = Array.from(document.querySelectorAll('div[contenteditable="true"][role="textbox"], div[contenteditable="true"]'));
+
+  return candidates.find((el) => {
+    if (!isVisible(el)) return false;
+    if (el.closest('footer')) return false; // message composer
+
+    const rect = el.getBoundingClientRect();
+    if (rect.left > window.innerWidth * 0.65) return false; // search box should be on left pane
+
+    const title = (el.getAttribute('title') || '').toLowerCase();
+    const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+    const testid = (el.closest('[data-testid]')?.getAttribute('data-testid') || '').toLowerCase();
+
+    if (
+      title.includes('pesquis') ||
+      title.includes('search') ||
+      aria.includes('pesquis') ||
+      aria.includes('search') ||
+      testid.includes('chat-list-search')
+    ) {
+      return true;
+    }
+
+    // fallback for new chat panel: top-left textbox, not footer
+    return rect.top < window.innerHeight * 0.35;
+  }) || null;
+}
+
+function findSearchButton() {
+  const direct = document.querySelector(
+    '[data-testid="chat-list-search"], button[aria-label*="Nova conversa"], button[aria-label*="New chat"], button[aria-label*="Search"], button[aria-label*="Pesquisar"]'
+  );
+  if (direct) return direct.closest('button') || direct;
+
+  const icon = document.querySelector('span[data-icon="new-chat-outline"], span[data-icon="search"], span[data-icon="search-refreshed"]');
+  if (icon) return icon.closest('button') || icon.closest('[role="button"]') || icon;
+
+  return null;
+}
+
+function waitForSearchInput(timeout = 4000) {
   return new Promise((resolve) => {
-    const parent = document.querySelector(parentSelector) || document.body;
+    const existing = getVisibleSearchInput();
+    if (existing) {
+      resolve(existing);
+      return;
+    }
 
-    // Check if already exists
-    const existing = matchFn(parent);
-    if (existing) { resolve(existing); return; }
-
-    let resolved = false;
+    let done = false;
     const observer = new MutationObserver(() => {
-      if (resolved) return;
-      const el = matchFn(parent);
-      if (el) {
-        resolved = true;
-        observer.disconnect();
-        resolve(el);
-      }
+      if (done) return;
+      const input = getVisibleSearchInput();
+      if (!input) return;
+      done = true;
+      observer.disconnect();
+      resolve(input);
     });
 
-    observer.observe(parent, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
 
     setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        observer.disconnect();
-        resolve(null);
-      }
+      if (done) return;
+      done = true;
+      observer.disconnect();
+      resolve(null);
     }, timeout);
   });
 }
 
-// Find element from a list of selectors
-function findElement(selectors) {
-  for (const sel of selectors) {
-    try {
-      const el = document.querySelector(sel);
-      if (el) return el;
-    } catch (_) {}
+async function ensureSearchInputOpen() {
+  const alreadyVisible = getVisibleSearchInput();
+  if (alreadyVisible) return alreadyVisible;
+
+  const btn = findSearchButton();
+  if (!btn) return null;
+
+  btn.click();
+  await sleep(250);
+  return waitForSearchInput(4500);
+}
+
+async function insertTextInEditable(el, text) {
+  el.focus();
+  await sleep(60);
+
+  // clear current text
+  try {
+    document.execCommand('selectAll', false);
+    document.execCommand('delete', false);
+  } catch (_) {
+    el.textContent = '';
   }
-  return null;
-}
 
-async function simulateTyping(el, text) {
-  el.focus();
-  await sleep(100);
-  el.textContent = '';
-  document.execCommand('insertText', false, text);
-  el.dispatchEvent(new InputEvent('input', { bubbles: true }));
-  await sleep(200);
-}
+  await sleep(60);
 
-async function simulateTypingWithBreaks(el, text) {
-  el.focus();
-  await sleep(100);
-  el.textContent = '';
-  const lines = text.split('\n');
+  const lines = String(text || '').split('\n');
+  let usedExec = false;
+
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i]) document.execCommand('insertText', false, lines[i]);
-    if (i < lines.length - 1) document.execCommand('insertLineBreak');
-  }
-  el.dispatchEvent(new InputEvent('input', { bubbles: true }));
-  await sleep(200);
-}
+    const line = lines[i];
 
-// ============================================
-// FIND SEARCH BUTTON — multiple strategies
-// ============================================
-function findSearchButton() {
-  // Strategy 1: data-testid
-  const byTestId = findElement([
-    '[data-testid="chat-list-search"]',
-    '[data-testid="search"]',
-  ]);
-  if (byTestId) return byTestId;
-
-  // Strategy 2: known button selectors
-  const bySelector = findElement([
-    'button[aria-label*="pesquis"]',
-    'button[aria-label*="search"]',
-    'button[aria-label*="Pesquis"]',
-    'button[aria-label*="Search"]',
-    'button[aria-label="Nova conversa"]',
-    'button[aria-label="New chat"]',
-    'span[data-icon="new-chat-outline"]',
-  ]);
-  if (bySelector) {
-    return bySelector.closest('button') || bySelector;
-  }
-
-  // Strategy 3: find SVG search icon inside a clickable element
-  const searchPaths = document.querySelectorAll('header svg path, [data-testid="chatlist-header"] svg path');
-  for (const path of searchPaths) {
-    const btn = path.closest('button') || path.closest('[role="button"]') || path.closest('div[tabindex]');
-    if (btn) return btn;
-  }
-
-  return null;
-}
-
-// ============================================
-// FIND SEARCH INPUT — MutationObserver based
-// ============================================
-async function findSearchInput() {
-  // Try immediate match first
-  const immediate = findElement([
-    '[data-testid="chat-list-search"] [contenteditable="true"]',
-    'div[contenteditable="true"][role="textbox"][title*="esquis"]',
-    'div[contenteditable="true"][role="textbox"][title*="earch"]',
-    'div[contenteditable="true"][data-tab="3"]',
-    'div[contenteditable="true"][data-tab="2"]',
-  ]);
-  if (immediate) return immediate;
-
-  // Use MutationObserver to detect any new contenteditable that appears
-  return waitForNewElement('body', (parent) => {
-    // Find all visible contenteditable textboxes
-    const candidates = parent.querySelectorAll('div[contenteditable="true"][role="textbox"]');
-    for (const c of candidates) {
-      // Skip the message compose box (usually inside footer or has data-tab="10")
-      if (c.closest('footer')) continue;
-      if (c.dataset.tab === '10' || c.dataset.tab === '6') continue;
-      // Must be visible
-      if (c.offsetParent !== null) return c;
+    if (line) {
+      try {
+        const ok = document.execCommand('insertText', false, line);
+        usedExec = usedExec || ok;
+      } catch (_) {}
     }
-    // Broader: any contenteditable not in footer
-    const broader = parent.querySelectorAll('div[contenteditable="true"]');
-    for (const c of broader) {
-      if (c.closest('footer')) continue;
-      if (c.dataset.tab === '10' || c.dataset.tab === '6') continue;
-      if (c.offsetParent !== null && c.closest('[data-testid]')) return c;
+
+    if (i < lines.length - 1) {
+      try {
+        document.execCommand('insertLineBreak', false);
+      } catch (_) {
+        el.appendChild(document.createElement('br'));
+      }
     }
-    return null;
-  }, 4000);
+  }
+
+  if (!usedExec) {
+    el.textContent = text;
+  }
+
+  dispatchInput(el, text);
+  await sleep(120);
 }
 
-// ============================================
-// FIND MESSAGE INPUT
-// ============================================
 function findMessageInput() {
-  return findElement([
+  const candidates = [
     '[data-testid="conversation-compose-box-input"]',
     'footer div[contenteditable="true"][role="textbox"]',
     'footer div[contenteditable="true"]',
     'div[contenteditable="true"][data-tab="10"]',
     'div[contenteditable="true"][data-tab="6"]',
-    'div[title="Digite uma mensagem"]',
-    'div[title="Type a message"]',
-  ]);
+  ];
+
+  for (const selector of candidates) {
+    const el = document.querySelector(selector);
+    if (isVisible(el)) return el;
+  }
+  return null;
+}
+
+function waitForMessageInput(timeout = 3000) {
+  return new Promise((resolve) => {
+    const existing = findMessageInput();
+    if (existing) {
+      resolve(existing);
+      return;
+    }
+
+    let done = false;
+    const observer = new MutationObserver(() => {
+      if (done) return;
+      const input = findMessageInput();
+      if (!input) return;
+      done = true;
+      observer.disconnect();
+      resolve(input);
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      observer.disconnect();
+      resolve(null);
+    }, timeout);
+  });
+}
+
+function cleanPhone(phone) {
+  return String(phone || '').replace(/\D/g, '');
+}
+
+async function openResultFromList(phone) {
+  const last4 = phone.slice(-4);
+  const blocked = ['novo grupo', 'novo contato', 'nova comunidade', 'new group', 'new contact', 'new community'];
+
+  const selectors = [
+    '[data-testid="cell-frame-container"]',
+    '[data-testid="chat-cell-frame-container"]',
+    '[role="listitem"]',
+    '[data-testid="search-result"]',
+  ];
+
+  const nodes = Array.from(document.querySelectorAll(selectors.join(','))).filter(isVisible);
+
+  const byPhone = nodes.find((node) => {
+    const text = (node.textContent || '').toLowerCase();
+    if (!text) return false;
+    if (blocked.some((b) => text.includes(b))) return false;
+    return text.includes(last4) || text.includes(phone);
+  });
+
+  const target = byPhone || null;
+  if (!target) return false;
+
+  (target.closest('[role="listitem"]') || target).click();
+  await sleep(500);
+  return !!findMessageInput();
 }
 
 // ============================================
-// OPEN CHAT — 3 layers
+// openChat (3 layers)
 // ============================================
-async function openChat(phone) {
-  console.log('[WA Ext] openChat:', phone, 'wstore:', wstoreReady);
+async function openChat(phoneRaw) {
+  const phone = cleanPhone(phoneRaw);
+  if (!phone) return { success: false, error: 'Telefone inválido' };
 
-  // === Layer 1: WStore API ===
+  console.log('[WA Ext] openChat:', phone, 'wstoreReady:', wstoreReady);
+
+  // Layer 1: internal Store API
   if (wstoreReady) {
-    const result = await callWStore('openChat', [phone]);
-    if (result?.success) {
-      console.log('[WA Ext] ✓ Opened via Store:', result.method);
+    const storeResult = await callWStore('openChat', [phone]);
+    if (storeResult?.success) {
       return { success: true, method: 'store' };
     }
-    console.warn('[WA Ext] Store failed:', result?.error);
+    console.warn('[WA Ext] Store falhou:', storeResult?.error);
   }
 
-  // === Layer 2: DOM fallback (resilient) ===
-  console.log('[WA Ext] Trying DOM fallback...');
+  // Layer 2: resilient DOM flow
   const domResult = await openChatViaDOM(phone);
   if (domResult.success) return domResult;
 
-  // === Layer 3: SPA navigation fallback ===
-  console.log('[WA Ext] Trying SPA navigation...');
+  // Layer 3: SPA route fallback
   return openChatViaSPA(phone);
 }
 
 async function openChatViaDOM(phone) {
-  // Step 1: Click search/new-chat button
-  const searchBtn = findSearchButton();
-  if (!searchBtn) {
-    console.warn('[WA Ext] Search button not found');
-    return { success: false, error: 'Search button not found' };
+  const input = await ensureSearchInputOpen();
+  if (!input) {
+    return { success: false, error: 'Input de busca não encontrado' };
   }
 
-  searchBtn.click();
-  await sleep(500);
+  await insertTextInEditable(input, phone);
+  await sleep(600);
 
-  // Step 2: Find and fill search input
-  const searchInput = await findSearchInput();
-  if (!searchInput) {
-    console.warn('[WA Ext] Search input not found');
-    return { success: false, error: 'Search input not found' };
+  // try enter first (WhatsApp often opens first match)
+  dispatchKey(input, 'Enter');
+  await sleep(700);
+
+  if (findMessageInput()) {
+    return { success: true, method: 'dom-enter' };
   }
 
-  await simulateTyping(searchInput, phone);
-  await sleep(1000);
-
-  // Step 3: Click on the first contact result
-  const contact = await waitForNewElement('body', (parent) => {
-    // Look for contact list items
-    const items = parent.querySelectorAll([
-      '[data-testid="cell-frame-container"]',
-      '[data-testid="chat-cell-frame-container"]',
-      '[role="listitem"]',
-      '[data-testid="search-result"]',
-    ].join(','));
-
-    for (const item of items) {
-      // Check if it contains the phone number (last 4 digits match)
-      const text = item.textContent || '';
-      const last4 = phone.slice(-4);
-      if (text.includes(last4) || items.length === 1) {
-        return item;
-      }
-    }
-    // If there are results, click the first one
-    if (items.length > 0) return items[0];
-    return null;
-  }, 3000);
-
-  if (contact) {
-    const clickTarget = contact.closest('[role="listitem"]') || contact;
-    clickTarget.click();
-    await sleep(500);
-    console.log('[WA Ext] ✓ Opened via DOM');
-    return { success: true, method: 'dom' };
+  // fallback: click matched result
+  const clicked = await openResultFromList(phone);
+  if (clicked) {
+    return { success: true, method: 'dom-click' };
   }
 
-  return { success: false, error: 'Contact not found in search' };
+  return { success: false, error: 'Contato não encontrado após digitação' };
 }
 
 function openChatViaSPA(phone) {
   try {
-    // Use WhatsApp Web's internal routing
-    const url = `/send?phone=${phone}`;
-    const currentUrl = window.location.pathname + window.location.search;
-    
-    // Push state and trigger popstate for SPA routing
-    window.history.pushState({}, '', url);
+    const targetPath = `/send?phone=${phone}`;
+    history.pushState({}, '', targetPath);
     window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
-    
-    console.log('[WA Ext] ✓ SPA navigation triggered');
     return { success: true, method: 'spa' };
-  } catch (e) {
-    console.warn('[WA Ext] SPA navigation failed:', e.message);
-    return { success: false, error: e.message };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 }
 
-// ============================================
-// PREPARE TEXT / IMAGE
-// ============================================
 async function prepareText(phone, text) {
-  const openResult = await openChat(phone);
-  if (!openResult.success) return openResult;
-  await sleep(600);
+  const opened = await openChat(phone);
+  if (!opened.success) return opened;
 
-  // Wait for message input to appear
-  const input = await waitForNewElement('body', () => findMessageInput(), 3000);
-  if (!input) return { success: false, error: 'Message input not found' };
+  const input = await waitForMessageInput(3500);
+  if (!input) return { success: false, error: 'Campo de mensagem não encontrado' };
 
-  await simulateTypingWithBreaks(input, text);
+  await insertTextInEditable(input, text || '');
   return { success: true };
 }
 
 async function prepareImage(phone, imageDataUrl) {
-  const openResult = await openChat(phone);
-  if (!openResult.success) return openResult;
-  await sleep(600);
+  const opened = await openChat(phone);
+  if (!opened.success) return opened;
 
-  const attachBtn = findElement([
-    '[data-testid="attach-menu"]',
-    'div[title="Anexar"]',
-    'div[title="Attach"]',
-    'span[data-icon="plus"]',
-    'span[data-icon="attach-menu-plus"]',
-  ]);
-  if (!attachBtn) return { success: false, error: 'Attach button not found' };
+  await sleep(500);
 
-  (attachBtn.closest('button') || attachBtn).click();
-  await sleep(300);
+  const attach =
+    document.querySelector('[data-testid="attach-menu"]') ||
+    document.querySelector('div[title="Anexar"]') ||
+    document.querySelector('div[title="Attach"]') ||
+    document.querySelector('span[data-icon="plus"]') ||
+    document.querySelector('span[data-icon="attach-menu-plus"]');
 
-  const imgInput = await waitForNewElement('body', (p) => p.querySelector('input[accept*="image"]'), 2000);
-  if (!imgInput) return { success: false, error: 'Image input not found' };
+  if (!attach) return { success: false, error: 'Botão de anexo não encontrado' };
 
-  const blob = await fetch(imageDataUrl).then(r => r.blob());
+  (attach.closest('button') || attach).click();
+  await sleep(250);
+
+  const input = document.querySelector('input[accept*="image"]');
+  if (!input) return { success: false, error: 'Input de imagem não encontrado' };
+
+  const blob = await fetch(imageDataUrl).then((r) => r.blob());
   const file = new File([blob], 'boleto.jpg', { type: 'image/jpeg' });
+
   const dt = new DataTransfer();
   dt.items.add(file);
-  imgInput.files = dt.files;
-  imgInput.dispatchEvent(new Event('change', { bubbles: true }));
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
 
   return { success: true };
 }
 
 // ============================================
-// COMMAND LISTENER
+// Background command listener
 // ============================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('[WA Ext] Command:', message.type);
+  console.log('[WA Ext] Comando:', message.type, message);
 
   if (message.type === 'OPEN_CHAT') {
     const phone = message.phone || message.phoneNumber || message.number;
-    if (!phone) { sendResponse({ success: false, error: 'No phone' }); return true; }
-    openChat(phone).then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
+    if (!phone) {
+      sendResponse({ success: false, error: 'Telefone ausente em OPEN_CHAT' });
+      return true;
+    }
+
+    openChat(phone)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
   }
 
   if (message.type === 'SEND_TEXT') {
-    prepareText(message.phone, message.text).then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
+    prepareText(message.phone, message.text)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
   }
 
   if (message.type === 'SEND_IMAGE') {
-    prepareImage(message.phone, message.imageUrl).then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
+    prepareImage(message.phone, message.imageUrl)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
     return true;
   }
 
