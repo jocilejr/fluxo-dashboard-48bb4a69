@@ -382,7 +382,19 @@ function cleanPhone(phone) {
 
 async function openResultFromList(phone) {
   const last4 = phone.slice(-4);
-  const blocked = ['novo grupo', 'novo contato', 'nova comunidade', 'new group', 'new contact', 'new community'];
+  const blocked = [
+    'novo grupo',
+    'novo contato',
+    'nova comunidade',
+    'new group',
+    'new contact',
+    'new community',
+    'não está na sua lista de contatos',
+    'not in your contacts',
+  ];
+
+  const searchInput = getVisibleSearchInput({ requireNewChat: true }) || getVisibleSearchInput();
+  const searchBottom = searchInput?.getBoundingClientRect()?.bottom || 0;
 
   const selectors = [
     '[data-testid="cell-frame-container"]',
@@ -390,6 +402,7 @@ async function openResultFromList(phone) {
     '[data-testid="contact-list-item"]',
     '[data-testid="search-result"]',
     '[data-testid="chatlist-panel-row"]',
+    '[data-testid*="cell-frame"]',
     '[role="listitem"]',
     '[role="button"][data-tab]',
     'div[data-tab][tabindex="0"]',
@@ -399,27 +412,31 @@ async function openResultFromList(phone) {
   ];
 
   const leftPane = document.querySelector('#pane-side') || document.querySelector('[data-testid="chatlist-panel"]') || document.body;
-  const nodes = Array.from(leftPane.querySelectorAll(selectors.join(','))).filter(isVisible);
 
-  // Also try broader: any clickable row in the left side that contains the phone
-  const broadNodes = nodes.length > 0 ? nodes : Array.from(
-    document.querySelectorAll('div[role="listitem"], div[role="option"], div[role="row"], div[tabindex="-1"]')
-  ).filter((el) => {
-    if (!isVisible(el)) return false;
-    const rect = el.getBoundingClientRect();
-    return rect.left < window.innerWidth * 0.5 && rect.height > 30 && rect.height < 120;
-  });
+  const rawNodes = Array.from(leftPane.querySelectorAll(selectors.join(',')));
+  const broadNodes = rawNodes.length > 0
+    ? rawNodes
+    : Array.from(document.querySelectorAll('div[role="listitem"], div[role="option"], div[role="row"], div[tabindex="-1"]'));
 
-  const allNodes = nodes.length > 0 ? nodes : broadNodes;
+  const allNodes = broadNodes
+    .filter((el) => {
+      if (!isVisible(el)) return false;
+      const rect = el.getBoundingClientRect();
+      if (rect.left > window.innerWidth * 0.65) return false;
+      if (rect.top < searchBottom - 4) return false;
+      if (rect.height < 30 || rect.height > 180) return false;
+      return rect.width > 120;
+    })
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
 
   const byPhone = allNodes.find((node) => {
     const text = (node.textContent || '').toLowerCase();
+    const digits = text.replace(/\D/g, '');
     if (!text) return false;
     if (blocked.some((b) => text.includes(b))) return false;
-    return text.includes(last4) || text.includes(phone);
+    return text.includes(last4) || text.includes(phone) || digits.includes(last4) || digits.includes(phone);
   });
 
-  // If no match by phone, pick first non-blocked result
   const firstValid = !byPhone ? allNodes.find((node) => {
     const text = (node.textContent || '').toLowerCase();
     if (!text || text.length < 3) return false;
@@ -435,32 +452,78 @@ async function openResultFromList(phone) {
     target.closest('[role="listitem"]') ||
     target.closest('[role="option"]') ||
     target.closest('[role="row"]') ||
+    target.querySelector('[role="button"][data-tab], div[data-tab][tabindex="0"], [role="listitem"], [role="option"], [role="row"], button, [tabindex="0"], [tabindex="-1"]') ||
     target;
 
   const fireNativeClick = (el) => {
-    const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
-    for (const type of events) {
-      el.dispatchEvent(
+    const rect = el.getBoundingClientRect();
+    const clientX = rect.left + Math.max(8, Math.min(rect.width - 8, rect.width / 2));
+    const clientY = rect.top + Math.max(8, Math.min(rect.height - 8, rect.height / 2));
+    const realTarget =
+      document
+        .elementFromPoint(clientX, clientY)
+        ?.closest('[role="button"], [role="listitem"], [role="option"], [role="row"], div[data-tab], button, [tabindex]') || el;
+
+    if (typeof PointerEvent !== 'undefined') {
+      for (const type of ['pointerdown', 'pointerup']) {
+        realTarget.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            pointerId: 1,
+            pointerType: 'mouse',
+            clientX,
+            clientY,
+          })
+        );
+      }
+    }
+
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+      realTarget.dispatchEvent(
         new MouseEvent(type, {
           bubbles: true,
           cancelable: true,
           view: window,
+          clientX,
+          clientY,
         })
       );
     }
+
+    realTarget.click?.();
   };
 
   console.log('[WA Ext] Clicking result:', clickTarget.textContent?.slice(0, 60));
+  clickTarget.scrollIntoView?.({ block: 'center', inline: 'nearest' });
   clickTarget.focus?.();
   fireNativeClick(clickTarget);
-  clickTarget.click();
   await sleep(900);
 
   if (!findMessageInput()) {
-    dispatchKey(clickTarget, 'Enter');
-    await sleep(600);
+    fireNativeClick(clickTarget);
+    await sleep(500);
   }
 
+  if (!findMessageInput() && searchInput) {
+    searchInput.focus?.();
+    dispatchKey(searchInput, 'ArrowDown');
+    await sleep(120);
+    dispatchKey(clickTarget, 'Enter');
+    dispatchKey(searchInput, 'Enter');
+    await sleep(700);
+  }
+
+  return !!findMessageInput();
+}
+
+async function openFirstResultWithKeyboard(searchInput) {
+  if (!searchInput) return false;
+  searchInput.focus?.();
+  dispatchKey(searchInput, 'ArrowDown');
+  await sleep(120);
+  dispatchKey(searchInput, 'Enter');
+  await sleep(700);
   return !!findMessageInput();
 }
 
@@ -511,6 +574,11 @@ async function openChatViaDOM(phone) {
     return { success: true, method: 'dom-enter' };
   }
 
+  const keyboardOpened = await openFirstResultWithKeyboard(input);
+  if (keyboardOpened) {
+    return { success: true, method: 'dom-arrow-enter' };
+  }
+
   // fallback: click matched result
   const clicked = await openResultFromList(phone);
   if (clicked) {
@@ -527,12 +595,16 @@ async function openChatViaDOM(phone) {
   return { success: false, error: 'Contato não encontrado após digitação' };
 }
 
-function openChatViaSPA(phone) {
+async function openChatViaSPA(phone) {
   try {
     const targetPath = `/send?phone=${phone}`;
     history.pushState({}, '', targetPath);
     window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
-    return { success: true, method: 'spa' };
+    await sleep(900);
+    if (findMessageInput()) {
+      return { success: true, method: 'spa' };
+    }
+    return { success: false, error: 'SPA abriu rota, mas não abriu a conversa' };
   } catch (error) {
     return { success: false, error: error.message };
   }
