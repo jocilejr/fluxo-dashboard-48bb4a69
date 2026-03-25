@@ -89,7 +89,23 @@ function getEditableText(el) {
   return (el?.innerText || el?.textContent || '').replace(/\u200b/g, '').trim();
 }
 
-function getVisibleSearchInput() {
+function hasAnyTerm(text, terms) {
+  const value = String(text || '').toLowerCase();
+  return terms.some((term) => value.includes(term));
+}
+
+function isNewChatPanelOpen() {
+  const markers = ['nova conversa', 'new chat', 'novo grupo', 'new group', 'novo contato', 'new contact'];
+  const nodes = Array.from(document.querySelectorAll('h1, h2, span, div')).filter(isVisible);
+  return nodes.some((node) => {
+    const text = (node.textContent || '').trim().toLowerCase();
+    if (!text || text.length > 40) return false;
+    return markers.some((marker) => text === marker || text.includes(marker));
+  });
+}
+
+function getVisibleSearchInput(options = {}) {
+  const requireNewChat = options.requireNewChat === true;
   const candidates = Array.from(
     document.querySelectorAll(
       [
@@ -114,20 +130,17 @@ function getVisibleSearchInput() {
     const aria = (el.getAttribute('aria-label') || '').toLowerCase();
     const placeholder = (el.getAttribute('placeholder') || '').toLowerCase();
     const testid = (el.closest('[data-testid]')?.getAttribute('data-testid') || '').toLowerCase();
+    const combined = `${title} ${aria} ${placeholder} ${testid}`;
+    const isSearchField = hasAnyTerm(combined, ['pesquis', 'search', 'chat-list-search']);
+    const isNewChatSearch = hasAnyTerm(combined, ['nome ou número', 'nome ou numero', 'name or number', 'name or phone']);
 
-    if (
-      title.includes('pesquis') ||
-      title.includes('search') ||
-      aria.includes('pesquis') ||
-      aria.includes('search') ||
-      aria.includes('nome') ||
-      aria.includes('number') ||
-      placeholder.includes('pesquis') ||
-      placeholder.includes('search') ||
-      placeholder.includes('nome') ||
-      placeholder.includes('number') ||
-      testid.includes('chat-list-search')
-    ) {
+    if (requireNewChat) {
+      if (isNewChatSearch) return true;
+      if (!isNewChatPanelOpen()) return false;
+      return rect.top < window.innerHeight * 0.35;
+    }
+
+    if (isSearchField) {
       return true;
     }
 
@@ -136,21 +149,29 @@ function getVisibleSearchInput() {
   }) || null;
 }
 
-function findSearchButton() {
+function findNewChatButton() {
   const direct = document.querySelector(
-    '[data-testid="chat-list-search"], button[aria-label*="Nova conversa"], button[aria-label*="New chat"], button[aria-label*="Search"], button[aria-label*="Pesquisar"]'
+    [
+      'button[aria-label*="Nova conversa"]',
+      'button[aria-label*="New chat"]',
+      '[data-testid="chatlist-header-new-chat-button"]',
+      '[data-testid="new-chat-button"]',
+      'span[data-icon="new-chat-outline"]',
+      'span[data-icon="new-chat"]',
+      'button[aria-label*="Novo chat"]',
+    ].join(',')
   );
   if (direct) return direct.closest('button') || direct;
 
-  const icon = document.querySelector('span[data-icon="new-chat-outline"], span[data-icon="search"], span[data-icon="search-refreshed"]');
+  const icon = document.querySelector('span[data-icon="new-chat-outline"], span[data-icon="new-chat"]');
   if (icon) return icon.closest('button') || icon.closest('[role="button"]') || icon;
 
   return null;
 }
 
-function waitForSearchInput(timeout = 4000) {
+function waitForSearchInput(timeout = 4000, requireNewChat = false) {
   return new Promise((resolve) => {
-    const existing = getVisibleSearchInput();
+    const existing = getVisibleSearchInput({ requireNewChat });
     if (existing) {
       resolve(existing);
       return;
@@ -159,7 +180,7 @@ function waitForSearchInput(timeout = 4000) {
     let done = false;
     const observer = new MutationObserver(() => {
       if (done) return;
-      const input = getVisibleSearchInput();
+      const input = getVisibleSearchInput({ requireNewChat });
       if (!input) return;
       done = true;
       observer.disconnect();
@@ -177,16 +198,44 @@ function waitForSearchInput(timeout = 4000) {
   });
 }
 
+function waitForNewChatPanel(timeout = 3500) {
+  return new Promise((resolve) => {
+    if (isNewChatPanelOpen()) {
+      resolve(true);
+      return;
+    }
+
+    let done = false;
+    const observer = new MutationObserver(() => {
+      if (done) return;
+      if (!isNewChatPanelOpen()) return;
+      done = true;
+      observer.disconnect();
+      resolve(true);
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      observer.disconnect();
+      resolve(false);
+    }, timeout);
+  });
+}
+
 async function ensureSearchInputOpen() {
-  const alreadyVisible = getVisibleSearchInput();
+  const alreadyVisible = getVisibleSearchInput({ requireNewChat: true });
   if (alreadyVisible) return alreadyVisible;
 
-  const btn = findSearchButton();
-  if (!btn) return null;
+  const btn = findNewChatButton();
+  if (!btn) return waitForSearchInput(4500, true);
 
   btn.click();
   await sleep(250);
-  return waitForSearchInput(4500);
+  await waitForNewChatPanel(3500);
+  return waitForSearchInput(4500, true);
 }
 
 async function insertTextInEditable(el, text) {
