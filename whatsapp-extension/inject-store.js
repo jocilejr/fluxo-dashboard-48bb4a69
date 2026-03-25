@@ -1,257 +1,243 @@
 // inject-store.js — Runs in MAIN world to access WhatsApp Web's webpack modules
-// Exposes window.WStore for use by the content script via custom events
+// Uses moduleRaid pattern for robust module discovery
 
 (function () {
   'use strict';
 
-  const LOG_PREFIX = '[WStore Inject]';
-  let storeReady = false;
+  const LOG = '[WStore]';
+  const CHUNK_NAME = 'webpackChunkwhatsapp_web_client';
 
-  // Known module search patterns (multiple fallbacks)
-  const MODULE_PATTERNS = {
-    Chat: [
-      m => m.Chat && m.Chat.find,
-      m => m.ChatCollection && m.ChatCollection.find,
-      m => m.default?.Chat?.find,
-    ],
-    Cmd: [
-      m => m.Cmd,
-      m => m.default?.Cmd,
-    ],
-    WapQuery: [
-      m => m.queryExists,
-      m => m.default?.queryExists,
-    ],
-    ContactStore: [
-      m => m.Contact && m.Contact.find,
-      m => m.default?.Contact?.find,
-    ],
-    MsgStore: [
-      m => m.Msg && m.Msg.find,
-      m => m.default?.Msg?.find,
-    ],
-  };
+  // Modules we want to find
+  const found = {};
 
-  function scanModules() {
-    // Method 1: window.require (webpack)
-    if (typeof window.require === 'function') {
-      try {
-        return scanViaRequire();
-      } catch (e) {
-        console.warn(LOG_PREFIX, 'require scan failed:', e.message);
+  // ============================================
+  // MODULE RAID — capture webpack require
+  // ============================================
+  function moduleRaid() {
+    const chunkArray = window[CHUNK_NAME];
+    if (!chunkArray) {
+      // Try alternative names
+      const alt = Object.keys(window).find(k =>
+        k.startsWith('webpackChunk') && Array.isArray(window[k])
+      );
+      if (alt) {
+        console.log(LOG, 'Using alt chunk array:', alt);
+        return raidFromChunks(window[alt]);
       }
+      return false;
     }
-
-    // Method 2: Scan webpack chunks
-    const wpKey = Object.keys(window).find(k => 
-      k.startsWith('webpackChunk') || k.startsWith('__d')
-    );
-    if (wpKey && window[wpKey]) {
-      try {
-        return scanViaChunks(wpKey);
-      } catch (e) {
-        console.warn(LOG_PREFIX, 'chunk scan failed:', e.message);
-      }
-    }
-
-    return null;
+    return raidFromChunks(chunkArray);
   }
 
-  function scanViaRequire() {
-    const modules = {};
+  function raidFromChunks(chunkArray) {
+    let wpRequire = null;
 
-    // Try to get the module map via require.m or similar
-    const moduleMap = window.require.m || window.require.c;
-    if (!moduleMap) return null;
-
-    const entries = typeof moduleMap === 'object' ? Object.values(moduleMap) : [];
-    
-    for (const mod of entries) {
-      try {
-        const exported = typeof mod === 'function' ? mod : (mod?.exports || mod);
-        if (!exported || typeof exported !== 'object') continue;
-
-        for (const [name, patterns] of Object.entries(MODULE_PATTERNS)) {
-          if (modules[name]) continue;
-          for (const test of patterns) {
-            try {
-              const result = test(exported);
-              if (result) {
-                modules[name] = result;
-                console.log(LOG_PREFIX, `Found module: ${name}`);
-                break;
-              }
-            } catch (_) {}
-          }
-        }
-      } catch (_) {}
+    try {
+      chunkArray.push([
+        ['__moduleRaid__'],
+        {},
+        function (require) { wpRequire = require; }
+      ]);
+    } catch (e) {
+      console.warn(LOG, 'Chunk injection failed:', e.message);
+      return false;
     }
 
-    return Object.keys(modules).length > 0 ? modules : null;
-  }
+    if (!wpRequire || !wpRequire.c) {
+      console.warn(LOG, 'No require.c found');
+      return false;
+    }
 
-  function scanViaChunks(wpKey) {
-    const modules = {};
-    const cache = {};
+    const cache = wpRequire.c;
+    let scanned = 0;
 
-    // Inject a fake module to access the require function
-    const chunkArray = window[wpKey];
-    
-    let resolvedRequire = null;
-
-    // Push a fake chunk to intercept require
-    chunkArray.push([
-      [Math.random().toString(36)],
-      {},
-      function (req) {
-        resolvedRequire = req;
-      }
-    ]);
-
-    if (!resolvedRequire || !resolvedRequire.c) return null;
-
-    const moduleCache = resolvedRequire.c;
-
-    for (const id in moduleCache) {
+    for (const id in cache) {
       try {
-        const mod = moduleCache[id];
-        const exported = mod?.exports;
-        if (!exported || typeof exported !== 'object') continue;
+        const mod = cache[id];
+        if (!mod?.exports) continue;
+        scanned++;
 
-        // Check direct exports and default
-        const targets = [exported, exported.default].filter(Boolean);
-
-        for (const target of targets) {
-          for (const [name, patterns] of Object.entries(MODULE_PATTERNS)) {
-            if (modules[name]) continue;
-            for (const test of patterns) {
-              try {
-                const result = test(target);
-                if (result) {
-                  modules[name] = result;
-                  console.log(LOG_PREFIX, `Found module via chunks: ${name}`);
-                  break;
-                }
-              } catch (_) {}
+        const exports = mod.exports;
+        const targets = [exports];
+        if (exports.default) targets.push(exports.default);
+        if (exports.__esModule && typeof exports === 'object') {
+          for (const key of Object.keys(exports)) {
+            if (key !== 'default' && key !== '__esModule' && exports[key]) {
+              targets.push(exports[key]);
             }
           }
         }
+
+        for (const t of targets) {
+          if (!t || typeof t !== 'object') continue;
+          matchModule(t);
+        }
       } catch (_) {}
     }
 
-    return Object.keys(modules).length > 0 ? modules : null;
+    console.log(LOG, `Scanned ${scanned} modules, found:`, Object.keys(found).join(', ') || 'none');
+    return Object.keys(found).length > 0;
   }
 
-  // High-level API exposed via window.WStore
-  function createStoreAPI(modules) {
-    const api = {
-      _modules: modules,
-      _ready: true,
+  function matchModule(obj) {
+    try {
+      // Chat store
+      if (!found.Chat) {
+        if (typeof obj.findChat === 'function') {
+          found.Chat = obj;
+          console.log(LOG, '✓ Chat (findChat)');
+        } else if (obj.Chat && typeof obj.Chat.find === 'function') {
+          found.Chat = obj.Chat;
+          console.log(LOG, '✓ Chat (Chat.find)');
+        } else if (typeof obj.find === 'function' && typeof obj.getModelsArray === 'function') {
+          found.Chat = obj;
+          console.log(LOG, '✓ Chat (find+getModelsArray)');
+        }
+      }
 
-      /**
-       * Open a chat by phone number (no DOM selectors needed)
-       * @param {string} phone - Full phone with country code (e.g., "5511999999999")
-       * @returns {Promise<{success: boolean, error?: string}>}
-       */
+      // Cmd store
+      if (!found.Cmd) {
+        if (typeof obj.openChatAt === 'function') {
+          found.Cmd = obj;
+          console.log(LOG, '✓ Cmd (openChatAt)');
+        } else if (typeof obj.openChatBottom === 'function') {
+          found.Cmd = obj;
+          console.log(LOG, '✓ Cmd (openChatBottom)');
+        } else if (obj.Cmd && typeof obj.Cmd.openChatAt === 'function') {
+          found.Cmd = obj.Cmd;
+          console.log(LOG, '✓ Cmd (Cmd.openChatAt)');
+        }
+      }
+
+      // WapQuery
+      if (!found.WapQuery) {
+        if (typeof obj.queryExists === 'function') {
+          found.WapQuery = obj;
+          console.log(LOG, '✓ WapQuery (queryExists)');
+        } else if (typeof obj.queryPhoneExists === 'function') {
+          found.WapQuery = obj;
+          console.log(LOG, '✓ WapQuery (queryPhoneExists)');
+        }
+      }
+
+      // Contact store
+      if (!found.Contact) {
+        if (obj.Contact && typeof obj.Contact.find === 'function') {
+          found.Contact = obj.Contact;
+        } else if (typeof obj.getContact === 'function') {
+          found.Contact = obj;
+        }
+      }
+
+      // Generic scan: look for known function names in any export
+      if (!found.Chat || !found.Cmd) {
+        for (const key of Object.keys(obj)) {
+          try {
+            const val = obj[key];
+            if (!val || typeof val !== 'object') continue;
+            if (!found.Chat && typeof val.find === 'function' && typeof val.findChat === 'function') {
+              found.Chat = val;
+              console.log(LOG, '✓ Chat (generic scan via', key, ')');
+            }
+            if (!found.Cmd && typeof val.openChatAt === 'function') {
+              found.Cmd = val;
+              console.log(LOG, '✓ Cmd (generic scan via', key, ')');
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
+  // ============================================
+  // STORE API
+  // ============================================
+  function createStoreAPI() {
+    return {
+      _ready: Object.keys(found).length > 0,
+
       async openChat(phone) {
         const jid = phone.includes('@') ? phone : `${phone}@c.us`;
-        console.log(LOG_PREFIX, 'openChat:', jid);
+        console.log(LOG, 'openChat:', jid, 'modules:', Object.keys(found));
 
-        // Method 1: Chat.find + Cmd.openChatAt
-        if (modules.Chat?.find) {
+        // Method 1: Chat.find/findChat + Cmd.openChatAt
+        if (found.Chat) {
           try {
-            const chat = await modules.Chat.find(jid);
-            if (chat) {
-              if (modules.Cmd?.openChatAt) {
-                modules.Cmd.openChatAt(chat);
-              } else if (modules.Cmd?.openChatBottom) {
-                modules.Cmd.openChatBottom(chat);
-              }
-              return { success: true, method: 'Chat.find' };
-            }
-          } catch (e) {
-            console.warn(LOG_PREFIX, 'Chat.find failed:', e.message);
-          }
-        }
-
-        // Method 2: WapQuery.queryExists + Chat.find
-        if (modules.WapQuery?.queryExists) {
-          try {
-            const result = await modules.WapQuery.queryExists(jid);
-            if (result?.wid) {
-              const chat = await modules.Chat?.find(result.wid);
-              if (chat && modules.Cmd) {
-                modules.Cmd.openChatAt?.(chat) || modules.Cmd.openChatBottom?.(chat);
-                return { success: true, method: 'WapQuery' };
+            const findFn = found.Chat.findChat || found.Chat.find;
+            if (findFn) {
+              const chat = await findFn.call(found.Chat, jid);
+              if (chat) {
+                if (found.Cmd) {
+                  const openFn = found.Cmd.openChatAt || found.Cmd.openChatBottom;
+                  if (openFn) {
+                    openFn.call(found.Cmd, chat);
+                    return { success: true, method: 'Chat+Cmd' };
+                  }
+                }
+                // Even without Cmd, if we found the chat we can try dispatching
+                return { success: true, method: 'Chat.find (no Cmd)', partial: true };
               }
             }
           } catch (e) {
-            console.warn(LOG_PREFIX, 'WapQuery failed:', e.message);
+            console.warn(LOG, 'Chat.find failed:', e.message);
           }
         }
 
-        // Method 3: Dispatch internal navigation event
-        try {
-          const chatFindByPhone = modules.Chat?.findByPhone || modules.Chat?.search;
-          if (chatFindByPhone) {
-            const chat = await chatFindByPhone(phone);
-            if (chat) {
-              return { success: true, method: 'findByPhone' };
+        // Method 2: WapQuery.queryExists
+        if (found.WapQuery) {
+          try {
+            const qFn = found.WapQuery.queryExists || found.WapQuery.queryPhoneExists;
+            if (qFn) {
+              const result = await qFn.call(found.WapQuery, jid);
+              if (result?.wid && found.Chat) {
+                const findFn = found.Chat.findChat || found.Chat.find;
+                const chat = await findFn.call(found.Chat, result.wid);
+                if (chat && found.Cmd) {
+                  const openFn = found.Cmd.openChatAt || found.Cmd.openChatBottom;
+                  if (openFn) {
+                    openFn.call(found.Cmd, chat);
+                    return { success: true, method: 'WapQuery+Chat+Cmd' };
+                  }
+                }
+              }
             }
+          } catch (e) {
+            console.warn(LOG, 'WapQuery failed:', e.message);
           }
-        } catch (e) {
-          console.warn(LOG_PREFIX, 'findByPhone failed:', e.message);
         }
 
-        return { success: false, error: 'All Store methods exhausted' };
+        return { success: false, error: 'Store methods exhausted' };
       },
 
-      /**
-       * Check if Store modules are loaded
-       */
-      isReady() {
-        return !!modules.Chat;
-      },
-
-      /**
-       * Get available module names
-       */
-      getModules() {
-        return Object.keys(modules);
-      }
+      isReady() { return this._ready; },
+      getModules() { return Object.keys(found); },
     };
-
-    return api;
   }
 
-  // Retry scanning until modules are found
+  // ============================================
+  // INIT with retries
+  // ============================================
   let attempts = 0;
-  const MAX_ATTEMPTS = 30;
-  const SCAN_INTERVAL = 2000;
+  const MAX = 30;
+  const INTERVAL = 2000;
 
   function tryInit() {
     attempts++;
-    console.log(LOG_PREFIX, `Scan attempt ${attempts}/${MAX_ATTEMPTS}...`);
+    console.log(LOG, `Attempt ${attempts}/${MAX}`);
 
-    const modules = scanModules();
+    const success = moduleRaid();
 
-    if (modules && Object.keys(modules).length > 0) {
-      window.WStore = createStoreAPI(modules);
-      storeReady = true;
-      console.log(LOG_PREFIX, '✅ Store ready! Modules:', Object.keys(modules).join(', '));
-
-      // Notify content script
-      window.dispatchEvent(new CustomEvent('WStoreReady', { 
-        detail: { modules: Object.keys(modules) } 
-      }));
+    if (success) {
+      window.WStore = createStoreAPI();
+      console.log(LOG, '✅ Ready:', Object.keys(found).join(', '));
+      window.dispatchEvent(new CustomEvent('WStoreReady', { detail: { modules: Object.keys(found) } }));
       return;
     }
 
-    if (attempts < MAX_ATTEMPTS) {
-      setTimeout(tryInit, SCAN_INTERVAL);
+    if (attempts < MAX) {
+      setTimeout(tryInit, INTERVAL);
     } else {
-      console.warn(LOG_PREFIX, '❌ Could not find Store modules after', MAX_ATTEMPTS, 'attempts');
-      // Expose a fallback store that reports unavailability
+      console.warn(LOG, '❌ Failed after', MAX, 'attempts');
       window.WStore = {
         _ready: false,
         isReady() { return false; },
@@ -262,7 +248,7 @@
     }
   }
 
-  // Listen for calls from content script (ISOLATED world → MAIN world bridge)
+  // Bridge: content script → MAIN world
   window.addEventListener('WStoreCall', async (e) => {
     const { callId, method, args } = e.detail || {};
     if (!callId || !method) return;
@@ -278,12 +264,10 @@
       result = { success: false, error: err.message };
     }
 
-    window.dispatchEvent(new CustomEvent('WStoreResponse', {
-      detail: { callId, result }
-    }));
+    window.dispatchEvent(new CustomEvent('WStoreResponse', { detail: { callId, result } }));
   });
 
-  // Start scanning after a delay to let WhatsApp Web initialize
+  // Start after WhatsApp loads
   if (document.readyState === 'complete') {
     setTimeout(tryInit, 3000);
   } else {
