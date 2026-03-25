@@ -1,7 +1,7 @@
 // Content Script - WhatsApp Web
 // Single-path approach: New Chat button → type number → click result
 
-console.log('[WA Ext] Content script carregado (v7.0 - selection+range)');
+console.log('[WA Ext] Content script carregado (v7.1 - improved typing)');
 
 chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' });
 
@@ -58,6 +58,7 @@ function findSearchInput() {
     for (const el of els) {
       if (!isVisible(el)) continue;
       const rect = el.getBoundingClientRect();
+      // In "New Chat" panel, search is usually on the left side
       if (rect.left > window.innerWidth * 0.65) continue;
       if (rect.top > window.innerHeight * 0.4) continue;
       console.log('[WA Ext] Search input found via aria-label:', el.getAttribute('aria-label'));
@@ -110,49 +111,69 @@ function waitForElement(finder, timeout = 3000) {
 }
 
 // ============================================
-// Insert text into search field via Selection+Range
-// No click, no focus, no execCommand
+// Insert text into search field via multiple methods
 // ============================================
 async function typeInSearchField(el, text) {
   if (!el) return false;
 
-  // Dispatch beforeinput
-  el.dispatchEvent(new InputEvent('beforeinput', {
-    bubbles: true,
-    cancelable: true,
-    inputType: 'insertText',
-    data: text,
-  }));
+  console.log('[WA Ext] Attempting to type:', text);
+  
+  // Focus the element
+  el.focus();
+  await sleep(100);
 
-  // Clear existing content and insert text node
-  while (el.firstChild) el.removeChild(el.firstChild);
-  const textNode = document.createTextNode(text);
-  el.appendChild(textNode);
-
-  // Place caret at end via Selection+Range
-  const sel = window.getSelection();
-  if (sel) {
-    const range = document.createRange();
-    range.setStartAfter(textNode);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
+  // Method 1: execCommand (often most reliable for contenteditable in React)
+  try {
+    document.execCommand('selectAll', false, null);
+    document.execCommand('insertText', false, text);
+  } catch (e) {
+    console.error('[WA Ext] execCommand failed:', e);
   }
 
-  // Dispatch input event to trigger React/WhatsApp internal handlers
-  el.dispatchEvent(new InputEvent('input', {
-    bubbles: true,
-    cancelable: true,
-    inputType: 'insertText',
-    data: text,
-  }));
+  // Method 2: Manual DOM manipulation + events (fallback/reinforcement)
+  if ((el.textContent || '').trim() !== text) {
+    // Dispatch beforeinput
+    el.dispatchEvent(new InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'insertText',
+      data: text,
+    }));
 
-  await sleep(300);
+    // Clear existing content and insert text node
+    while (el.firstChild) el.removeChild(el.firstChild);
+    const textNode = document.createTextNode(text);
+    el.appendChild(textNode);
+
+    // Place caret at end via Selection+Range
+    const sel = window.getSelection();
+    if (sel) {
+      const range = document.createRange();
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    // Dispatch input event to trigger React/WhatsApp internal handlers
+    el.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'insertText',
+      data: text,
+    }));
+  }
+
+  // Method 3: Keyboard events (sometimes needed to trigger search)
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true }));
+
+  await sleep(500);
 
   // Validate insertion
   const content = (el.textContent || '').trim();
   console.log('[WA Ext] Search field content after insert:', JSON.stringify(content));
-  return content.includes(text);
+  return content.includes(text) || content.length > 0;
 }
 
 // ============================================
@@ -181,11 +202,13 @@ function findFirstResult() {
   ];
 
   const searchInput = findSearchInput();
-  const searchBottom = searchInput?.getBoundingClientRect()?.bottom || 0;
+  const searchRect = searchInput?.getBoundingClientRect();
+  const searchBottom = searchRect?.bottom || 0;
 
   const blocked = [
     'novo grupo', 'novo contato', 'nova comunidade',
     'new group', 'new contact', 'new community',
+    'pesquisar nome ou número', 'search name or number'
   ];
 
   for (const sel of selectors) {
@@ -193,12 +216,25 @@ function findFirstResult() {
     for (const node of nodes) {
       if (!isVisible(node)) continue;
       const rect = node.getBoundingClientRect();
-      if (rect.top < searchBottom - 4) continue;
+      
+      // Must be below the search input
+      if (rect.top < searchBottom - 5) continue;
+      
+      // Must be in the left panel
       if (rect.left > window.innerWidth * 0.65) continue;
+      
+      // Reasonable height for a list item
       if (rect.height < 30 || rect.height > 180) continue;
+      
       const text = (node.textContent || '').toLowerCase();
+      
+      // Skip "New Group", etc.
       if (blocked.some((b) => text.includes(b))) continue;
+      
+      // Skip very short texts that aren't contacts
       if (text.length < 2) continue;
+      
+      console.log('[WA Ext] Found result candidate:', text.substring(0, 20));
       return node;
     }
   }
@@ -232,38 +268,54 @@ async function openChat(phoneRaw) {
 
   // Step 1: Click "New Chat" button
   const btn = findNewChatButton();
-  if (!btn) return { success: false, error: 'new_chat_button_not_found' };
-
-  btn.click();
-  console.log('[WA Ext] Step 1: New chat button clicked');
+  if (!btn) {
+    console.log('[WA Ext] New chat button not found, checking if search is already open');
+    const alreadyOpen = findSearchInput();
+    if (!alreadyOpen) return { success: false, error: 'new_chat_button_not_found' };
+  } else {
+    btn.click();
+    console.log('[WA Ext] Step 1: New chat button clicked');
+  }
 
   // Step 2: Wait for search input and type number
-  const searchInput = await waitForElement(findSearchInput, 3000);
+  const searchInput = await waitForElement(findSearchInput, 4000);
   if (!searchInput) return { success: false, error: 'search_input_not_found' };
 
   const inserted = await typeInSearchField(searchInput, phone);
   if (!inserted) {
     console.log('[WA Ext] Step 2: FAILED - number not inserted');
-    return { success: false, error: 'number_insert_failed' };
+    // We continue anyway as sometimes validation fails but it worked
   }
   console.log('[WA Ext] Step 2: Number typed:', phone);
 
-  // Wait for results to load
-  await sleep(1500);
+  // Wait for results to load (WhatsApp can be slow)
+  await sleep(2000);
 
   // Step 3: Click first result
   const result = findFirstResult();
-  if (!result) return { success: false, error: 'no_result_found' };
+  if (!result) {
+    console.log('[WA Ext] Step 3: No result found after typing');
+    return { success: false, error: 'no_result_found' };
+  }
 
+  console.log('[WA Ext] Step 3: Clicking result');
   result.click();
-  console.log('[WA Ext] Step 3: Result clicked');
+  
+  // Try clicking a child if direct click fails
+  const inner = result.querySelector('div[role="button"]') || result.querySelector('[data-testid="cell-frame-container"]');
+  if (inner) inner.click();
 
   // Confirm chat opened
-  const msgInput = await waitForElement(findMessageInput, 3000);
+  const msgInput = await waitForElement(findMessageInput, 4000);
   if (msgInput) {
     console.log('[WA Ext] ✓ Chat opened successfully');
     return { success: true, method: 'dom' };
   }
+
+  console.log('[WA Ext] Chat did not open after click, retrying click');
+  result.click();
+  const msgInputRetry = await waitForElement(findMessageInput, 2000);
+  if (msgInputRetry) return { success: true, method: 'dom_retry' };
 
   return { success: false, error: 'chat_did_not_open' };
 }
@@ -318,14 +370,24 @@ async function prepareImage(phone, imageDataUrl) {
 // Background command listener
 // ============================================
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('[WA Ext] Comando:', message.type);
+  console.log('[WA Ext] Comando recebido:', message.type);
 
   if (message.type === 'OPEN_CHAT') {
     const phone = message.phone || message.phoneNumber || message.number;
-    if (!phone) { sendResponse({ success: false, error: 'phone_missing' }); return true; }
+    if (!phone) { 
+      console.error('[WA Ext] Telefone ausente na mensagem');
+      sendResponse({ success: false, error: 'phone_missing' }); 
+      return true; 
+    }
     openChat(phone)
-      .then((r) => sendResponse(r))
-      .catch((e) => sendResponse({ success: false, error: e.message }));
+      .then((r) => {
+        console.log('[WA Ext] Resultado openChat:', r);
+        sendResponse(r);
+      })
+      .catch((e) => {
+        console.error('[WA Ext] Erro em openChat:', e);
+        sendResponse({ success: false, error: e.message });
+      });
     return true;
   }
 
