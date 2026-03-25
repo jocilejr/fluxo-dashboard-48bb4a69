@@ -391,6 +391,8 @@ async function openResultFromList(phone) {
     '[data-testid="search-result"]',
     '[data-testid="chatlist-panel-row"]',
     '[role="listitem"]',
+    '[role="button"][data-tab]',
+    'div[data-tab][tabindex="0"]',
     '[role="option"]',
     '[role="row"]',
     'div[tabindex="-1"][class]',
@@ -427,10 +429,38 @@ async function openResultFromList(phone) {
   const target = byPhone || firstValid || null;
   if (!target) return false;
 
-  const clickTarget = target.closest('[role="listitem"]') || target.closest('[role="option"]') || target.closest('[role="row"]') || target;
+  const clickTarget =
+    target.closest('[role="button"][data-tab]') ||
+    target.closest('div[data-tab][tabindex="0"]') ||
+    target.closest('[role="listitem"]') ||
+    target.closest('[role="option"]') ||
+    target.closest('[role="row"]') ||
+    target;
+
+  const fireNativeClick = (el) => {
+    const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+    for (const type of events) {
+      el.dispatchEvent(
+        new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        })
+      );
+    }
+  };
+
   console.log('[WA Ext] Clicking result:', clickTarget.textContent?.slice(0, 60));
+  clickTarget.focus?.();
+  fireNativeClick(clickTarget);
   clickTarget.click();
-  await sleep(500);
+  await sleep(900);
+
+  if (!findMessageInput()) {
+    dispatchKey(clickTarget, 'Enter');
+    await sleep(600);
+  }
+
   return !!findMessageInput();
 }
 
