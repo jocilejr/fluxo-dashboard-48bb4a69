@@ -1,7 +1,7 @@
 // Content Script - WhatsApp Web
 // Single-path approach: New Chat button → type number → click result
 
-console.log('[WA Ext] Content script carregado (v6.0 - simplified)');
+console.log('[WA Ext] Content script carregado (v7.0 - selection+range)');
 
 chrome.runtime.sendMessage({ type: 'WHATSAPP_READY' });
 
@@ -42,9 +42,40 @@ function findNewChatButton() {
 }
 
 // ============================================
-// Step 2: Wait for search input and type number
+// Step 2: Find search input (improved targeting)
 // ============================================
 function findSearchInput() {
+  // Priority 1: aria-label match for the search field in "New chat" panel
+  const ariaLabels = [
+    'div[contenteditable="true"][aria-label*="Pesquisar"]',
+    'div[contenteditable="true"][aria-label*="Search"]',
+    'div[contenteditable="true"][aria-label*="Buscar"]',
+    'input[aria-label*="Pesquisar"]',
+    'input[aria-label*="Search"]',
+  ];
+  for (const sel of ariaLabels) {
+    const els = document.querySelectorAll(sel);
+    for (const el of els) {
+      if (!isVisible(el)) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.left > window.innerWidth * 0.65) continue;
+      if (rect.top > window.innerHeight * 0.4) continue;
+      console.log('[WA Ext] Search input found via aria-label:', el.getAttribute('aria-label'));
+      return el;
+    }
+  }
+
+  // Priority 2: activeElement if it's editable and in the left panel
+  const active = document.activeElement;
+  if (active && active.getAttribute('contenteditable') === 'true' && isVisible(active)) {
+    const rect = active.getBoundingClientRect();
+    if (rect.left < window.innerWidth * 0.65 && rect.top < window.innerHeight * 0.4 && !active.closest('footer')) {
+      console.log('[WA Ext] Search input found via activeElement');
+      return active;
+    }
+  }
+
+  // Priority 3: generic heuristic (last resort)
   const candidates = document.querySelectorAll(
     'div[contenteditable="true"][role="textbox"], div[contenteditable="true"], input[type="text"]'
   );
@@ -54,6 +85,7 @@ function findSearchInput() {
     const rect = el.getBoundingClientRect();
     if (rect.left > window.innerWidth * 0.65) continue;
     if (rect.top > window.innerHeight * 0.4) continue;
+    console.log('[WA Ext] Search input found via generic heuristic');
     return el;
   }
   return null;
@@ -77,31 +109,62 @@ function waitForElement(finder, timeout = 3000) {
   });
 }
 
-async function typeInEditable(el, text) {
-  if (!el) return;
-  // O campo já está focado ao abrir o painel. Apenas inserir o texto.
-  // Tentar via InputEvent (método preferido no WhatsApp Web)
-  const inputEvent = new InputEvent('input', {
+// ============================================
+// Insert text into search field via Selection+Range
+// No click, no focus, no execCommand
+// ============================================
+async function typeInSearchField(el, text) {
+  if (!el) return false;
+
+  // Dispatch beforeinput
+  el.dispatchEvent(new InputEvent('beforeinput', {
     bubbles: true,
     cancelable: true,
     inputType: 'insertText',
     data: text,
-  });
-  el.textContent = text;
-  el.dispatchEvent(inputEvent);
-  await sleep(300);
+  }));
 
-  // Se não funcionou, tentar execCommand como fallback
-  if (!el.textContent || el.textContent.trim() === '') {
-    console.log('[WA Ext] Fallback: execCommand');
-    el.focus();
-    document.execCommand('selectAll', false, null);
-    document.execCommand('insertText', false, text);
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-    await sleep(300);
+  // Clear existing content and insert text node
+  while (el.firstChild) el.removeChild(el.firstChild);
+  const textNode = document.createTextNode(text);
+  el.appendChild(textNode);
+
+  // Place caret at end via Selection+Range
+  const sel = window.getSelection();
+  if (sel) {
+    const range = document.createRange();
+    range.setStartAfter(textNode);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
   }
 
-  console.log('[WA Ext] Campo preenchido:', el.textContent);
+  // Dispatch input event to trigger React/WhatsApp internal handlers
+  el.dispatchEvent(new InputEvent('input', {
+    bubbles: true,
+    cancelable: true,
+    inputType: 'insertText',
+    data: text,
+  }));
+
+  await sleep(300);
+
+  // Validate insertion
+  const content = (el.textContent || '').trim();
+  console.log('[WA Ext] Search field content after insert:', JSON.stringify(content));
+  return content.includes(text);
+}
+
+// ============================================
+// Insert text into message field (separate function)
+// ============================================
+async function typeInMessageField(el, text) {
+  if (!el) return;
+  el.focus();
+  document.execCommand('selectAll', false, null);
+  document.execCommand('insertText', false, text);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  await sleep(200);
 }
 
 // ============================================
@@ -178,7 +241,11 @@ async function openChat(phoneRaw) {
   const searchInput = await waitForElement(findSearchInput, 3000);
   if (!searchInput) return { success: false, error: 'search_input_not_found' };
 
-  await typeInEditable(searchInput, phone);
+  const inserted = await typeInSearchField(searchInput, phone);
+  if (!inserted) {
+    console.log('[WA Ext] Step 2: FAILED - number not inserted');
+    return { success: false, error: 'number_insert_failed' };
+  }
   console.log('[WA Ext] Step 2: Number typed:', phone);
 
   // Wait for results to load
@@ -211,7 +278,7 @@ async function prepareText(phone, text) {
   const input = await waitForElement(findMessageInput, 3000);
   if (!input) return { success: false, error: 'message_input_not_found' };
 
-  await typeInEditable(input, text || '');
+  await typeInMessageField(input, text || '');
   return { success: true };
 }
 
