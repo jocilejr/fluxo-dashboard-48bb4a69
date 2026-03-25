@@ -54,7 +54,11 @@ function callWStore(method, args) {
 // DOM helpers
 // ============================================
 function isVisible(el) {
-  return !!el && el.offsetParent !== null;
+  if (!el) return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
 }
 
 function dispatchInput(el, data = '') {
@@ -65,6 +69,12 @@ function dispatchInput(el, data = '') {
   }
 }
 
+function dispatchBeforeInput(el, data = '') {
+  try {
+    el.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data }));
+  } catch (_) {}
+}
+
 function dispatchKey(el, key) {
   el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
   el.dispatchEvent(new KeyboardEvent('keypress', { key, bubbles: true }));
@@ -72,11 +82,26 @@ function dispatchKey(el, key) {
 }
 
 function getEditableText(el) {
+  if (!el) return '';
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    return (el.value || '').trim();
+  }
   return (el?.innerText || el?.textContent || '').replace(/\u200b/g, '').trim();
 }
 
 function getVisibleSearchInput() {
-  const candidates = Array.from(document.querySelectorAll('div[contenteditable="true"][role="textbox"], div[contenteditable="true"]'));
+  const candidates = Array.from(
+    document.querySelectorAll(
+      [
+        'div[contenteditable="true"][role="textbox"]',
+        'div[contenteditable="true"]',
+        'input[type="text"]',
+        'input[role="textbox"]',
+        'input[placeholder]',
+        'textarea[role="textbox"]',
+      ].join(',')
+    )
+  );
 
   return candidates.find((el) => {
     if (!isVisible(el)) return false;
@@ -87,6 +112,7 @@ function getVisibleSearchInput() {
 
     const title = (el.getAttribute('title') || '').toLowerCase();
     const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+    const placeholder = (el.getAttribute('placeholder') || '').toLowerCase();
     const testid = (el.closest('[data-testid]')?.getAttribute('data-testid') || '').toLowerCase();
 
     if (
@@ -94,6 +120,12 @@ function getVisibleSearchInput() {
       title.includes('search') ||
       aria.includes('pesquis') ||
       aria.includes('search') ||
+      aria.includes('nome') ||
+      aria.includes('number') ||
+      placeholder.includes('pesquis') ||
+      placeholder.includes('search') ||
+      placeholder.includes('nome') ||
+      placeholder.includes('number') ||
       testid.includes('chat-list-search')
     ) {
       return true;
@@ -159,9 +191,33 @@ async function ensureSearchInputOpen() {
 
 async function insertTextInEditable(el, text) {
   const finalText = String(text || '');
+  if (!el) return;
+
+  const focusAndClick = () => {
+    try {
+      el.focus();
+      el.click();
+    } catch (_) {}
+  };
+
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    focusAndClick();
+
+    const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+
+    dispatchBeforeInput(el, finalText);
+    if (setter) setter.call(el, finalText);
+    else el.value = finalText;
+
+    dispatchInput(el, finalText);
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    await sleep(180);
+    return;
+  }
 
   const clearEditable = () => {
-    el.focus();
+    focusAndClick();
     try {
       const selection = window.getSelection();
       const range = document.createRange();
@@ -186,8 +242,16 @@ async function insertTextInEditable(el, text) {
   };
 
   const typeByExecCommand = async () => {
+    try {
+      if (document.execCommand('insertText', false, finalText)) {
+        dispatchInput(el, finalText);
+        return;
+      }
+    } catch (_) {}
+
     for (const ch of finalText) {
       try {
+        dispatchBeforeInput(el, ch);
         document.execCommand('insertText', false, ch);
       } catch (_) {
         el.textContent = `${getEditableText(el)}${ch}`;
@@ -199,6 +263,7 @@ async function insertTextInEditable(el, text) {
 
   clearEditable();
   await sleep(60);
+  focusAndClick();
   setCaretToEnd();
   await typeByExecCommand();
 
