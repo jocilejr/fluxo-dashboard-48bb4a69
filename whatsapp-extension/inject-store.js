@@ -262,6 +262,27 @@
     }
   }
 
+  // Listen for calls from content script (ISOLATED world → MAIN world bridge)
+  window.addEventListener('WStoreCall', async (e) => {
+    const { callId, method, args } = e.detail || {};
+    if (!callId || !method) return;
+
+    let result = { success: false, error: 'Unknown method' };
+    try {
+      if (window.WStore && typeof window.WStore[method] === 'function') {
+        result = await window.WStore[method](...(args || []));
+      } else {
+        result = { success: false, error: `WStore.${method} not available` };
+      }
+    } catch (err) {
+      result = { success: false, error: err.message };
+    }
+
+    window.dispatchEvent(new CustomEvent('WStoreResponse', {
+      detail: { callId, result }
+    }));
+  });
+
   // Start scanning after a delay to let WhatsApp Web initialize
   if (document.readyState === 'complete') {
     setTimeout(tryInit, 3000);
