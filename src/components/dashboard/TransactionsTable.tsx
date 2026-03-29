@@ -830,6 +830,18 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                           </Tooltip>
                         </TooltipProvider>
                       )}
+                      {isMobile && transaction.status === 'pendente' && transaction.customer_phone && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openWhatsAppBusiness(transaction.customer_phone, transaction.customer_name, Number(transaction.amount));
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
                       <AlertDialog>
                         <TooltipProvider>
                           <Tooltip>
