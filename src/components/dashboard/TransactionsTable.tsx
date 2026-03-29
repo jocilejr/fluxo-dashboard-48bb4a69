@@ -842,6 +842,7 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                         >
                           <MessageCircle className="h-4 w-4" />
                         </Button>
+                      )}
                       <AlertDialog>
                         <TooltipProvider>
                           <Tooltip>
