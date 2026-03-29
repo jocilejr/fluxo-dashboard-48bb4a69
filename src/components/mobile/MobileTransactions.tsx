@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { getGreeting } from "@/lib/greeting";
 import { 
   Search, 
   QrCode, 
