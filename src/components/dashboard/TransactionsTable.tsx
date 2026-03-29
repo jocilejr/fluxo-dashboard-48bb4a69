@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Transaction } from "@/hooks/useTransactions";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Download, Search, ChevronDown, ChevronUp, Users, Clock, CheckCircle2, AlertCircle, RefreshCw, CalendarIcon, MessageSquare, Settings2, ShoppingCart, AlertTriangle } from "lucide-react";
+import { Trash2, Download, Search, ChevronDown, ChevronUp, Users, Clock, CheckCircle2, AlertCircle, RefreshCw, CalendarIcon, MessageSquare, Settings2, ShoppingCart, AlertTriangle, MessageCircle } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { getGreeting } from "@/lib/greeting";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -117,7 +119,34 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   const [quickRecoveryOpen, setQuickRecoveryOpen] = useState(false);
   const [templateSettingsOpen, setTemplateSettingsOpen] = useState(false);
   const [selectedBoleto, setSelectedBoleto] = useState<Transaction | null>(null);
-  
+  const isMobile = useIsMobile();
+  const [mobileRecoveryMessage, setMobileRecoveryMessage] = useState("");
+
+  // Fetch recovery message for mobile WhatsApp Business button
+  useEffect(() => {
+    if (!isMobile) return;
+    const fetchMsg = async () => {
+      const { data } = await supabase.from("pix_card_recovery_settings").select("message").maybeSingle();
+      if (data?.message) setMobileRecoveryMessage(data.message);
+    };
+    fetchMsg();
+  }, [isMobile]);
+
+  const openWhatsAppBusiness = useCallback((phone: string | null, name: string | null, amount: number) => {
+    if (!phone) { toast.error("Sem telefone"); return; }
+    const cleanPhone = phone.replace(/\D/g, '');
+    const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    const firstName = name?.split(" ")[0] || "";
+    const formatted = mobileRecoveryMessage
+      .replace(/{saudação}/g, getGreeting())
+      .replace(/{saudacao}/g, getGreeting())
+      .replace(/{nome}/g, name || "")
+      .replace(/{primeiro_nome}/g, firstName)
+      .replace(/{valor}/g, new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount));
+    const textParam = formatted ? `&text=${encodeURIComponent(formatted)}` : "";
+    window.open(`https://api.whatsapp.com/send?phone=${fullPhone}${textParam}`, '_blank');
+  }, [mobileRecoveryMessage]);
+
   // Recovery logs will be fetched after filtering (moved below)
   
   // Get phone numbers for automatic validation
@@ -800,6 +829,19 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                      )}
+                      {isMobile && transaction.status === 'pendente' && transaction.customer_phone && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openWhatsAppBusiness(transaction.customer_phone, transaction.customer_name, Number(transaction.amount));
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
                       )}
                       <AlertDialog>
                         <TooltipProvider>
