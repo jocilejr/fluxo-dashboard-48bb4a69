@@ -830,7 +830,7 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                           </Tooltip>
                         </TooltipProvider>
                       )}
-                      {isMobile && transaction.status === 'pendente' && transaction.customer_phone && (
+                      {isMobile && transaction.status !== 'pago' && transaction.customer_phone && (
                         <Button
                           variant="ghost"
                           size="icon"
