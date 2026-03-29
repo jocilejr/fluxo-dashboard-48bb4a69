@@ -119,7 +119,34 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
   const [quickRecoveryOpen, setQuickRecoveryOpen] = useState(false);
   const [templateSettingsOpen, setTemplateSettingsOpen] = useState(false);
   const [selectedBoleto, setSelectedBoleto] = useState<Transaction | null>(null);
-  
+  const isMobile = useIsMobile();
+  const [mobileRecoveryMessage, setMobileRecoveryMessage] = useState("");
+
+  // Fetch recovery message for mobile WhatsApp Business button
+  useEffect(() => {
+    if (!isMobile) return;
+    const fetchMsg = async () => {
+      const { data } = await supabase.from("pix_card_recovery_settings").select("message").maybeSingle();
+      if (data?.message) setMobileRecoveryMessage(data.message);
+    };
+    fetchMsg();
+  }, [isMobile]);
+
+  const openWhatsAppBusiness = useCallback((phone: string | null, name: string | null, amount: number) => {
+    if (!phone) { toast.error("Sem telefone"); return; }
+    const cleanPhone = phone.replace(/\D/g, '');
+    const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    const firstName = name?.split(" ")[0] || "";
+    const formatted = mobileRecoveryMessage
+      .replace(/{saudação}/g, getGreeting())
+      .replace(/{saudacao}/g, getGreeting())
+      .replace(/{nome}/g, name || "")
+      .replace(/{primeiro_nome}/g, firstName)
+      .replace(/{valor}/g, new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount));
+    const textParam = formatted ? `&text=${encodeURIComponent(formatted)}` : "";
+    window.open(`https://api.whatsapp.com/send?phone=${fullPhone}${textParam}`, '_blank');
+  }, [mobileRecoveryMessage]);
+
   // Recovery logs will be fetched after filtering (moved below)
   
   // Get phone numbers for automatic validation
