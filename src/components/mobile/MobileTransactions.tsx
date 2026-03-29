@@ -342,7 +342,7 @@ export function MobileTransactions() {
                   formatCurrency={formatCurrency}
                   formatTime={formatTime}
                   formatDate={formatDate}
-                  onWhatsApp={openWhatsAppBusiness}
+                  onWhatsApp={(phone) => openWhatsAppBusiness(phone, event.customer_name, event.amount, "abandoned")}
                 />
               ))
             )
