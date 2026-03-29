@@ -351,16 +351,16 @@ export function MobileTransactions() {
               <EmptyState icon={FileText} message="Nenhuma transação encontrada" />
             ) : (
               filteredTransactions.map((transaction) => (
-                <TransactionCard
-                  key={transaction.id}
-                  transaction={transaction}
-                  formatCurrency={formatCurrency}
-                  formatTime={formatTime}
-                  formatDate={formatDate}
-                  getTypeIcon={getTypeIcon}
-                  getTypeLabel={getTypeLabel}
-                  onWhatsApp={openWhatsAppBusiness}
-                />
+                 <TransactionCard
+                   key={transaction.id}
+                   transaction={transaction}
+                   formatCurrency={formatCurrency}
+                   formatTime={formatTime}
+                   formatDate={formatDate}
+                   getTypeIcon={getTypeIcon}
+                   getTypeLabel={getTypeLabel}
+                   onWhatsApp={(phone) => openWhatsAppBusiness(phone, transaction.customer_name, Number(transaction.amount), "transaction")}
+                 />
               ))
             )
           )}
