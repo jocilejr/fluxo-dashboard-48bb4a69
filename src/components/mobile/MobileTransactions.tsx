@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useAbandonedEvents } from "@/hooks/useAbandonedEvents";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { getGreeting } from "@/lib/greeting";
 import { 
   Search, 
   QrCode, 
@@ -173,14 +175,45 @@ export function MobileTransactions() {
     }
   };
 
-  const openWhatsAppBusiness = (phone: string | null) => {
+  // Fetch recovery messages
+  const [pixCardMessage, setPixCardMessage] = useState("");
+  const [abandonedMessage, setAbandonedMessage] = useState("");
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      const [pixRes, abandRes] = await Promise.all([
+        supabase.from("pix_card_recovery_settings").select("message").maybeSingle(),
+        supabase.from("abandoned_recovery_settings").select("message").maybeSingle(),
+      ]);
+      if (pixRes.data?.message) setPixCardMessage(pixRes.data.message);
+      if (abandRes.data?.message) setAbandonedMessage(abandRes.data.message);
+    };
+    fetchMessages();
+  }, []);
+
+  const formatRecoveryMessage = (template: string, name: string | null, amount: number | null) => {
+    const firstName = name?.split(" ")[0] || "";
+    return template
+      .replace(/{saudação}/g, getGreeting())
+      .replace(/{saudacao}/g, getGreeting())
+      .replace(/{nome}/g, name || "")
+      .replace(/{primeiro_nome}/g, firstName)
+      .replace(/{valor}/g, amount ? formatCurrency(amount) : "");
+  };
+
+  const openWhatsAppBusiness = (phone: string | null, name?: string | null, amount?: number | null, type?: "transaction" | "abandoned") => {
     if (!phone) {
       toast.error("Sem telefone");
       return;
     }
     const cleanPhone = phone.replace(/\D/g, '');
     const fullPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
-    window.open(`https://api.whatsapp.com/send?phone=${fullPhone}`, '_blank');
+    
+    const template = type === "abandoned" ? abandonedMessage : pixCardMessage;
+    const message = template ? formatRecoveryMessage(template, name || null, amount || null) : "";
+    const textParam = message ? `&text=${encodeURIComponent(message)}` : "";
+    
+    window.open(`https://api.whatsapp.com/send?phone=${fullPhone}${textParam}`, '_blank');
   };
 
   if (isLoading) {
@@ -309,7 +342,7 @@ export function MobileTransactions() {
                   formatCurrency={formatCurrency}
                   formatTime={formatTime}
                   formatDate={formatDate}
-                  onWhatsApp={openWhatsAppBusiness}
+                  onWhatsApp={(phone) => openWhatsAppBusiness(phone, event.customer_name, event.amount, "abandoned")}
                 />
               ))
             )
@@ -318,16 +351,16 @@ export function MobileTransactions() {
               <EmptyState icon={FileText} message="Nenhuma transação encontrada" />
             ) : (
               filteredTransactions.map((transaction) => (
-                <TransactionCard
-                  key={transaction.id}
-                  transaction={transaction}
-                  formatCurrency={formatCurrency}
-                  formatTime={formatTime}
-                  formatDate={formatDate}
-                  getTypeIcon={getTypeIcon}
-                  getTypeLabel={getTypeLabel}
-                  onWhatsApp={openWhatsAppBusiness}
-                />
+                 <TransactionCard
+                   key={transaction.id}
+                   transaction={transaction}
+                   formatCurrency={formatCurrency}
+                   formatTime={formatTime}
+                   formatDate={formatDate}
+                   getTypeIcon={getTypeIcon}
+                   getTypeLabel={getTypeLabel}
+                   onWhatsApp={(phone) => openWhatsAppBusiness(phone, transaction.customer_name, Number(transaction.amount), "transaction")}
+                 />
               ))
             )
           )}
