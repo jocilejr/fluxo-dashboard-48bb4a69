@@ -93,8 +93,8 @@ function InstanceSelectorModal({
         body: { server_url: serverUrl, api_key: apiKey },
       });
       if (fnError) throw new Error(fnError.message || 'Erro ao buscar instâncias');
-      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-      setInstances(Array.isArray(parsed) ? parsed : parsed.instances || []);
+      if (!data?.success) throw new Error(data?.error || 'Erro ao buscar instâncias');
+      setInstances(data.instances || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar instâncias');
     } finally {
