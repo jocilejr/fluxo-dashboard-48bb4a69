@@ -27,6 +27,7 @@ import {
   Loader2,
   Phone,
   Trash2,
+  Download,
 } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
