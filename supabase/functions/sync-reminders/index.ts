@@ -75,19 +75,18 @@ Deno.serve(async (req) => {
     let skipped = 0;
 
     for (const reminder of allReminders) {
-      const phone = reminder.phone || '';
+      const phone = reminder.phone_number || reminder.phone || reminder.remote_jid || '';
       const title = reminder.title || '';
       const dueDate = reminder.due_date || reminder.dueDate || null;
+      const contactName = reminder.contact_name || '';
 
-      if (imported + skipped < 3) {
-        console.log("Reminder sample:", JSON.stringify({ phone, title, dueDate, keys: Object.keys(reminder) }));
-      }
-
-      if (!phone || !title || !dueDate) {
-        if (skipped < 3) console.log("Skipping (missing field):", JSON.stringify({ phone: !!phone, title: !!title, dueDate: !!dueDate }));
+      if (!title || !dueDate) {
         skipped++;
         continue;
       }
+
+      // Use phone or remote_jid, clean it
+      const cleanPhone = phone.replace(/[^0-9]/g, '') || 'sem-telefone';
 
       // Check if already exists
       const { data: existing } = await supabase
