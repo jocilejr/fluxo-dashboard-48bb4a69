@@ -79,7 +79,12 @@ Deno.serve(async (req) => {
       const title = reminder.title || '';
       const dueDate = reminder.due_date || reminder.dueDate || null;
 
+      if (imported + skipped < 3) {
+        console.log("Reminder sample:", JSON.stringify({ phone, title, dueDate, keys: Object.keys(reminder) }));
+      }
+
       if (!phone || !title || !dueDate) {
+        if (skipped < 3) console.log("Skipping (missing field):", JSON.stringify({ phone: !!phone, title: !!title, dueDate: !!dueDate }));
         skipped++;
         continue;
       }
