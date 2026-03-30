@@ -281,15 +281,17 @@ export function BoletoRecoveryRulesConfig() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2 w-20">
-                      <Label>Dias</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={editingRule.days ?? 1}
-                        onChange={(e) => setEditingRule({ ...editingRule, days: parseInt(e.target.value) || 0 })}
-                      />
-                    </div>
+                    {editingRule.rule_type !== 'immediate' && (
+                      <div className="space-y-2 w-20">
+                        <Label>Dias</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editingRule.days ?? 1}
+                          onChange={(e) => setEditingRule({ ...editingRule, days: parseInt(e.target.value) || 0 })}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
