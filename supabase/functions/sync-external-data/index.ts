@@ -12,6 +12,7 @@ interface SyncRequest {
   date_from?: string;
   date_to?: string;
   limit?: number;
+  instance_name?: string;
 }
 
 Deno.serve(async (req) => {
@@ -75,14 +76,37 @@ Deno.serve(async (req) => {
           throw new Error(`Erro ao buscar clientes: ${customersError.message}`);
         }
 
-        const response = await fetch(`${baseUrl}/api/sync-customers`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ customers }),
-        });
+        let synced = 0;
+        let failed = 0;
 
-        const responseData = await response.json();
-        result = { action: 'sync_customers', sent: customers?.length || 0, response: responseData };
+        for (const customer of (customers || [])) {
+          try {
+            const contactPayload = {
+              phone: customer.normalized_phone,
+              name: customer.name || null,
+              instance_name: body.instance_name || null,
+            };
+
+            const response = await fetch(`${baseUrl}/api/platform/contacts`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(contactPayload),
+            });
+
+            if (response.ok) {
+              synced++;
+            } else {
+              failed++;
+              const errText = await response.text();
+              console.error(`Failed to sync customer ${customer.normalized_phone}: ${errText}`);
+            }
+          } catch (err) {
+            failed++;
+            console.error(`Error syncing customer ${customer.normalized_phone}:`, err);
+          }
+        }
+
+        result = { action: 'sync_customers', sent: customers?.length || 0, synced, failed };
         break;
       }
 
@@ -111,34 +135,52 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Get customer transactions
-        const { data: transactions } = await supabase
-          .from('transactions')
-          .select('id, amount, status, type, description, created_at, paid_at, customer_name, customer_email')
-          .filter('normalized_phone', 'like', `%${phoneLast8}`)
-          .order('created_at', { ascending: false })
-          .limit(50);
-
-        // Get abandoned events
-        const { data: abandonedEvents } = await supabase
-          .from('abandoned_events')
-          .select('id, event_type, product_name, amount, created_at, customer_name, customer_email')
-          .filter('normalized_phone', 'like', `%${phoneLast8}`)
-          .order('created_at', { ascending: false })
-          .limit(50);
-
-        const response = await fetch(`${baseUrl}/api/sync-customer`, {
+        // Sync contact
+        const contactResponse = await fetch(`${baseUrl}/api/platform/contacts`, {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            customer,
-            transactions: transactions || [],
-            abandoned_events: abandonedEvents || [],
+            phone: customer.normalized_phone,
+            name: customer.name || null,
+            instance_name: body.instance_name || null,
           }),
         });
+        const contactData = await contactResponse.json();
 
-        const responseData = await response.json();
-        result = { action: 'sync_customer', phone: customer.normalized_phone, response: responseData };
+        // Get and sync customer transactions
+        const { data: transactions } = await supabase
+          .from('transactions')
+          .select('id, amount, status, type, description, created_at, paid_at, customer_name, customer_email, customer_phone, external_id')
+          .filter('normalized_phone', 'like', `%${phoneLast8}`)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        let txSynced = 0;
+        for (const tx of (transactions || [])) {
+          try {
+            const txPayload = {
+              amount: tx.amount,
+              type: tx.type,
+              status: tx.status,
+              customer_name: tx.customer_name || customer.name || null,
+              customer_phone: customer.normalized_phone,
+              customer_email: tx.customer_email || customer.email || null,
+              description: tx.description || null,
+              paid_at: tx.paid_at || null,
+            };
+
+            await fetch(`${baseUrl}/api/platform/transactions`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(txPayload),
+            });
+            txSynced++;
+          } catch (err) {
+            console.error(`Error syncing transaction ${tx.id}:`, err);
+          }
+        }
+
+        result = { action: 'sync_customer', phone: customer.normalized_phone, contact: contactData, transactions_synced: txSynced };
         break;
       }
 
@@ -162,14 +204,43 @@ Deno.serve(async (req) => {
           throw new Error(`Erro ao buscar transações: ${txError.message}`);
         }
 
-        const response = await fetch(`${baseUrl}/api/sync-transactions`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ transactions }),
-        });
+        let synced = 0;
+        let failed = 0;
 
-        const responseData = await response.json();
-        result = { action: 'sync_transactions', sent: transactions?.length || 0, response: responseData };
+        for (const tx of (transactions || [])) {
+          try {
+            const txPayload = {
+              amount: tx.amount,
+              type: tx.type,
+              status: tx.status,
+              customer_name: tx.customer_name || null,
+              customer_phone: tx.customer_phone || null,
+              customer_email: tx.customer_email || null,
+              customer_document: tx.customer_document || null,
+              description: tx.description || null,
+              paid_at: tx.paid_at || null,
+            };
+
+            const response = await fetch(`${baseUrl}/api/platform/transactions`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(txPayload),
+            });
+
+            if (response.ok) {
+              synced++;
+            } else {
+              failed++;
+              const errText = await response.text();
+              console.error(`Failed to sync transaction ${tx.id}: ${errText}`);
+            }
+          } catch (err) {
+            failed++;
+            console.error(`Error syncing transaction ${tx.id}:`, err);
+          }
+        }
+
+        result = { action: 'sync_transactions', sent: transactions?.length || 0, synced, failed };
         break;
       }
 
@@ -194,10 +265,22 @@ Deno.serve(async (req) => {
           );
         }
 
-        const response = await fetch(`${baseUrl}/api/sync-transaction`, {
+        const txPayload = {
+          amount: transaction.amount,
+          type: transaction.type,
+          status: transaction.status,
+          customer_name: transaction.customer_name || null,
+          customer_phone: transaction.customer_phone || null,
+          customer_email: transaction.customer_email || null,
+          customer_document: transaction.customer_document || null,
+          description: transaction.description || null,
+          paid_at: transaction.paid_at || null,
+        };
+
+        const response = await fetch(`${baseUrl}/api/platform/transactions`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ transaction }),
+          body: JSON.stringify(txPayload),
         });
 
         const responseData = await response.json();

@@ -151,13 +151,12 @@ export function ExternalApiSettings() {
     setIsTesting(true);
     setConnectionStatus("idle");
     try {
-      const response = await fetch(`${settings.server_url.replace(/\/$/, '')}/api/validate-number`, {
-        method: 'POST',
+      const response = await fetch(`${settings.server_url.replace(/\/$/, '')}/api/platform/contacts?limit=1`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.api_key}`,
         },
-        body: JSON.stringify({ phone: '5500000000000' }),
       });
       if (response.ok) {
         setConnectionStatus("connected");

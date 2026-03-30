@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     // ===== SYNC CUSTOMER DATA (external → dashboard) =====
     if (event === 'sync_customer') {
-      const { phone, name, email, document, metadata } = payload;
+      const { phone, name, email, document } = payload;
 
       if (!phone) {
         return new Response(
@@ -75,7 +75,6 @@ Deno.serve(async (req) => {
       const normPhone = phone.replace(/\D/g, '');
       const phoneLast8 = normPhone.slice(-8);
 
-      // Find existing customer
       const { data: existing } = await supabase
         .from('customers')
         .select('id, normalized_phone')
@@ -119,7 +118,6 @@ Deno.serve(async (req) => {
 
       const normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
 
-      // Check for existing transaction by external_id
       if (external_id) {
         const { data: existing } = await supabase
           .from('transactions')
@@ -128,7 +126,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existing) {
-          // Update existing
           const updateFields: Record<string, unknown> = {
             updated_at: new Date().toISOString(),
           };
@@ -149,7 +146,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Insert new transaction
       const { data: newTx, error: insertError } = await supabase
         .from('transactions')
         .insert({
@@ -180,6 +176,40 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, action: 'transaction_created', id: newTx?.id }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== TRANSACTION WEBHOOK (from POST /api/platform/transactions/webhook) =====
+    if (event === 'transaction_webhook') {
+      const { external_id, status: txStatus, paid_at } = payload;
+
+      if (!external_id) {
+        return new Response(
+          JSON.stringify({ error: 'external_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const updateFields: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (txStatus) updateFields.status = txStatus;
+      if (paid_at) updateFields.paid_at = paid_at;
+
+      const { error } = await supabase
+        .from('transactions')
+        .update(updateFields)
+        .eq('external_id', external_id);
+
+      if (error) {
+        console.error('Error updating transaction:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'transaction_webhook_processed' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
