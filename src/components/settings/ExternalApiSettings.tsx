@@ -424,8 +424,8 @@ export function ExternalApiSettings() {
               </div>
               <Button
                 size="sm"
-                variant="outline"
-                className="w-full h-7 text-[11px]"
+                variant={settings.boleto_instance_name ? "default" : "outline"}
+                className={`w-full h-7 text-[11px] ${settings.boleto_instance_name ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500' : ''}`}
                 onClick={() => setInstanceModal({ open: true, type: 'boleto' })}
                 disabled={!settings.server_url || !settings.api_key}
               >
@@ -448,8 +448,8 @@ export function ExternalApiSettings() {
               </div>
               <Button
                 size="sm"
-                variant="outline"
-                className="w-full h-7 text-[11px]"
+                variant={settings.pix_card_instance_name ? "default" : "outline"}
+                className={`w-full h-7 text-[11px] ${settings.pix_card_instance_name ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500' : ''}`}
                 onClick={() => setInstanceModal({ open: true, type: 'pix_card' })}
                 disabled={!settings.server_url || !settings.api_key}
               >
@@ -472,8 +472,8 @@ export function ExternalApiSettings() {
               </div>
               <Button
                 size="sm"
-                variant="outline"
-                className="w-full h-7 text-[11px]"
+                variant={settings.abandoned_instance_name ? "default" : "outline"}
+                className={`w-full h-7 text-[11px] ${settings.abandoned_instance_name ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500' : ''}`}
                 onClick={() => setInstanceModal({ open: true, type: 'abandoned' })}
                 disabled={!settings.server_url || !settings.api_key}
               >
