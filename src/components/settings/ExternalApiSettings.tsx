@@ -538,3 +538,127 @@ function DataSyncSection({ settings }: { settings: MessagingSettings }) {
     </Card>
   );
 }
+
+function InboundConnectionCard({ apiKey }: { apiKey: string }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const apiUrl = `${baseUrl}/functions/v1/platform-api`;
+  const webhookUrl = `${baseUrl}/functions/v1/external-messaging-webhook`;
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    toast.success(`${label} copiado!`);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const CopyButton = ({ text, label }: { text: string; label: string }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-6 w-6 p-0 shrink-0"
+      onClick={() => copyToClipboard(text, label)}
+    >
+      {copied === label ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+    </Button>
+  );
+
+  return (
+    <Card className="bg-card/60 border-border/30">
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Globe className="h-4 w-4" />
+          Conexão de Entrada (App Externa → Você)
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Use estas informações na sua aplicação externa para se conectar ao dashboard
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* API REST URL */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5" />
+            URL da API REST
+          </Label>
+          <div className="flex items-center gap-2 bg-secondary/30 rounded-md p-2 border border-border/20">
+            <code className="text-[11px] text-foreground break-all flex-1">{apiUrl}</code>
+            <CopyButton text={apiUrl} label="URL da API" />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Base para consultar e criar dados (contatos, transações, lembretes, mensagens)
+          </p>
+        </div>
+
+        {/* Webhook URL */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium flex items-center gap-1.5">
+            <Webhook className="h-3.5 w-3.5" />
+            URL do Webhook de Entrada
+          </Label>
+          <div className="flex items-center gap-2 bg-secondary/30 rounded-md p-2 border border-border/20">
+            <code className="text-[11px] text-foreground break-all flex-1">{webhookUrl}</code>
+            <CopyButton text={webhookUrl} label="URL do Webhook" />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Envie eventos como payment_confirmed, sync_reminder, sync_transaction, etc.
+          </p>
+        </div>
+
+        {/* API Key */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium">API Key (header X-API-Key)</Label>
+          <div className="flex items-center gap-2 bg-secondary/30 rounded-md p-2 border border-border/20">
+            <code className="text-[11px] text-foreground break-all flex-1 font-mono">
+              {apiKey.slice(0, 8)}{"•".repeat(Math.min(apiKey.length - 8, 20))}
+            </code>
+            <CopyButton text={apiKey} label="API Key" />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Inclua em todas as requisições: <code className="bg-secondary/40 px-1 rounded">X-API-Key: {"{sua_chave}"}</code>
+          </p>
+        </div>
+
+        {/* Mini docs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+          <div className="p-3 rounded-lg bg-secondary/10 border border-border/20 space-y-1.5">
+            <p className="text-[11px] font-medium">Endpoints REST disponíveis</p>
+            <div className="space-y-0.5 text-[10px] text-muted-foreground font-mono">
+              <p>GET  /contacts</p>
+              <p>GET  /contacts/:phone</p>
+              <p>POST /contacts</p>
+              <p>GET  /transactions</p>
+              <p>POST /transactions</p>
+              <p>PATCH /transactions/:id</p>
+              <p>GET  /reminders</p>
+              <p>POST /reminders</p>
+              <p>PATCH /reminders/:id</p>
+              <p>DELETE /reminders/:id</p>
+              <p>POST /send-message</p>
+              <p>POST /validate-number</p>
+            </div>
+          </div>
+          <div className="p-3 rounded-lg bg-secondary/10 border border-border/20 space-y-1.5">
+            <p className="text-[11px] font-medium">Eventos de Webhook aceitos</p>
+            <div className="space-y-0.5 text-[10px] text-muted-foreground font-mono">
+              <p>payment_confirmed</p>
+              <p>payment_failed</p>
+              <p>payment_refunded</p>
+              <p>customer_updated</p>
+              <p>sync_customer</p>
+              <p>sync_transaction</p>
+              <p>sync_abandoned_event</p>
+              <p>sync_reminder</p>
+              <p>reminder_updated</p>
+              <p>reminder_deleted</p>
+              <p>useful_link_created</p>
+              <p>useful_link_updated</p>
+              <p>useful_link_deleted</p>
+              <p>bulk_sync</p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
