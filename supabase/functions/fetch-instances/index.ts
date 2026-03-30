@@ -19,37 +19,46 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = server_url.replace(/\/$/, '');
-    const response = await fetch(`${baseUrl}/api/platform/fetch-instances`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': api_key,
-        'Authorization': `Bearer ${api_key}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`External API error: ${response.status} - ${errorText.substring(0, 200)}`);
-      return new Response(
-        JSON.stringify({ success: false, error: `Erro da API externa: ${response.status}` }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    
+    // Try the configured URL first, then try replacing app. with api. if needed
+    const urlsToTry = [baseUrl];
+    if (baseUrl.includes('://app.')) {
+      urlsToTry.push(baseUrl.replace('://app.', '://api.'));
     }
 
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error(`Unexpected content type: ${contentType}. Body: ${text.substring(0, 200)}`);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Resposta inesperada da API externa (não é JSON)' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    for (const url of urlsToTry) {
+      try {
+        const response = await fetch(`${url}/api/platform/instances`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': api_key,
+          },
+        });
+
+        if (!response.ok) {
+          await response.text(); // consume body
+          continue;
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          await response.text(); // consume body
+          continue;
+        }
+
+        const data = await response.json();
+        return new Response(
+          JSON.stringify({ success: true, instances: Array.isArray(data) ? data : data.instances || [] }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch {
+        continue;
+      }
     }
 
-    const data = await response.json();
     return new Response(
-      JSON.stringify({ success: true, instances: Array.isArray(data) ? data : data.instances || [] }),
+      JSON.stringify({ success: false, error: 'Não foi possível buscar instâncias da API externa' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
