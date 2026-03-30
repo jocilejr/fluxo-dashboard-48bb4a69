@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -6,8 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,29 +22,27 @@ serve(async (req) => {
 
     console.log(`Validating phone number: ${phone}`);
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch Evolution API settings
+    // Fetch messaging API settings
     const { data: settings, error: settingsError } = await supabase
-      .from('evolution_api_settings')
+      .from('messaging_api_settings')
       .select('*')
       .limit(1)
       .single();
 
     if (settingsError || !settings) {
-      console.error('Evolution settings not found:', settingsError);
       return new Response(
-        JSON.stringify({ error: 'Evolution API não configurada' }),
+        JSON.stringify({ error: 'API de mensagens não configurada' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!settings.is_active) {
       return new Response(
-        JSON.stringify({ error: 'Evolution API está desativada' }),
+        JSON.stringify({ error: 'API de mensagens está desativada' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -57,33 +53,24 @@ serve(async (req) => {
       normalizedPhone = '55' + normalizedPhone;
     }
 
-    console.log(`Normalized phone: ${normalizedPhone}`);
-
-    // Call Evolution API to check if number exists on WhatsApp
-    const evolutionUrl = `${settings.server_url}/chat/whatsappNumbers/${settings.instance_name}`;
+    // Call external API to validate number
+    const apiUrl = `${settings.server_url.replace(/\/$/, '')}/api/validate-number`;
     
-    const response = await fetch(evolutionUrl, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': settings.api_key,
+        'Authorization': `Bearer ${settings.api_key}`,
       },
-      body: JSON.stringify({
-        numbers: [normalizedPhone]
-      }),
+      body: JSON.stringify({ phone: normalizedPhone }),
     });
 
     const responseText = await response.text();
-    console.log(`Evolution API response status: ${response.status}`);
-    console.log(`Evolution API response: ${responseText}`);
+    console.log(`External API response status: ${response.status}`);
 
     if (!response.ok) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Erro ao validar número', 
-          details: responseText,
-          exists: null 
-        }),
+        JSON.stringify({ error: 'Erro ao validar número', exists: null }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -93,27 +80,19 @@ serve(async (req) => {
       result = JSON.parse(responseText);
     } catch {
       return new Response(
-        JSON.stringify({ 
-          error: 'Resposta inválida da Evolution API', 
-          exists: null 
-        }),
+        JSON.stringify({ error: 'Resposta inválida da API externa', exists: null }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse the response - Evolution API returns an array with validation results
-    const validationResult = Array.isArray(result) ? result[0] : result;
-    const exists = validationResult?.exists === true;
-    const jid = validationResult?.jid || null;
-
-    console.log(`Number ${normalizedPhone} exists on WhatsApp: ${exists}`);
+    const exists = result.exists === true;
+    const isMobile = result.is_mobile === true;
 
     return new Response(
       JSON.stringify({ 
         phone: normalizedPhone,
         exists,
-        jid,
-        isMobile: normalizedPhone.length >= 12 && normalizedPhone.charAt(4) === '9'
+        isMobile,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

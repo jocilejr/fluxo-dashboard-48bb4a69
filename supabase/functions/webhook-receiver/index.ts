@@ -308,38 +308,36 @@ async function sendInstantPixCardRecovery(
   try {
     console.log('[InstantRecovery] Checking if should send PIX/Card recovery...');
     
-    // Check if phone exists
     if (!transaction.customer_phone) {
       console.log('[InstantRecovery] No customer phone, skipping');
       return;
     }
 
-    // Get Evolution settings
-    const { data: evolutionSettings, error: settingsError } = await supabase
-      .from('evolution_api_settings')
+    // Get messaging API settings
+    const { data: messagingSettings, error: settingsError } = await supabase
+      .from('messaging_api_settings')
       .select('*')
       .limit(1)
       .maybeSingle();
 
-    if (settingsError || !evolutionSettings) {
-      console.log('[InstantRecovery] No Evolution settings found');
+    if (settingsError || !messagingSettings) {
+      console.log('[InstantRecovery] No messaging settings found');
       return;
     }
 
-    // Check if active and PIX/Card recovery is enabled
-    if (!evolutionSettings.is_active) {
-      console.log('[InstantRecovery] Evolution API not active');
+    if (!messagingSettings.is_active) {
+      console.log('[InstantRecovery] Messaging API not active');
       return;
     }
 
-    if (!evolutionSettings.pix_card_recovery_enabled) {
+    if (!messagingSettings.pix_card_recovery_enabled) {
       console.log('[InstantRecovery] PIX/Card recovery not enabled');
       return;
     }
 
-    // Check working hours only if enabled
-    if (evolutionSettings.working_hours_enabled) {
-      if (!isWithinWorkingHours(evolutionSettings.working_hours_start, evolutionSettings.working_hours_end)) {
+    // Check working hours
+    if (messagingSettings.working_hours_enabled) {
+      if (!isWithinWorkingHours(messagingSettings.working_hours_start, messagingSettings.working_hours_end)) {
         console.log('[InstantRecovery] Outside working hours');
         return;
       }
@@ -350,7 +348,7 @@ async function sendInstantPixCardRecovery(
     todayStart.setHours(0, 0, 0, 0);
     
     const { data: todayMessages, error: countError } = await supabase
-      .from('evolution_message_log')
+      .from('message_log')
       .select('id')
       .gte('created_at', todayStart.toISOString())
       .eq('status', 'sent');
@@ -361,14 +359,14 @@ async function sendInstantPixCardRecovery(
     }
 
     const sentToday = todayMessages?.length || 0;
-    if (sentToday >= evolutionSettings.daily_limit) {
-      console.log(`[InstantRecovery] Daily limit reached (${sentToday}/${evolutionSettings.daily_limit})`);
+    if (sentToday >= messagingSettings.daily_limit) {
+      console.log(`[InstantRecovery] Daily limit reached (${sentToday}/${messagingSettings.daily_limit})`);
       return;
     }
 
-    // Check if already sent for this transaction
+    // Check if already sent
     const { data: existingLog } = await supabase
-      .from('evolution_message_log')
+      .from('message_log')
       .select('id')
       .eq('transaction_id', transaction.id)
       .eq('message_type', 'pix_card')
@@ -392,7 +390,6 @@ async function sendInstantPixCardRecovery(
       return;
     }
 
-    // Format message
     const firstName = transaction.customer_name?.split(' ')[0] || 'Cliente';
     const formattedValue = `R$ ${Number(transaction.amount).toFixed(2).replace('.', ',')}`;
     
@@ -406,22 +403,33 @@ async function sendInstantPixCardRecovery(
 
     console.log(`[InstantRecovery] Sending recovery message to ${transaction.customer_phone}`);
 
-    // Send via evolution-send-message
-    const { data: sendResult, error: sendError } = await supabase.functions.invoke('evolution-send-message', {
-      body: {
+    // Send via send-external-message
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`
+      },
+      body: JSON.stringify({
         phone: transaction.customer_phone,
         message: message,
         messageType: 'pix_card',
         transactionId: transaction.id,
-      },
+        customerName: transaction.customer_name,
+        amount: transaction.amount,
+      }),
     });
 
-    if (sendError) {
-      console.error('[InstantRecovery] Error sending message:', sendError);
-      return;
-    }
+    const sendResult = await response.json();
 
-    console.log('[InstantRecovery] Recovery message sent successfully!', sendResult);
+    if (sendResult.success) {
+      console.log('[InstantRecovery] Recovery message sent successfully!', sendResult);
+    } else {
+      console.error('[InstantRecovery] Error sending message:', sendResult);
+    }
   } catch (error) {
     console.error('[InstantRecovery] Unexpected error:', error);
   }

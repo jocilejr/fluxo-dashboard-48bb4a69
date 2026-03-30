@@ -45,18 +45,6 @@ verify_jwt = false
 [functions.lead-summary]
 verify_jwt = true
 
-[functions.evolution-send-message]
-verify_jwt = true
-
-[functions.evolution-auto-recovery]
-verify_jwt = true
-
-[functions.evolution-test-connection]
-verify_jwt = true
-
-[functions.evolution-validate-number]
-verify_jwt = true
-
 [functions.browser-proxy]
 verify_jwt = true
 
@@ -77,3 +65,15 @@ verify_jwt = true
 
 [functions.meta-conversions-api]
 verify_jwt = false
+
+[functions.send-external-message]
+verify_jwt = true
+
+[functions.validate-external-number]
+verify_jwt = true
+
+[functions.external-messaging-webhook]
+verify_jwt = false
+
+[functions.auto-recovery]
+verify_jwt = true
