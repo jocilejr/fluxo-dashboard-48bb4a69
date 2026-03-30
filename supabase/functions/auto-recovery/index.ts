@@ -112,6 +112,13 @@ Deno.serve(async (req) => {
 
     let messagesSent = 0;
 
+    // Get instance names from settings
+    const instanceMap: Record<string, string | null> = {
+      boleto: settings.boleto_instance_name || null,
+      pix_card: settings.pix_card_instance_name || null,
+      abandoned: settings.abandoned_instance_name || null,
+    };
+
     async function sendWithDelay(
       phone: string,
       message: string,
@@ -128,7 +135,14 @@ Deno.serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${supabaseServiceKey}`
           },
-          body: JSON.stringify({ phone, message, messageType: type, transactionId, abandonedEventId })
+          body: JSON.stringify({
+            phone,
+            message,
+            messageType: type,
+            transactionId,
+            abandonedEventId,
+            instanceName: instanceMap[type],
+          })
         });
 
         const result = await response.json();
