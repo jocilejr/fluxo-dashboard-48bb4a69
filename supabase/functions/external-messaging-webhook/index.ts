@@ -707,6 +707,80 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ===== USEFUL LINK CREATE/UPDATE =====
+    if (event === 'useful_link_created' || event === 'useful_link_updated') {
+      const { title, url, description, icon, is_active } = payload;
+
+      if (!title || !url) {
+        return new Response(
+          JSON.stringify({ error: 'title and url are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if link with same URL already exists
+      const { data: existing } = await supabase
+        .from('useful_links')
+        .select('id')
+        .eq('url', url)
+        .maybeSingle();
+
+      if (existing) {
+        const updateData: Record<string, unknown> = { title, url, updated_at: new Date().toISOString() };
+        if (description !== undefined) updateData.description = description;
+        if (icon !== undefined) updateData.icon = icon;
+        if (is_active !== undefined) updateData.is_active = is_active;
+
+        const { error } = await supabase.from('useful_links').update(updateData).eq('id', existing.id);
+        if (error) console.error('Error updating useful link:', error);
+
+        return new Response(
+          JSON.stringify({ success: true, action: 'useful_link_updated', id: existing.id }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        const insertData: Record<string, unknown> = { title, url };
+        if (description) insertData.description = description;
+        if (icon) insertData.icon = icon;
+        if (is_active !== undefined) insertData.is_active = is_active;
+
+        const { data: newLink, error } = await supabase.from('useful_links').insert(insertData).select('id').single();
+        if (error) console.error('Error creating useful link:', error);
+
+        return new Response(
+          JSON.stringify({ success: true, action: 'useful_link_created', id: newLink?.id }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // ===== USEFUL LINK DELETE =====
+    if (event === 'useful_link_deleted') {
+      const { id, url } = payload;
+
+      if (!id && !url) {
+        return new Response(
+          JSON.stringify({ error: 'id or url required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      let query = supabase.from('useful_links').delete();
+      if (id) {
+        query = query.eq('id', id);
+      } else {
+        query = query.eq('url', url);
+      }
+
+      const { error } = await query;
+      if (error) console.error('Error deleting useful link:', error);
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'useful_link_deleted' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Unknown event type', received: event }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
