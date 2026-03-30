@@ -559,7 +559,7 @@ function InboundConnectionCard({ apiKey }: { apiKey: string }) {
       className="h-6 w-6 p-0 shrink-0"
       onClick={() => copyToClipboard(text, label)}
     >
-      {copied === label ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+      {copied === label ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
     </Button>
   );
 
