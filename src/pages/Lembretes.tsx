@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,13 +17,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Bell,
   Plus,
   RefreshCcw,
@@ -32,19 +26,10 @@ import {
   Calendar,
   Loader2,
   Phone,
+  Trash2,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface Reminder {
-  id: string;
-  phone: string;
-  title: string;
-  description?: string;
-  due_date: string;
-  completed: boolean;
-  created_at?: string;
-}
 
 const filterOptions = [
   { value: "pending", label: "Pendentes", icon: Clock, color: "text-yellow-500" },
@@ -54,87 +39,93 @@ const filterOptions = [
 ];
 
 export default function Lembretes() {
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
   const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [newReminder, setNewReminder] = useState({
     phone: "",
     title: "",
     description: "",
     due_date: "",
   });
+  const queryClient = useQueryClient();
 
-  const fetchReminders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("external-reminders", {
-        body: { action: "list", filter },
+  const { data: reminders = [], isLoading } = useQuery({
+    queryKey: ["reminders", filter],
+    queryFn: async () => {
+      let query = supabase
+        .from("reminders")
+        .select("*")
+        .order("due_date", { ascending: true });
+
+      if (filter === "completed") {
+        query = query.eq("completed", true);
+      } else if (filter === "pending") {
+        query = query.eq("completed", false);
+      } else if (filter === "overdue") {
+        query = query.eq("completed", false).lt("due_date", new Date().toISOString());
+      } else if (filter === "today") {
+        const start = new Date();
+        start.setHours(0, 0, 0, 0);
+        const end = new Date();
+        end.setHours(23, 59, 59, 999);
+        query = query
+          .eq("completed", false)
+          .gte("due_date", start.toISOString())
+          .lte("due_date", end.toISOString());
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (reminder: typeof newReminder) => {
+      const { error } = await supabase.from("reminders").insert({
+        phone: reminder.phone,
+        title: reminder.title,
+        description: reminder.description || null,
+        due_date: new Date(reminder.due_date).toISOString(),
       });
       if (error) throw error;
-      if (data?.success) {
-        const items = Array.isArray(data.data) ? data.data : data.data?.data || data.data?.reminders || [];
-        setReminders(items);
-      } else {
-        toast.error(data?.error || "Erro ao buscar lembretes");
-      }
-    } catch (err: any) {
-      toast.error("Erro ao buscar lembretes: " + (err.message || ""));
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
+    },
+    onSuccess: () => {
+      toast.success("Lembrete criado!");
+      setCreateOpen(false);
+      setNewReminder({ phone: "", title: "", description: "", due_date: "" });
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+    },
+    onError: (err: any) => toast.error("Erro: " + err.message),
+  });
 
-  useEffect(() => {
-    fetchReminders();
-  }, [fetchReminders]);
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+      const { error } = await supabase.from("reminders").update({ completed }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
 
-  const handleCreate = async () => {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("reminders").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Lembrete excluído");
+      queryClient.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
+
+  const handleCreate = () => {
     if (!newReminder.phone || !newReminder.title || !newReminder.due_date) {
       toast.error("Preencha telefone, título e data");
       return;
     }
-    setCreating(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("external-reminders", {
-        body: { action: "create", ...newReminder },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast.success("Lembrete criado!");
-        setCreateOpen(false);
-        setNewReminder({ phone: "", title: "", description: "", due_date: "" });
-        fetchReminders();
-      } else {
-        toast.error(data?.error || "Erro ao criar lembrete");
-      }
-    } catch (err: any) {
-      toast.error("Erro: " + (err.message || ""));
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleToggleComplete = async (reminder: Reminder) => {
-    try {
-      const { data, error } = await supabase.functions.invoke("external-reminders", {
-        body: {
-          action: "update",
-          reminder_id: reminder.id,
-          completed: !reminder.completed,
-        },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast.success(reminder.completed ? "Lembrete reaberto" : "Lembrete concluído!");
-        fetchReminders();
-      } else {
-        toast.error(data?.error || "Erro ao atualizar");
-      }
-    } catch (err: any) {
-      toast.error("Erro: " + (err.message || ""));
-    }
+    createMutation.mutate(newReminder);
   };
 
   const activeFilter = filterOptions.find(f => f.value === filter);
@@ -155,8 +146,13 @@ export default function Lembretes() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchReminders} disabled={loading}>
-            <RefreshCcw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ["reminders"] })}
+            disabled={isLoading}
+          >
+            <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -203,8 +199,8 @@ export default function Lembretes() {
                     onChange={e => setNewReminder(p => ({ ...p, due_date: e.target.value }))}
                   />
                 </div>
-                <Button className="w-full" onClick={handleCreate} disabled={creating}>
-                  {creating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                <Button className="w-full" onClick={handleCreate} disabled={createMutation.isPending}>
+                  {createMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
                   Criar Lembrete
                 </Button>
               </div>
@@ -230,7 +226,7 @@ export default function Lembretes() {
       </div>
 
       {/* Content */}
-      {loading ? (
+      {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -248,47 +244,63 @@ export default function Lembretes() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {reminders.map(reminder => (
-            <Card key={reminder.id} className="transition-all hover:shadow-md">
-              <CardContent className="flex items-center gap-4 py-4">
-                <Checkbox
-                  checked={reminder.completed}
-                  onCheckedChange={() => handleToggleComplete(reminder)}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`font-medium ${reminder.completed ? "line-through text-muted-foreground" : ""}`}>
-                      {reminder.title}
-                    </span>
-                    {reminder.completed && (
-                      <Badge variant="secondary" className="text-xs">Concluído</Badge>
+          {reminders.map((reminder: any) => {
+            const isOverdue = !reminder.completed && isPast(new Date(reminder.due_date));
+            return (
+              <Card key={reminder.id} className="transition-all hover:shadow-md">
+                <CardContent className="flex items-center gap-4 py-4">
+                  <Checkbox
+                    checked={reminder.completed}
+                    onCheckedChange={() =>
+                      toggleMutation.mutate({ id: reminder.id, completed: !reminder.completed })
+                    }
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-medium ${reminder.completed ? "line-through text-muted-foreground" : ""}`}>
+                        {reminder.title}
+                      </span>
+                      {reminder.completed && (
+                        <Badge variant="secondary" className="text-xs">Concluído</Badge>
+                      )}
+                      {isOverdue && (
+                        <Badge variant="destructive" className="text-xs">Atrasado</Badge>
+                      )}
+                    </div>
+                    {reminder.description && (
+                      <p className="text-sm text-muted-foreground mt-0.5 truncate">
+                        {reminder.description}
+                      </p>
                     )}
+                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        {reminder.phone}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {(() => {
+                          try {
+                            return format(new Date(reminder.due_date), "dd/MM/yyyy HH:mm", { locale: ptBR });
+                          } catch {
+                            return reminder.due_date;
+                          }
+                        })()}
+                      </span>
+                    </div>
                   </div>
-                  {reminder.description && (
-                    <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                      {reminder.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {reminder.phone}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {(() => {
-                        try {
-                          return format(new Date(reminder.due_date), "dd/MM/yyyy HH:mm", { locale: ptBR });
-                        } catch {
-                          return reminder.due_date;
-                        }
-                      })()}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={() => deleteMutation.mutate(reminder.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
