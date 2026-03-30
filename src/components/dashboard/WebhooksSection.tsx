@@ -332,19 +332,96 @@ function MensagensWebhook() {
   );
 }
 
+// Platform REST API docs
+function PlatformApiDocs() {
+  const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/platform-api`;
+
+  return (
+    <div className="space-y-4">
+      <WebhookUrlCard url={baseUrl} label="URL Base da API REST" />
+
+      <div className="p-4 bg-secondary/10 border border-border/20 rounded-lg">
+        <h5 className="text-xs font-semibold mb-2">Autenticação</h5>
+        <p className="text-xs text-muted-foreground">
+          Todas as requisições devem incluir o header: <code className="bg-secondary/40 px-1 rounded">X-API-Key: sua_chave</code>
+        </p>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          A chave é a mesma configurada em Configurações → API Externa.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <h5 className="text-xs font-semibold text-muted-foreground">Endpoints Disponíveis</h5>
+        
+        <PayloadExample title="GET /contacts?phone=&name=&limit=100&offset=0" payload={{
+          description: "Lista contatos com filtros opcionais",
+          response: { data: [{ id: "uuid", name: "João", normalized_phone: "5511999999999" }], count: 1, offset: 0, limit: 100 }
+        }} defaultOpen />
+
+        <PayloadExample title="GET /contacts/:phone" payload={{
+          description: "Detalhes do contato + lembretes",
+          response: { contact: { id: "uuid", name: "João" }, reminders: [] }
+        }} />
+
+        <PayloadExample title="POST /contacts" payload={{
+          phone: "5511999999999", name: "João Silva", email: "joao@email.com"
+        }} />
+
+        <PayloadExample title="GET /transactions?status=&from=&to=&phone=&limit=100" payload={{
+          description: "Lista transações com filtros",
+          response: { data: [], count: 0, offset: 0, limit: 100 }
+        }} />
+
+        <PayloadExample title="POST /transactions" payload={{
+          amount: 150, type: "pix", status: "pendente", customer_phone: "5511999999999", customer_name: "João"
+        }} />
+
+        <PayloadExample title="PATCH /transactions/:id" payload={{
+          status: "pago", paid_at: "2026-03-30T15:00:00Z"
+        }} />
+
+        <PayloadExample title="GET /reminders?filter=pending&phone=&limit=100" payload={{
+          description: "Lista lembretes. filter: pending|completed|overdue|today",
+          response: { data: [], count: 0, offset: 0, limit: 100 }
+        }} />
+
+        <PayloadExample title="POST /reminders" payload={{
+          phone: "5511999999999", title: "Cobrar cliente", due_date: "2026-04-01T10:00:00Z", description: "Parcela de abril"
+        }} />
+
+        <PayloadExample title="PATCH /reminders/:id" payload={{ completed: true }} />
+
+        <PayloadExample title="DELETE /reminders/:id" payload={{ description: "Exclui o lembrete pelo ID" }} />
+
+        <PayloadExample title="POST /send-message" payload={{
+          phone: "5511999999999", message: "Olá! Como posso ajudar?"
+        }} />
+
+        <PayloadExample title="POST /validate-number" payload={{
+          phone: "5511999999999"
+        }} />
+      </div>
+    </div>
+  );
+}
+
 export function WebhooksSection() {
   return (
     <div className="bg-card/60 border border-border/30 rounded-xl p-5 lg:p-6">
       <div className="mb-5">
-        <h3 className="text-sm font-semibold text-foreground">Configuração de Webhooks</h3>
+        <h3 className="text-sm font-semibold text-foreground">Configuração de Webhooks & API</h3>
         <p className="text-xs text-muted-foreground">URLs para integração com sistemas externos</p>
       </div>
 
-      <Tabs defaultValue="mensagens" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-4">
+      <Tabs defaultValue="api" className="w-full">
+        <TabsList className="grid w-full grid-cols-5 mb-4">
+          <TabsTrigger value="api" className="gap-1.5 text-xs">
+            <Globe className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">API REST</span>
+          </TabsTrigger>
           <TabsTrigger value="mensagens" className="gap-1.5 text-xs">
             <MessageSquare className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Mensagens</span>
+            <span className="hidden sm:inline">Webhooks</span>
           </TabsTrigger>
           <TabsTrigger value="transacoes" className="gap-1.5 text-xs">
             <CreditCard className="h-3.5 w-3.5" />
@@ -359,6 +436,10 @@ export function WebhooksSection() {
             <span className="hidden sm:inline">Abandono</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="api">
+          <PlatformApiDocs />
+        </TabsContent>
 
         <TabsContent value="mensagens">
           <MensagensWebhook />
