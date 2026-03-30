@@ -1,39 +1,50 @@
 
 
-## Plano: Separar API de Mensagens e criar página "Auto Rec." na sidebar
+## Plano: Mensagens de recuperação inline + automação por tipo
 
-### Resumo
-1. Mover toda a seção de **Recuperação Automática** (instâncias, limites, horário comercial, botões de execução, stats) do `ExternalApiSettings.tsx` para uma **nova página dedicada** acessível pela sidebar como **"Auto Rec."**
-2. Manter no `ExternalApiSettings.tsx` (aba "API Mensagens" em Configurações) apenas: configuração de conexão API, sincronização de dados e logs de mensagens
-3. Adicionar item **"Auto Rec."** na sidebar com ícone `Zap` (ou `RefreshCcw`)
+### Contexto
+Atualmente as mensagens de recuperação estão em modais separados (`AbandonedRecoverySettings`, `PixCardRecoverySettings`, `BoletoRecoveryRulesConfig`). O usuário quer:
+1. Configurar mensagens diretamente na página **Auto Rec.**
+2. Dois modos de automação distintos:
+   - **PIX/Cartão e Abandonos**: recuperação automática disparada quando chega transação nova (via webhook)
+   - **Boletos**: recuperação automática diária via cron job
 
 ### Alterações
 
-**1. Nova página `src/pages/AutoRecuperacao.tsx`**
-- Página dedicada com título "Recuperação Automática"
-- Contém: cards de instâncias (Boleto, PIX/Cartão, Abandonos) com seleção e status visual, limites diários, delay, horário comercial, stats de hoje, botões de execução manual
-- Reutiliza o `InstanceSelectorModal` (extraído ou importado)
-- Usa os mesmos hooks de `messaging_api_settings` e `message_log`
+#### 1. Página Auto Rec. — Mensagens inline
+**Arquivo: `src/pages/AutoRecuperacao.tsx`**
+- Adicionar dentro de cada `InstanceCard` (ou abaixo dele) um campo `Textarea` para editar a mensagem de cada tipo:
+  - **PIX/Cartão**: carrega/salva de `pix_card_recovery_settings.message`
+  - **Abandonos**: carrega/salva de `abandoned_recovery_settings.message`
+  - **Boleto**: link para a régua de cobrança (já tem múltiplas regras com mensagens individuais) — exibir um resumo das regras e botão para expandir o `BoletoRecoveryRulesConfig` inline
+- Mostrar as variáveis disponíveis: `{saudação}`, `{nome}`, `{primeiro_nome}`, `{valor}`, `{produto}`
+- Queries: `pix-card-recovery-settings`, `abandoned-recovery-settings`; mutations para update/insert
 
-**2. Refatorar `src/components/settings/ExternalApiSettings.tsx`**
-- Remover toda a seção "Recuperação Automática" (cards de instâncias, limites, horário, stats, botões de execução)
-- Manter apenas: Configuração da API Externa (URL, API Key, Webhook, switch ativo, testar conexão, salvar), Sincronização de Dados e Message Logs
+#### 2. Recuperação automática por transação nova (PIX/Cartão + Abandonos)
+**Arquivo: `supabase/functions/webhook-receiver/index.ts`** (ou `external-messaging-webhook`)
+- Quando chega um evento de transação nova (PIX/cartão pendente) ou abandono, após salvar no banco, invocar automaticamente `auto-recovery` passando `{ type: 'pix_card', transactionId }` ou `{ type: 'abandoned', abandonedEventId }`
+- Checar se a recuperação está habilitada (`pix_card_recovery_enabled` / `abandoned_recovery_enabled`) antes de invocar
+- Isso garante recuperação em tempo real para transações novas
 
-**3. Extrair `InstanceSelectorModal` para arquivo próprio**
-- `src/components/recovery/InstanceSelectorModal.tsx` — reutilizável pela nova página
+#### 3. Recuperação diária de boletos via cron
+**Migração SQL (via insert tool, não migration)**:
+- Habilitar extensões `pg_cron` e `pg_net` (se ainda não habilitadas)
+- Criar cron job que roda 1x por dia (ex: `0 9 * * *` — 9h da manhã) chamando a edge function `auto-recovery` com `{ type: 'boleto' }`
+- Usar `net.http_post` com a URL da function e o anon key
 
-**4. Sidebar (`src/components/AppSidebar.tsx`)**
-- Adicionar item: `{ title: "Auto Rec.", icon: Zap, path: "/auto-recuperacao", permissionKey: "auto_recuperacao", desktopOnly: true }`
-- Posicionar após "Recuperação" na lista
+#### 4. Indicadores visuais na página Auto Rec.
+- Mostrar badge "Tempo Real" nos cards PIX/Cartão e Abandonos (indicando que disparam por webhook)
+- Mostrar badge "Diário 9h" no card Boleto (indicando que roda via cron)
+- Seção de descrição explicativa em cada card
 
-**5. Rotas (`src/App.tsx`)**
-- Adicionar lazy import e rota: `<Route path="auto-recuperacao" element={<AutoRecuperacao />} />`
-
-**6. Renomear sidebar "Recuperação" existente**
-- Manter como está (Recuperação = BoletoRecoveryDashboard, fila manual)
-- A nova "Auto Rec." é exclusivamente para configuração da recuperação automática
+#### 5. Refatorar edge function `auto-recovery`
+**Arquivo: `supabase/functions/auto-recovery/index.ts`**
+- Aceitar parâmetros opcionais `transactionId` e `abandonedEventId` para processar um item específico (modo webhook)
+- Quando recebe ID específico, processar apenas aquele item sem loop
+- Manter o modo batch existente para o cron de boletos
 
 ### Resultado
-- **Configurações > API Mensagens**: conexão API + sync de dados + logs
-- **Sidebar > Auto Rec.**: página dedicada com todas as configurações de recuperação automática (instâncias, limites, execução)
+- **PIX/Cartão + Abandonos**: recuperação automática instantânea quando a transação/abandono chega via webhook
+- **Boletos**: recuperação automática diária via cron job às 9h
+- **Mensagens**: configuráveis diretamente na página Auto Rec. sem precisar de modais separados
 
