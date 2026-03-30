@@ -183,8 +183,9 @@ export default function Lembretes() {
         console.log("No external_id for reminder", id, "- skipping external sync");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      sendOutboundWebhook("reminder_updated", { id: variables.id, completed: variables.completed, external_id: variables.external_id });
     },
   });
 
