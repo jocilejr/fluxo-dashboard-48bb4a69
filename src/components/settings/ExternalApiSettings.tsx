@@ -14,6 +14,7 @@ interface MessagingSettings {
   id?: string;
   server_url: string;
   api_key: string;
+  webhook_url: string;
   is_active: boolean;
   boleto_recovery_enabled: boolean;
   pix_card_recovery_enabled: boolean;
@@ -30,6 +31,7 @@ interface MessagingSettings {
 const defaultSettings: MessagingSettings = {
   server_url: "",
   api_key: "",
+  webhook_url: "",
   is_active: false,
   boleto_recovery_enabled: false,
   pix_card_recovery_enabled: false,
