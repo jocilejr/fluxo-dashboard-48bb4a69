@@ -517,19 +517,6 @@ function DataSyncSection({ settings }: { settings: MessagingSettings }) {
             </div>
           </div>
 
-          <div className="p-3 rounded-lg bg-secondary/20 border border-border/20 space-y-2">
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-              <p className="text-xs font-medium">Externa → Dashboard</p>
-            </div>
-            <p className="text-[10px] text-muted-foreground">Sua aplicação envia dados via webhook:</p>
-            <code className="text-[10px] block bg-secondary/40 p-2 rounded text-muted-foreground break-all">
-              POST {import.meta.env.VITE_SUPABASE_URL}/functions/v1/external-messaging-webhook
-            </code>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Eventos: <span className="text-foreground">payment_confirmed</span>, <span className="text-foreground">payment_failed</span>, <span className="text-foreground">payment_refunded</span>, <span className="text-foreground">customer_updated</span>, <span className="text-foreground">invoice_created</span>, <span className="text-foreground">sync_customer</span>, <span className="text-foreground">sync_transaction</span>, <span className="text-foreground">transaction_webhook</span>, <span className="text-foreground">sync_abandoned_event</span>, <span className="text-foreground">sync_reminder</span>, <span className="text-foreground">reminder_updated</span>, <span className="text-foreground">reminder_deleted</span>, <span className="text-foreground">useful_link_created</span>, <span className="text-foreground">useful_link_updated</span>, <span className="text-foreground">useful_link_deleted</span>, <span className="text-foreground">bulk_sync</span>
-            </p>
-          </div>
         </div>
       </CardContent>
     </Card>
