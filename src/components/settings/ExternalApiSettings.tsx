@@ -611,10 +611,6 @@ export function ExternalApiSettings() {
     </div>
   );
 
-  function getInstanceKey(type: 'boleto' | 'pix_card' | 'abandoned'): keyof MessagingSettings {
-    const map = { boleto: 'boleto_instance_name', pix_card: 'pix_card_instance_name', abandoned: 'abandoned_instance_name' } as const;
-    return map[type];
-  }
 }
 
 function DataSyncSection({ settings }: { settings: MessagingSettings }) {
