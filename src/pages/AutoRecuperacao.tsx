@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, Smartphone, X, Circle, Zap, Clock, Radio, Save } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Send, Smartphone, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -61,11 +62,11 @@ const defaultSettings: MessagingSettings = {
 };
 
 const VARIABLES_INFO = [
-  { var: "{saudação}", desc: "Bom dia/tarde/noite" },
-  { var: "{nome}", desc: "Nome completo" },
-  { var: "{primeiro_nome}", desc: "Primeiro nome" },
-  { var: "{valor}", desc: "Valor" },
-  { var: "{produto}", desc: "Nome do produto" },
+  { var: "{saudação}" },
+  { var: "{nome}" },
+  { var: "{primeiro_nome}" },
+  { var: "{valor}" },
+  { var: "{produto}" },
 ];
 
 const AutoRecuperacao = () => {
@@ -202,28 +203,7 @@ const AutoRecuperacao = () => {
     );
   }
 
-  const VariablesHint = ({ extra }: { extra?: string[] }) => (
-    <div className="flex flex-wrap gap-1.5 mt-2">
-      {VARIABLES_INFO.map((v) => (
-        <span key={v.var} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground">
-          {v.var}
-        </span>
-      ))}
-      {extra?.map((v) => (
-        <span key={v} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground">
-          {v}
-        </span>
-      ))}
-    </div>
-  );
-
-  const InstanceSelector = ({ 
-    type, 
-    instanceName,
-  }: { 
-    type: 'boleto' | 'pix_card' | 'abandoned'; 
-    instanceName: string | null;
-  }) => (
+  const InstanceSelector = ({ type, instanceName }: { type: 'boleto' | 'pix_card' | 'abandoned'; instanceName: string | null }) => (
     <div className="space-y-2">
       <Label className="text-xs font-medium">Instância WhatsApp</Label>
       {instanceName ? (
@@ -233,10 +213,7 @@ const AutoRecuperacao = () => {
             <p className="text-xs font-medium truncate">{instanceName}</p>
             <p className="text-[10px] text-emerald-400">Conectada</p>
           </div>
-          <button
-            onClick={() => removeInstance(type)}
-            className="text-muted-foreground hover:text-destructive transition-colors"
-          >
+          <button onClick={() => removeInstance(type)} className="text-muted-foreground hover:text-destructive transition-colors">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -257,7 +234,7 @@ const AutoRecuperacao = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      {/* Header with Save */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
@@ -274,14 +251,13 @@ const AutoRecuperacao = () => {
         </Button>
       </div>
 
-      {/* API Warning */}
       {!apiConfigured && (
         <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
-          ⚠️ Configure a API de mensagens em <strong>Configurações → API Mensagens</strong> antes de usar a recuperação automática.
+          ⚠️ Configure a API de mensagens em <strong>Configurações → API Mensagens</strong> antes de usar.
         </div>
       )}
 
-      {/* Stats inline */}
+      {/* Stats */}
       {stats && (
         <div className="grid grid-cols-5 gap-2">
           {[
@@ -299,100 +275,164 @@ const AutoRecuperacao = () => {
         </div>
       )}
 
-      {/* 3 Recovery Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* PIX/Cartão */}
-        <Card className="bg-card/60 border-border/30 flex flex-col">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm">PIX / Cartão</CardTitle>
-                <Badge variant="outline" className="text-[10px] h-5 gap-1">
-                  <Radio className="h-2.5 w-2.5" />
-                  Tempo Real
-                </Badge>
+      {/* Tabs for each recovery type */}
+      <Tabs defaultValue="pix_card" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="pix_card" className="gap-2">
+            <CreditCard className="h-4 w-4" />
+            PIX / Cartão
+          </TabsTrigger>
+          <TabsTrigger value="abandoned" className="gap-2">
+            <ShoppingCart className="h-4 w-4" />
+            Abandonos
+          </TabsTrigger>
+          <TabsTrigger value="boleto" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Boleto
+          </TabsTrigger>
+        </TabsList>
+
+        {/* PIX / Cartão */}
+        <TabsContent value="pix_card" className="space-y-4">
+          <Card className="bg-card/60 border-border/30">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">PIX / Cartão</CardTitle>
+                  <Badge variant="outline" className="text-[10px] h-5 gap-1">
+                    <Radio className="h-2.5 w-2.5" />
+                    Tempo Real
+                  </Badge>
+                </div>
+                <Switch
+                  checked={settings.pix_card_recovery_enabled}
+                  onCheckedChange={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
+                />
               </div>
-              <Switch
-                checked={settings.pix_card_recovery_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">Dispara ao receber transação pendente via webhook.</p>
-          </CardHeader>
-          <CardContent className="space-y-3 flex-1 flex flex-col">
-            <InstanceSelector type="pix_card" instanceName={settings.pix_card_instance_name} />
-            <div className="space-y-1.5 flex-1">
-              <Label className="text-xs">Mensagem</Label>
-              <Textarea
-                value={settings.auto_pix_card_message}
-                onChange={(e) => setSettings({ ...settings, auto_pix_card_message: e.target.value })}
-                placeholder="Olá {primeiro_nome}! Seu pagamento de {valor} está pendente..."
-                className="min-h-[80px] text-sm flex-1"
-              />
-              <VariablesHint />
-            </div>
-          </CardContent>
-        </Card>
+              <CardDescription>
+                Dispara automaticamente quando chega uma transação PIX/Cartão pendente via webhook.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <InstanceSelector type="pix_card" instanceName={settings.pix_card_instance_name} />
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Mensagem automática</Label>
+                <Textarea
+                  value={settings.auto_pix_card_message}
+                  onChange={(e) => setSettings({ ...settings, auto_pix_card_message: e.target.value })}
+                  placeholder="Olá {primeiro_nome}! Seu pagamento de {valor} está pendente..."
+                  className="min-h-[100px] text-sm"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {VARIABLES_INFO.map((v) => (
+                    <span key={v.var} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground">
+                      {v.var}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => runAutoRecovery('pix_card')} disabled={!apiConfigured}>
+                  <Send className="h-3.5 w-3.5 mr-2" />
+                  Executar agora
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Abandonos */}
-        <Card className="bg-card/60 border-border/30 flex flex-col">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm">Abandonos</CardTitle>
-                <Badge variant="outline" className="text-[10px] h-5 gap-1">
-                  <Radio className="h-2.5 w-2.5" />
-                  Tempo Real
-                </Badge>
+        <TabsContent value="abandoned" className="space-y-4">
+          <Card className="bg-card/60 border-border/30">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">Abandonos</CardTitle>
+                  <Badge variant="outline" className="text-[10px] h-5 gap-1">
+                    <Radio className="h-2.5 w-2.5" />
+                    Tempo Real
+                  </Badge>
+                </div>
+                <Switch
+                  checked={settings.abandoned_recovery_enabled}
+                  onCheckedChange={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
+                />
               </div>
-              <Switch
-                checked={settings.abandoned_recovery_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">Dispara ao receber evento de abandono via webhook.</p>
-          </CardHeader>
-          <CardContent className="space-y-3 flex-1 flex flex-col">
-            <InstanceSelector type="abandoned" instanceName={settings.abandoned_instance_name} />
-            <div className="space-y-1.5 flex-1">
-              <Label className="text-xs">Mensagem</Label>
-              <Textarea
-                value={settings.auto_abandoned_message}
-                onChange={(e) => setSettings({ ...settings, auto_abandoned_message: e.target.value })}
-                placeholder="Olá {primeiro_nome}! Vi que você demonstrou interesse..."
-                className="min-h-[80px] text-sm"
-              />
-              <VariablesHint />
-            </div>
-          </CardContent>
-        </Card>
+              <CardDescription>
+                Dispara automaticamente quando um evento de abandono é recebido via webhook.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <InstanceSelector type="abandoned" instanceName={settings.abandoned_instance_name} />
+
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Mensagem automática</Label>
+                <Textarea
+                  value={settings.auto_abandoned_message}
+                  onChange={(e) => setSettings({ ...settings, auto_abandoned_message: e.target.value })}
+                  placeholder="Olá {primeiro_nome}! Vi que você demonstrou interesse..."
+                  className="min-h-[100px] text-sm"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {VARIABLES_INFO.map((v) => (
+                    <span key={v.var} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground">
+                      {v.var}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => runAutoRecovery('abandoned')} disabled={!apiConfigured}>
+                  <Send className="h-3.5 w-3.5 mr-2" />
+                  Executar agora
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Boleto */}
-        <Card className="bg-card/60 border-border/30 flex flex-col">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm">Boleto</CardTitle>
-                <Badge variant="secondary" className="text-[10px] h-5 gap-1">
-                  <Clock className="h-2.5 w-2.5" />
-                  Diário 9h
-                </Badge>
+        <TabsContent value="boleto" className="space-y-4">
+          <Card className="bg-card/60 border-border/30">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">Boleto</CardTitle>
+                  <Badge variant="secondary" className="text-[10px] h-5 gap-1">
+                    <Clock className="h-2.5 w-2.5" />
+                    Diário 9h
+                  </Badge>
+                </div>
+                <Switch
+                  checked={settings.boleto_recovery_enabled}
+                  onCheckedChange={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
+                />
               </div>
-              <Switch
-                checked={settings.boleto_recovery_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">Executa diariamente às 9h seguindo a régua de cobrança.</p>
-          </CardHeader>
-          <CardContent className="space-y-3 flex-1">
-            <InstanceSelector type="boleto" instanceName={settings.boleto_instance_name} />
-            <BoletoRecoveryRulesConfig />
-          </CardContent>
-        </Card>
-      </div>
+              <CardDescription>
+                Executa automaticamente todos os dias às 9h, seguindo a régua de cobrança configurada abaixo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <InstanceSelector type="boleto" instanceName={settings.boleto_instance_name} />
 
-      {/* General Settings + Manual Execution */}
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => runAutoRecovery('boleto')} disabled={!apiConfigured}>
+                  <Send className="h-3.5 w-3.5 mr-2" />
+                  Executar agora
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Régua de cobrança inline */}
+          <BoletoRecoveryRulesConfig />
+        </TabsContent>
+      </Tabs>
+
+      {/* Configurações Gerais */}
       <Card className="bg-card/60 border-border/30">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Configurações Gerais</CardTitle>
@@ -442,24 +482,6 @@ const AutoRecuperacao = () => {
               </div>
             )}
           </div>
-
-          {/* Manual execution bar */}
-          <div className="flex items-center gap-2 pt-2 border-t border-border/20">
-            <span className="text-xs text-muted-foreground mr-2">Execução manual:</span>
-            <Button size="sm" variant="outline" onClick={() => runAutoRecovery()} disabled={!apiConfigured} className="h-7 text-xs">
-              <Send className="h-3 w-3 mr-1.5" />
-              Todas
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => runAutoRecovery('boleto')} disabled={!apiConfigured} className="h-7 text-xs">
-              Boleto
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => runAutoRecovery('pix_card')} disabled={!apiConfigured} className="h-7 text-xs">
-              PIX/Cartão
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => runAutoRecovery('abandoned')} disabled={!apiConfigured} className="h-7 text-xs">
-              Abandonos
-            </Button>
-          </div>
         </CardContent>
       </Card>
 
@@ -467,9 +489,7 @@ const AutoRecuperacao = () => {
       {instanceModal && (
         <InstanceSelectorModal
           open={instanceModal.open}
-          onOpenChange={(open) => {
-            if (!open) setInstanceModal(null);
-          }}
+          onOpenChange={(open) => { if (!open) setInstanceModal(null); }}
           serverUrl={settings.server_url}
           apiKey={settings.api_key}
           currentInstance={settings[getInstanceKey(instanceModal.type)] as string | null}
