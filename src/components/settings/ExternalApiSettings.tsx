@@ -440,6 +440,9 @@ export function ExternalApiSettings() {
         </CardContent>
       </Card>
 
+      {/* Inbound Connection Info */}
+      {settings.api_key && <InboundConnectionCard apiKey={settings.api_key} />}
+
       {/* Data Sync */}
       <DataSyncSection settings={settings} />
 
