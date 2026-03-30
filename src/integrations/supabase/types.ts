@@ -1215,6 +1215,9 @@ export type Database = {
           abandoned_instance_name: string | null
           abandoned_recovery_enabled: boolean
           api_key: string
+          auto_abandoned_message: string
+          auto_boleto_message: string
+          auto_pix_card_message: string
           boleto_instance_name: string | null
           boleto_recovery_enabled: boolean
           created_at: string
@@ -1237,6 +1240,9 @@ export type Database = {
           abandoned_instance_name?: string | null
           abandoned_recovery_enabled?: boolean
           api_key?: string
+          auto_abandoned_message?: string
+          auto_boleto_message?: string
+          auto_pix_card_message?: string
           boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
           created_at?: string
@@ -1259,6 +1265,9 @@ export type Database = {
           abandoned_instance_name?: string | null
           abandoned_recovery_enabled?: boolean
           api_key?: string
+          auto_abandoned_message?: string
+          auto_boleto_message?: string
+          auto_pix_card_message?: string
           boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
           created_at?: string
