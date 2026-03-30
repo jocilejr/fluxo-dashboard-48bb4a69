@@ -249,6 +249,118 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ===== SYNC REMINDER (external → dashboard) =====
+    if (event === 'sync_reminder' || event === 'reminder_updated') {
+      const externalId = payload.external_id || payload.id || payload._id;
+      const phone = payload.phone || payload.phone_number || payload.remote_jid;
+      const dueDate = payload.due_date || payload.dueDate;
+      const { title, description, completed } = payload;
+
+      console.log('Reminder webhook received:', { externalId, phone, title, completed });
+
+      if (!externalId) {
+        return new Response(
+          JSON.stringify({ error: 'external_id (or id/_id) is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check if reminder already exists by external_id
+      const { data: existing } = await supabase
+        .from('reminders')
+        .select('id')
+        .eq('external_id', String(externalId))
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing reminder
+        const updateFields: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        if (title !== undefined) updateFields.title = title;
+        if (description !== undefined) updateFields.description = description;
+        if (phone) updateFields.phone = phone;
+        if (dueDate) updateFields.due_date = dueDate;
+        if (completed !== undefined) updateFields.completed = completed;
+
+        const { error } = await supabase.from('reminders').update(updateFields).eq('id', existing.id);
+        if (error) {
+          console.error('Error updating reminder:', error);
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, action: 'reminder_updated', id: existing.id }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        // Create new reminder
+        if (!phone || !title) {
+          return new Response(
+            JSON.stringify({ error: 'phone and title are required for new reminders' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: newReminder, error: insertError } = await supabase
+          .from('reminders')
+          .insert({
+            external_id: String(externalId),
+            title,
+            description: description || null,
+            phone,
+            due_date: dueDate || new Date().toISOString(),
+            completed: completed || false,
+          })
+          .select('id')
+          .single();
+
+        if (insertError) {
+          console.error('Error inserting reminder:', insertError);
+          return new Response(
+            JSON.stringify({ error: insertError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, action: 'reminder_created', id: newReminder?.id }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // ===== REMINDER DELETED (external → dashboard) =====
+    if (event === 'reminder_deleted') {
+      const externalId = payload.external_id || payload.id || payload._id;
+
+      if (!externalId) {
+        return new Response(
+          JSON.stringify({ error: 'external_id (or id/_id) is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('reminders')
+        .delete()
+        .eq('external_id', String(externalId));
+
+      if (error) {
+        console.error('Error deleting reminder:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'reminder_deleted' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // ===== BULK SYNC (external → dashboard) =====
     if (event === 'bulk_sync') {
       const { customers, transactions, abandoned_events } = payload;
