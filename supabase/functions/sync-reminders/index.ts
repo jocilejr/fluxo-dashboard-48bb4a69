@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        await supabase
+        const { error: updateError } = await supabase
           .from("reminders")
           .update({
             description: reminder.description || null,
@@ -102,9 +102,12 @@ Deno.serve(async (req) => {
             completed: reminder.completed ?? false,
           })
           .eq("id", existing.id);
+        if (updateError) {
+          console.error("Update error:", updateError.message);
+        }
         skipped++;
       } else {
-        const { error } = await supabase
+        const { data: insertData, error } = await supabase
           .from("reminders")
           .insert({
             phone,
@@ -112,12 +115,14 @@ Deno.serve(async (req) => {
             description: reminder.description || null,
             due_date: new Date(dueDate).toISOString(),
             completed: reminder.completed ?? false,
-          });
+          })
+          .select("id");
 
         if (error) {
-          console.error("Insert error:", error.message);
+          console.error("Insert error for", title, ":", error.message, error.details, error.hint);
           skipped++;
         } else {
+          console.log("Inserted reminder:", title, insertData);
           imported++;
         }
       }
