@@ -1,34 +1,25 @@
 
 
-## Plano: Adicionar seção "Conexão de Entrada" nas configurações da API
+## Plano: Remover card de Conexão de Entrada e exposição de URLs/API
 
-### Problema
-A tela de configurações só mostra como o dashboard se conecta à app externa. Não existe nenhum lugar que mostre à app externa **como se conectar ao dashboard** (URLs + token).
+### O que será feito
 
-### Solução
-Adicionar um novo card **"Conexão de Entrada (App Externa → Você)"** na página `ExternalApiSettings.tsx`, logo abaixo do card existente "Configuração da API Externa".
+**Arquivo: `src/components/settings/ExternalApiSettings.tsx`**
 
-### O que o card vai mostrar
+1. **Remover a linha 444** que renderiza o `InboundConnectionCard`:
+   ```
+   {settings.api_key && <InboundConnectionCard apiKey={settings.api_key} />}
+   ```
 
-1. **URL da API REST** (copiável):
-   `{SUPABASE_URL}/functions/v1/platform-api`
-   - Descrição: "Use esta URL como base para consultar e criar dados (contatos, transações, lembretes, mensagens)"
+2. **Remover o componente `InboundConnectionCard`** inteiro (linhas 542-663)
 
-2. **URL do Webhook de Entrada** (copiável):
-   `{SUPABASE_URL}/functions/v1/external-messaging-webhook`
-   - Descrição: "Use esta URL para enviar eventos (sync_reminder, payment_confirmed, etc.)"
+3. **Remover imports não usados**: `Copy`, `Check`, `Globe`, `Webhook` (que só eram usados pelo card removido)
 
-3. **API Key**: mostra a mesma `api_key` já configurada acima, com botão de copiar
-   - Descrição: "Envie no header `X-API-Key` em todas as requisições"
+4. **Remover a exposição de URLs na seção "Externa → Dashboard"** dentro do `DataSyncSection` (linhas 523-535) — remover o bloco que mostra a URL do webhook e lista de eventos aceitos
 
-4. **Mini-documentação inline**: lista dos endpoints disponíveis e eventos aceitos (texto compacto)
-
-### Arquivo alterado
-- `src/components/settings/ExternalApiSettings.tsx` — novo card após o card de configuração existente
-
-### Detalhes técnicos
-- As URLs são construídas com `import.meta.env.VITE_SUPABASE_URL`
-- A API Key é lida do state `settings.api_key` já existente
-- Componente com botões de copiar (reutiliza padrão do `WebhooksSection`)
-- Só exibe o card quando `settings.api_key` estiver preenchido (sem API Key não faz sentido mostrar)
+### O que permanece
+- Card "Configuração da API Externa" (server_url, api_key, webhook_url, testar conexão)
+- Card "Recuperação Automática"
+- Card "Sincronização de Dados" — apenas o lado "Dashboard → Externa" (botões de sync de clientes e transações)
+- Message Logs
 
