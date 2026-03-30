@@ -1,26 +1,55 @@
 
 
-## Plano: Diagnosticar e corrigir parsing da resposta de instâncias
+## Plano: Adicionar logging detalhado em cada ponto de falha
 
 ### Problema
-A edge function `fetch-instances` conecta com sucesso na API (`api.chatbotsimplificado.com/api/platform/instances`), recebe resposta 200 com JSON, mas retorna `instances: []`. Provavelmente a estrutura da resposta da API não é um array direto nem `{ instances: [...] }` — pode ser `{ data: [...] }` ou outro formato.
+A edge function `fetch-instances` tem falhas silenciosas — quando a resposta não é OK ou não é JSON, ela faz `continue` sem logar nada. Por isso não vemos o que a API retorna.
 
 ### Solução
-Adicionar `console.log` na edge function para registrar a resposta crua da API. Assim, no próximo teste, os logs mostrarão a estrutura exata e poderemos ajustar o parsing.
+Adicionar `console.log`/`console.error` em cada ponto de falha para diagnosticar exatamente onde e por que a busca falha.
 
-### Alterações
+### Alteração
 
 **Arquivo: `supabase/functions/fetch-instances/index.ts`**
-- Após `const data = await response.json()` (linha 50), adicionar:
-  ```ts
-  console.log('API response data:', JSON.stringify(data));
-  ```
-- Expandir o fallback de extração para cobrir mais formatos comuns:
-  ```ts
-  const instances = Array.isArray(data) 
-    ? data 
-    : data.instances || data.data || data.results || [];
-  ```
 
-Isso é uma alteração mínima (2 linhas) que nos dará visibilidade total sobre o que a API retorna.
+Dentro do loop `for`, adicionar logs em cada branch de falha:
+
+```ts
+for (const url of urlsToTry) {
+  try {
+    console.log(`Trying URL: ${url}/api/platform/instances`);
+    const response = await fetch(`${url}/api/platform/instances`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': api_key,
+      },
+    });
+
+    console.log(`Response status: ${response.status}, content-type: ${response.headers.get('content-type')}`);
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error(`Non-OK response (${response.status}): ${body.substring(0, 500)}`);
+      continue;
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const body = await response.text();
+      console.error(`Unexpected content type: ${contentType}. Body: ${body.substring(0, 500)}`);
+      continue;
+    }
+
+    const data = await response.json();
+    console.log('API response data:', JSON.stringify(data));
+    // ... rest stays the same
+  } catch (err) {
+    console.error(`Fetch error for ${url}:`, err);
+    continue;
+  }
+}
+```
+
+Isso é **apenas logging** — sem mudança de comportamento. Após testar novamente, os logs mostrarão exatamente o status HTTP, content-type e corpo da resposta para cada URL tentada.
 
