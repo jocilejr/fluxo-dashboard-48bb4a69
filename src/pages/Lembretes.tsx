@@ -193,10 +193,12 @@ export default function Lembretes() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("reminders").delete().eq("id", id);
       if (error) throw error;
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
       toast.success("Lembrete excluído");
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      sendOutboundWebhook("reminder_deleted", { id });
     },
   });
 
