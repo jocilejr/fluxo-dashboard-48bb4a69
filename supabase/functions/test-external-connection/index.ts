@@ -19,26 +19,51 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = server_url.replace(/\/$/, '');
-    const response = await fetch(`${baseUrl}/api/platform/contacts?limit=1`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${api_key}`,
-      },
-    });
 
-    if (response.ok) {
-      return new Response(
-        JSON.stringify({ success: true, status: response.status }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      const text = await response.text();
-      return new Response(
-        JSON.stringify({ success: false, status: response.status, error: text }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Try multiple health check paths in order of preference
+    const paths = [
+      '/ping',
+      '/api/platform/ping',
+      '/contacts?limit=1',
+      '/api/platform/contacts?limit=1',
+    ];
+
+    let lastResponse: Response | null = null;
+    let lastError: string | null = null;
+
+    for (const path of paths) {
+      try {
+        const response = await fetch(`${baseUrl}${path}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': api_key,
+            'Authorization': `Bearer ${api_key}`,
+          },
+        });
+
+        if (response.ok) {
+          return new Response(
+            JSON.stringify({ success: true, status: response.status, path }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        lastResponse = response;
+        lastError = await response.text();
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+      }
     }
+
+    return new Response(
+      JSON.stringify({
+        success: false,
+        status: lastResponse?.status || 0,
+        error: `Nenhum endpoint respondeu. Último erro: ${lastError?.substring(0, 200)}`,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' }),
