@@ -9,12 +9,12 @@ import {
 } from "@/lib/localCache";
 
 // Check if Evolution API is active before validating
-function useEvolutionApiActive() {
+function useMessagingApiActive() {
   const { data: isActive = false } = useQuery({
-    queryKey: ['evolution-api-active'],
+    queryKey: ['messaging-api-active'],
     queryFn: async () => {
       const { data } = await supabase
-        .from('evolution_api_settings')
+        .from('messaging_api_settings')
         .select('is_active')
         .limit(1)
         .single();
@@ -47,7 +47,7 @@ function normalizePhone(phone: string): string {
 }
 
 export function usePhoneValidation(phones: (string | null)[]) {
-  const isEvolutionActive = useEvolutionApiActive();
+  const isMessagingActive = useMessagingApiActive();
   const [validationState, setValidationState] = useState<PhoneValidationState>(() => {
     // Initialize from localStorage cache immediately
     const cachedValidations = getPhoneValidationsFromCache();
@@ -153,7 +153,7 @@ export function usePhoneValidation(phones: (string | null)[]) {
 
   // Validate a single phone and save to both database and local cache
   const validatePhone = useCallback(async (phone: string) => {
-    if (!isEvolutionActive) return;
+    if (!isMessagingActive) return;
     const normalizedPhone = normalizePhone(phone);
     
     // Skip if already cached or currently validating
@@ -168,7 +168,7 @@ export function usePhoneValidation(phones: (string | null)[]) {
     }));
 
     try {
-      const { data, error } = await supabase.functions.invoke('evolution-validate-number', {
+      const { data, error } = await supabase.functions.invoke('validate-external-number', {
         body: { phone: normalizedPhone }
       });
 
@@ -237,7 +237,7 @@ export function usePhoneValidation(phones: (string | null)[]) {
     } finally {
       isValidatingRef.current.delete(normalizedPhone);
     }
-  }, [cachedPhoneSet, isEvolutionActive]);
+  }, [cachedPhoneSet, isMessagingActive]);
 
   // Validate phones that are not cached yet
   useEffect(() => {

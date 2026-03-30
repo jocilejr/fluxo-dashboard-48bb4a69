@@ -21,40 +21,33 @@ interface AppLayoutProps {
   children: React.ReactNode;
 }
 
-interface EvolutionSettings {
-  instance_name: string;
+interface MessagingApiStatus {
   is_active: boolean;
   server_url: string;
-  api_key: string;
 }
 
-function EvolutionStatusBadge({ evolutionSettings }: { evolutionSettings: EvolutionSettings }) {
+function MessagingApiBadge({ settings }: { settings: MessagingApiStatus }) {
   const [testing, setTesting] = useState(false);
   const [connectionState, setConnectionState] = useState<"idle" | "connected" | "disconnected">("idle");
 
   const testConnection = async () => {
     setTesting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("evolution-test-connection", {
-        body: {
-          serverUrl: evolutionSettings.server_url,
-          apiKey: evolutionSettings.api_key,
-          instanceName: evolutionSettings.instance_name,
-        },
+      const response = await fetch(`${settings.server_url.replace(/\/$/, '')}/api/validate-number`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: '5500000000000' }),
       });
-
-      if (error) throw error;
-
-      if (data?.success && data?.connected) {
+      if (response.ok) {
         setConnectionState("connected");
-        toast.success("Instância conectada!");
+        toast.success("API externa conectada!");
       } else {
         setConnectionState("disconnected");
-        toast.error(`Instância não conectada: ${data?.state || "desconhecido"}`);
+        toast.error("API externa não respondeu corretamente");
       }
-    } catch (err) {
+    } catch {
       setConnectionState("disconnected");
-      toast.error("Erro ao testar conexão");
+      toast.error("Erro ao testar conexão com API externa");
     } finally {
       setTesting(false);
     }
@@ -65,27 +58,25 @@ function EvolutionStatusBadge({ evolutionSettings }: { evolutionSettings: Evolut
       <PopoverTrigger asChild>
         <button
           className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
-            evolutionSettings.is_active
+            settings.is_active
               ? "bg-success/10 text-success border border-success/30 hover:bg-success/20"
               : "bg-muted text-muted-foreground border border-border hover:bg-muted/80"
           }`}
         >
           <Smartphone className="h-3 w-3" />
-          <span className="hidden xl:inline max-w-[100px] truncate">
-            {evolutionSettings.instance_name}
-          </span>
+          <span className="hidden xl:inline">API Mensagens</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-3">
         <div className="space-y-3">
           <div>
-            <p className="text-sm font-medium">Evolution API</p>
-            <p className="text-xs text-muted-foreground truncate">{evolutionSettings.instance_name}</p>
+            <p className="text-sm font-medium">API de Mensagens</p>
+            <p className="text-xs text-muted-foreground truncate">{settings.server_url}</p>
           </div>
           
           <div className="flex items-center gap-2 text-xs">
-            <span className={`px-2 py-0.5 rounded-full ${evolutionSettings.is_active ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
-              {evolutionSettings.is_active ? "Ativo" : "Inativo"}
+            <span className={`px-2 py-0.5 rounded-full ${settings.is_active ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
+              {settings.is_active ? "Ativo" : "Inativo"}
             </span>
             {connectionState === "connected" && (
               <span className="flex items-center gap-1 text-success">
@@ -144,13 +135,13 @@ export function AppLayout({ children }: AppLayoutProps) {
   const unviewedAbandonedCount = useUnviewedAbandonedEvents(abandonedEvents);
   const { extensionStatus, retryConnection } = useWhatsAppExtension();
 
-  // Fetch Evolution API settings
-  const { data: evolutionSettings } = useQuery({
-    queryKey: ["evolution-settings-header"],
+  // Fetch Messaging API settings
+  const { data: messagingSettings } = useQuery({
+    queryKey: ["messaging-api-settings-header"],
     queryFn: async () => {
       const { data } = await supabase
-        .from("evolution_api_settings")
-        .select("instance_name, is_active, server_url, api_key")
+        .from("messaging_api_settings")
+        .select("is_active, server_url")
         .maybeSingle();
       return data;
     },
@@ -219,9 +210,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 
           {/* Right Actions */}
           <div className="flex items-center gap-2">
-            {/* Evolution API Status - Desktop Only */}
-            {evolutionSettings?.instance_name && (
-              <EvolutionStatusBadge evolutionSettings={evolutionSettings as EvolutionSettings} />
+            {/* Messaging API Status - Desktop Only */}
+            {messagingSettings?.server_url && (
+              <MessagingApiBadge settings={messagingSettings as MessagingApiStatus} />
             )}
 
             {/* WhatsApp Extension Status - Desktop Only */}

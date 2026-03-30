@@ -31,7 +31,7 @@ export function useTransactionRecoveryLogs(transactionIds: string[]) {
       }
 
       const { data, error } = await supabase
-        .from('evolution_message_log')
+        .from('message_log')
         .select('transaction_id, status, sent_at, error_message')
         .not('transaction_id', 'is', null)
         .in('transaction_id', validIds)

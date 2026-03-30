@@ -170,7 +170,7 @@ export function useTransactionRealtime() {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "evolution_message_log" },
+        { event: "*", schema: "public", table: "message_log" },
         (payload) => {
           console.log("[Realtime] Recovery log event:", payload.eventType);
           const newLog = payload.new as any;
