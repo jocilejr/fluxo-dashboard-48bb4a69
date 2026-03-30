@@ -43,6 +43,7 @@ const navItems: NavItem[] = [
   { title: "Typebots", icon: Bot, path: "/typebots", permissionKey: "typebots", adminOnly: true, desktopOnly: true },
   { title: "Gerar Boleto", icon: FileText, path: "/gerar-boleto", permissionKey: "gerar_boleto", desktopOnly: true },
   { title: "Links Úteis", icon: Link, path: "/links-uteis", permissionKey: "links_uteis", desktopOnly: true },
+  { title: "Lembretes", icon: Bell, path: "/lembretes", permissionKey: "lembretes", desktopOnly: true },
   
   { title: "Configurações", icon: Settings, path: "/configuracoes", permissionKey: "configuracoes", adminOnly: true },
 ];
