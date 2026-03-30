@@ -20,7 +20,6 @@ Deno.serve(async (req) => {
 
     const baseUrl = server_url.replace(/\/$/, '');
     
-    // Try the configured URL first, then try replacing app. with api. if needed
     const urlsToTry = [baseUrl];
     if (baseUrl.includes('://app.')) {
       urlsToTry.push(baseUrl.replace('://app.', '://api.'));
@@ -28,6 +27,7 @@ Deno.serve(async (req) => {
 
     for (const url of urlsToTry) {
       try {
+        console.log(`Trying URL: ${url}/api/platform/instances`);
         const response = await fetch(`${url}/api/platform/instances`, {
           method: 'GET',
           headers: {
@@ -36,14 +36,18 @@ Deno.serve(async (req) => {
           },
         });
 
+        console.log(`Response status: ${response.status}, content-type: ${response.headers.get('content-type')}`);
+
         if (!response.ok) {
-          await response.text(); // consume body
+          const body = await response.text();
+          console.error(`Non-OK response (${response.status}): ${body.substring(0, 500)}`);
           continue;
         }
 
         const contentType = response.headers.get('content-type') || '';
         if (!contentType.includes('application/json')) {
-          await response.text(); // consume body
+          const body = await response.text();
+          console.error(`Unexpected content type: ${contentType}. Body: ${body.substring(0, 500)}`);
           continue;
         }
 
@@ -54,7 +58,8 @@ Deno.serve(async (req) => {
           JSON.stringify({ success: true, instances }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      } catch {
+      } catch (err) {
+        console.error(`Fetch error for ${url}:`, err);
         continue;
       }
     }
