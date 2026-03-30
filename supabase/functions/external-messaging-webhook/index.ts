@@ -361,6 +361,244 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ===== PAYMENT CONFIRMED (external → dashboard) =====
+    if (event === 'payment_confirmed') {
+      const refId = payload.reference_id || payload.external_id;
+
+      if (!refId) {
+        return new Response(
+          JSON.stringify({ error: 'reference_id or external_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: tx } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('external_id', String(refId))
+        .maybeSingle();
+
+      if (!tx) {
+        console.warn('payment_confirmed: transaction not found for', refId);
+        return new Response(
+          JSON.stringify({ error: 'Transaction not found', reference_id: refId }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const updateFields: Record<string, unknown> = {
+        status: 'pago',
+        paid_at: payload.paid_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      if (payload.amount) updateFields.amount = payload.amount;
+      if (payload.customer_name) updateFields.customer_name = payload.customer_name;
+      if (payload.customer_email) updateFields.customer_email = payload.customer_email;
+      if (payload.customer_document) updateFields.customer_document = payload.customer_document;
+      if (payload.phone) {
+        updateFields.customer_phone = payload.phone;
+        updateFields.normalized_phone = payload.phone.replace(/\D/g, '');
+      }
+      if (payload.metadata) updateFields.metadata = payload.metadata;
+
+      const { error } = await supabase.from('transactions').update(updateFields).eq('id', tx.id);
+      if (error) {
+        console.error('Error confirming payment:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Log tags if present (no tags table yet)
+      if (payload.tags_add) console.log('tags_add requested (not implemented):', payload.tags_add);
+      if (payload.tags_remove) console.log('tags_remove requested (not implemented):', payload.tags_remove);
+      if (payload.message) console.log('message field received (not auto-sent):', payload.message);
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'payment_confirmed', id: tx.id }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== PAYMENT FAILED (external → dashboard) =====
+    if (event === 'payment_failed') {
+      const refId = payload.reference_id || payload.external_id;
+
+      if (!refId) {
+        return new Response(
+          JSON.stringify({ error: 'reference_id or external_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: tx } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('external_id', String(refId))
+        .maybeSingle();
+
+      if (!tx) {
+        return new Response(
+          JSON.stringify({ error: 'Transaction not found', reference_id: refId }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const updateFields: Record<string, unknown> = {
+        status: payload.status || 'recusado',
+        updated_at: new Date().toISOString(),
+      };
+      if (payload.metadata) updateFields.metadata = payload.metadata;
+
+      const { error } = await supabase.from('transactions').update(updateFields).eq('id', tx.id);
+      if (error) {
+        console.error('Error updating failed payment:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'payment_failed', id: tx.id }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== PAYMENT REFUNDED (external → dashboard) =====
+    if (event === 'payment_refunded') {
+      const refId = payload.reference_id || payload.external_id;
+
+      if (!refId) {
+        return new Response(
+          JSON.stringify({ error: 'reference_id or external_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: tx } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('external_id', String(refId))
+        .maybeSingle();
+
+      if (!tx) {
+        return new Response(
+          JSON.stringify({ error: 'Transaction not found', reference_id: refId }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const updateFields: Record<string, unknown> = {
+        status: payload.status || 'estornado',
+        updated_at: new Date().toISOString(),
+      };
+      if (payload.metadata) updateFields.metadata = payload.metadata;
+
+      const { error } = await supabase.from('transactions').update(updateFields).eq('id', tx.id);
+      if (error) {
+        console.error('Error refunding payment:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'payment_refunded', id: tx.id }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== CUSTOMER UPDATED (external → dashboard) =====
+    if (event === 'customer_updated') {
+      const phone = payload.phone || payload.phone_number;
+      const { customer_name, tags_add, tags_remove, message } = payload;
+
+      if (!phone) {
+        return new Response(
+          JSON.stringify({ error: 'phone is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const normPhone = phone.replace(/\D/g, '');
+      const phoneLast8 = normPhone.slice(-8);
+
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .filter('normalized_phone', 'like', `%${phoneLast8}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        const updateFields: Record<string, unknown> = { updated_at: new Date().toISOString() };
+        if (customer_name) updateFields.name = customer_name;
+        await supabase.from('customers').update(updateFields).eq('id', existing.id);
+      } else {
+        await supabase.from('customers').insert({
+          normalized_phone: normPhone,
+          display_phone: phone,
+          name: customer_name || null,
+        });
+      }
+
+      if (tags_add) console.log('tags_add requested (not implemented):', tags_add);
+      if (tags_remove) console.log('tags_remove requested (not implemented):', tags_remove);
+      if (message) console.log('message field received (not auto-sent):', message);
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'customer_updated' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== INVOICE CREATED (external → dashboard) =====
+    if (event === 'invoice_created') {
+      const refId = payload.reference_id;
+      const phone = payload.phone || payload.phone_number;
+
+      if (!refId) {
+        return new Response(
+          JSON.stringify({ error: 'reference_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const normPhone = phone ? phone.replace(/\D/g, '') : null;
+
+      const { data: newTx, error: insertError } = await supabase
+        .from('transactions')
+        .insert({
+          external_id: String(refId),
+          amount: payload.amount || 0,
+          type: 'boleto',
+          status: 'pendente',
+          customer_name: payload.customer_name || null,
+          customer_phone: phone || null,
+          normalized_phone: normPhone,
+          metadata: payload.metadata || null,
+          webhook_source: 'external_api',
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        console.error('Error creating invoice transaction:', insertError);
+        return new Response(
+          JSON.stringify({ error: insertError.message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, action: 'invoice_created', id: newTx?.id }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // ===== BULK SYNC (external → dashboard) =====
     if (event === 'bulk_sync') {
       const { customers, transactions, abandoned_events } = payload;
