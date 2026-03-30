@@ -19,12 +19,11 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = server_url.replace(/\/$/, '');
-    const response = await fetch(`${baseUrl}/api/platform/fetch-instances`, {
+    const response = await fetch(`${baseUrl}/api/platform/instances`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': api_key,
-        'Authorization': `Bearer ${api_key}`,
       },
     });
 
