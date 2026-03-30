@@ -174,6 +174,23 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Trigger auto-recovery for PIX/Card pending transactions
+      if (newTx?.id && (type === 'pix' || type === 'cartao') && (txStatus === 'pendente' || !txStatus)) {
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/auto-recovery`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`
+            },
+            body: JSON.stringify({ type: 'pix_card', transactionId: newTx.id })
+          });
+          console.log('Auto-recovery triggered for PIX/Card transaction:', newTx.id);
+        } catch (e) {
+          console.error('Failed to trigger auto-recovery:', e);
+        }
+      }
+
       return new Response(
         JSON.stringify({ success: true, action: 'transaction_created', id: newTx?.id }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -241,6 +258,23 @@ Deno.serve(async (req) => {
           JSON.stringify({ error: insertError.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
+
+      // Trigger auto-recovery for abandoned event
+      if (newEvent?.id) {
+        try {
+          await fetch(`${supabaseUrl}/functions/v1/auto-recovery`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`
+            },
+            body: JSON.stringify({ type: 'abandoned', abandonedEventId: newEvent.id })
+          });
+          console.log('Auto-recovery triggered for abandoned event:', newEvent.id);
+        } catch (e) {
+          console.error('Failed to trigger auto-recovery:', e);
+        }
       }
 
       return new Response(

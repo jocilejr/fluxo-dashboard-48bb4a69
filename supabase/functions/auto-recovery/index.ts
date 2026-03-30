@@ -52,13 +52,17 @@ Deno.serve(async (req) => {
 
     let forceRun = false;
     let specificType: string | null = null;
+    let specificTransactionId: string | null = null;
+    let specificAbandonedEventId: string | null = null;
     try {
       const body = await req.json();
       forceRun = body.forceRun || false;
       specificType = body.type || null;
+      specificTransactionId = body.transactionId || null;
+      specificAbandonedEventId = body.abandonedEventId || null;
     } catch { /* no body */ }
 
-    console.log('Starting auto recovery process...');
+    console.log('Starting auto recovery process...', { specificType, specificTransactionId, specificAbandonedEventId });
 
     const { data: settings, error: settingsError } = await supabase
       .from('messaging_api_settings')
@@ -80,7 +84,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!forceRun && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
+    // Skip working hours check for single-item webhook triggers
+    const isSingleItem = !!specificTransactionId || !!specificAbandonedEventId;
+    if (!forceRun && !isSingleItem && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
       return new Response(
         JSON.stringify({ success: true, message: 'Fora do horário de funcionamento', skipped: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -97,7 +103,7 @@ Deno.serve(async (req) => {
       .eq('status', 'sent');
 
     const remainingLimit = settings.daily_limit - (todayCount || 0);
-    if (remainingLimit <= 0 && !forceRun) {
+    if (remainingLimit <= 0 && !forceRun && !isSingleItem) {
       return new Response(
         JSON.stringify({ success: true, message: 'Limite diário atingido', limitReached: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -112,21 +118,20 @@ Deno.serve(async (req) => {
 
     let messagesSent = 0;
 
-    // Get instance names from settings
     const instanceMap: Record<string, string | null> = {
       boleto: settings.boleto_instance_name || null,
       pix_card: settings.pix_card_instance_name || null,
       abandoned: settings.abandoned_instance_name || null,
     };
 
-    async function sendWithDelay(
+    async function sendMessage(
       phone: string,
       message: string,
       type: 'boleto' | 'pix_card' | 'abandoned',
       transactionId?: string,
       abandonedEventId?: string
     ): Promise<boolean> {
-      if (messagesSent >= remainingLimit && !forceRun) return false;
+      if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
 
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
@@ -150,7 +155,7 @@ Deno.serve(async (req) => {
         if (result.success) {
           messagesSent++;
           stats[type].sent++;
-          if (settings.delay_between_messages > 0) {
+          if (settings.delay_between_messages > 0 && !isSingleItem) {
             await new Promise(resolve => setTimeout(resolve, settings.delay_between_messages * 1000));
           }
           return true;
@@ -165,7 +170,93 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Process BOLETO recovery
+    // ===== SINGLE PIX/CARD TRANSACTION =====
+    if (specificTransactionId && (specificType === 'pix_card')) {
+      if (!settings.pix_card_recovery_enabled) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'PIX/Card recovery disabled', skipped: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: tx } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', specificTransactionId)
+        .single();
+
+      if (tx && tx.customer_phone) {
+        const { data: pixSettings } = await supabase
+          .from('pix_card_recovery_settings')
+          .select('message')
+          .limit(1)
+          .single();
+
+        const messageTemplate = pixSettings?.message || 'Olá {nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?';
+        const firstName = tx.customer_name?.split(' ')[0] || 'Cliente';
+        const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount);
+
+        const message = formatMessage(messageTemplate, {
+          nome: tx.customer_name || 'Cliente',
+          primeiro_nome: firstName,
+          valor: formattedValue,
+          produto: tx.description || 'Produto',
+          saudação: getGreeting()
+        });
+
+        await sendMessage(tx.customer_phone, message, 'pix_card', tx.id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, stats, totalSent: messagesSent }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== SINGLE ABANDONED EVENT =====
+    if (specificAbandonedEventId && (specificType === 'abandoned')) {
+      if (!settings.abandoned_recovery_enabled) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Abandoned recovery disabled', skipped: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: event } = await supabase
+        .from('abandoned_events')
+        .select('*')
+        .eq('id', specificAbandonedEventId)
+        .single();
+
+      if (event && event.customer_phone) {
+        const { data: abandonedSettings } = await supabase
+          .from('abandoned_recovery_settings')
+          .select('message')
+          .limit(1)
+          .single();
+
+        const messageTemplate = abandonedSettings?.message || 'Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?';
+        const firstName = event.customer_name?.split(' ')[0] || 'Cliente';
+        const formattedValue = event.amount ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.amount) : '';
+
+        const message = formatMessage(messageTemplate, {
+          nome: event.customer_name || 'Cliente',
+          primeiro_nome: firstName,
+          valor: formattedValue,
+          produto: event.product_name || 'Produto',
+          saudação: getGreeting()
+        });
+
+        await sendMessage(event.customer_phone, message, 'abandoned', undefined, event.id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, stats, totalSent: messagesSent }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ===== BATCH: BOLETO recovery =====
     if ((specificType === null || specificType === 'boleto') && settings.boleto_recovery_enabled) {
       console.log('Processing boleto recovery...');
       
@@ -237,7 +328,7 @@ Deno.serve(async (req) => {
                   saudação: getGreeting()
                 });
 
-                await sendWithDelay(boleto.customer_phone!, message, 'boleto', boleto.id);
+                await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id);
 
                 await supabase.from('boleto_recovery_contacts').insert({
                   transaction_id: boleto.id,
@@ -255,8 +346,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Process PIX/CARD recovery
-    if ((specificType === null || specificType === 'pix_card') && settings.pix_card_recovery_enabled) {
+    // ===== BATCH: PIX/CARD recovery =====
+    if ((specificType === null || specificType === 'pix_card') && settings.pix_card_recovery_enabled && !specificTransactionId) {
       console.log('Processing PIX/Card recovery...');
 
       const { data: pixSettings } = await supabase
@@ -304,13 +395,13 @@ Deno.serve(async (req) => {
             saudação: getGreeting()
           });
 
-          await sendWithDelay(tx.customer_phone!, message, 'pix_card', tx.id);
+          await sendMessage(tx.customer_phone!, message, 'pix_card', tx.id);
         }
       }
     }
 
-    // Process ABANDONED CART recovery
-    if ((specificType === null || specificType === 'abandoned') && settings.abandoned_recovery_enabled) {
+    // ===== BATCH: ABANDONED recovery =====
+    if ((specificType === null || specificType === 'abandoned') && settings.abandoned_recovery_enabled && !specificAbandonedEventId) {
       console.log('Processing abandoned cart recovery...');
 
       const { data: abandonedSettings } = await supabase
@@ -356,7 +447,7 @@ Deno.serve(async (req) => {
             saudação: getGreeting()
           });
 
-          await sendWithDelay(event.customer_phone!, message, 'abandoned', undefined, event.id);
+          await sendMessage(event.customer_phone!, message, 'abandoned', undefined, event.id);
         }
       }
     }
