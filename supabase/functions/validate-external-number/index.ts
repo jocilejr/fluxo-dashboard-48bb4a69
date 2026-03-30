@@ -53,22 +53,35 @@ Deno.serve(async (req) => {
       normalizedPhone = '55' + normalizedPhone;
     }
 
-    // Call external API to validate number
-    const apiUrl = `${settings.server_url.replace(/\/$/, '')}/api/validate-number`;
+    // Call external API to validate number via GET /api/platform/contacts/:phone
+    const baseUrl = settings.server_url.replace(/\/$/, '');
+    const apiUrl = `${baseUrl}/api/platform/contacts/${normalizedPhone}`;
     
     const response = await fetch(apiUrl, {
-      method: 'POST',
+      method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${settings.api_key}`,
       },
-      body: JSON.stringify({ phone: normalizedPhone }),
     });
 
-    const responseText = await response.text();
     console.log(`External API response status: ${response.status}`);
 
+    if (response.status === 404) {
+      // Contact not found — number doesn't exist in the platform
+      return new Response(
+        JSON.stringify({ 
+          phone: normalizedPhone,
+          exists: false,
+          isMobile: null,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!response.ok) {
+      const responseText = await response.text();
+      console.error(`External API error: ${responseText}`);
       return new Response(
         JSON.stringify({ error: 'Erro ao validar número', exists: null }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -77,7 +90,7 @@ Deno.serve(async (req) => {
 
     let result;
     try {
-      result = JSON.parse(responseText);
+      result = await response.json();
     } catch {
       return new Response(
         JSON.stringify({ error: 'Resposta inválida da API externa', exists: null }),
@@ -85,14 +98,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const exists = result.exists === true;
-    const isMobile = result.is_mobile === true;
-
     return new Response(
       JSON.stringify({ 
         phone: normalizedPhone,
-        exists,
-        isMobile,
+        exists: true,
+        isMobile: result.is_mobile ?? null,
+        contact: result,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

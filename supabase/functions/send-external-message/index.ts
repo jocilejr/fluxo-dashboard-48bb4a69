@@ -13,6 +13,7 @@ interface SendMessageRequest {
   messageType: 'boleto' | 'pix_card' | 'abandoned';
   customerName?: string;
   amount?: number;
+  instanceName?: string;
 }
 
 Deno.serve(async (req) => {
@@ -25,9 +26,9 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { phone, message, transactionId, abandonedEventId, messageType, customerName, amount }: SendMessageRequest = await req.json();
+    const { phone, message, transactionId, abandonedEventId, messageType, customerName, amount, instanceName }: SendMessageRequest = await req.json();
 
-    console.log(`Sending message to ${phone} via external messaging API`);
+    console.log(`Sending message to ${phone} via Chatbot Simplificado API`);
 
     // Get messaging API settings
     const { data: settings, error: settingsError } = await supabase
@@ -75,43 +76,79 @@ Deno.serve(async (req) => {
       console.error('Error creating log entry:', logError);
     }
 
-    // Send message via external API
-    const apiUrl = `${settings.server_url.replace(/\/$/, '')}/api/send-message`;
-    
-    console.log(`Calling external API: ${apiUrl}`);
+    const baseUrl = settings.server_url.replace(/\/$/, '');
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${settings.api_key}`,
+    };
 
-    const externalResponse = await fetch(apiUrl, {
+    // Step 1: Create/update contact via POST /api/platform/contacts
+    const contactPayload: Record<string, unknown> = {
+      phone: normalizedPhone,
+      name: customerName || null,
+      instance_name: instanceName || null,
+    };
+
+    console.log(`Creating/updating contact: ${baseUrl}/api/platform/contacts`);
+    const contactResponse = await fetch(`${baseUrl}/api/platform/contacts`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.api_key}`
-      },
-      body: JSON.stringify({
-        phone: normalizedPhone,
-        message,
-        type: messageType,
-        reference_id: transactionId || abandonedEventId || logEntry?.id,
-        customer_name: customerName || null,
-        amount: amount || null
-      })
+      headers,
+      body: JSON.stringify(contactPayload),
     });
 
-    const externalData = await externalResponse.json();
-    console.log('External API response:', JSON.stringify(externalData));
+    const contactData = await contactResponse.json();
+    console.log('Contact API response:', JSON.stringify(contactData));
+
+    // Step 2: If there's a transaction, sync it via POST /api/platform/transactions
+    if (transactionId && amount) {
+      const txPayload = {
+        amount,
+        type: messageType === 'boleto' ? 'boleto' : 'pix',
+        status: 'pendente',
+        customer_name: customerName || null,
+        customer_phone: normalizedPhone,
+      };
+
+      console.log(`Syncing transaction: ${baseUrl}/api/platform/transactions`);
+      const txResponse = await fetch(`${baseUrl}/api/platform/transactions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(txPayload),
+      });
+      const txData = await txResponse.json();
+      console.log('Transaction API response:', JSON.stringify(txData));
+    }
+
+    // Step 3: Add recovery tag via POST /api/platform/tags
+    const tagPayload = {
+      phone: normalizedPhone,
+      tag_name: `recuperacao_${messageType}`,
+    };
+
+    console.log(`Adding tag: ${baseUrl}/api/platform/tags`);
+    try {
+      await fetch(`${baseUrl}/api/platform/tags`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(tagPayload),
+      });
+    } catch (tagErr) {
+      console.warn('Tag creation failed (non-critical):', tagErr);
+    }
 
     // Update log with response
     if (logEntry) {
       const updateData: Record<string, unknown> = {
-        external_response: externalData,
-        sent_at: new Date().toISOString()
+        external_response: contactData,
+        sent_at: new Date().toISOString(),
       };
 
-      if (externalResponse.ok && externalData.success) {
+      if (contactResponse.ok) {
         updateData.status = 'sent';
-        updateData.external_message_id = externalData.message_id || null;
+        updateData.external_message_id = contactData.id || null;
       } else {
         updateData.status = 'failed';
-        updateData.error_message = externalData.error || 'Erro ao enviar mensagem';
+        updateData.error_message = contactData.error || 'Erro ao enviar mensagem';
       }
 
       await supabase
@@ -120,23 +157,23 @@ Deno.serve(async (req) => {
         .eq('id', logEntry.id);
     }
 
-    if (!externalResponse.ok || !externalData.success) {
-      console.error('External API error:', externalData);
+    if (!contactResponse.ok) {
+      console.error('External API error:', contactData);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: externalData.error || 'Erro ao enviar mensagem',
-          details: externalData 
+          error: contactData.error || 'Erro ao enviar mensagem',
+          details: contactData 
         }),
-        { status: externalResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: contactResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        messageId: externalData.message_id,
-        response: externalData 
+        messageId: contactData.id,
+        response: contactData 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

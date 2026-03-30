@@ -151,13 +151,12 @@ export function ExternalApiSettings() {
     setIsTesting(true);
     setConnectionStatus("idle");
     try {
-      const response = await fetch(`${settings.server_url.replace(/\/$/, '')}/api/validate-number`, {
-        method: 'POST',
+      const response = await fetch(`${settings.server_url.replace(/\/$/, '')}/api/platform/contacts?limit=1`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.api_key}`,
         },
-        body: JSON.stringify({ phone: '5500000000000' }),
       });
       if (response.ok) {
         setConnectionStatus("connected");
@@ -511,7 +510,7 @@ function DataSyncSection({ settings }: { settings: MessagingSettings }) {
               POST {import.meta.env.VITE_SUPABASE_URL}/functions/v1/external-messaging-webhook
             </code>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Eventos: <span className="text-foreground">sync_customer</span>, <span className="text-foreground">sync_transaction</span>, <span className="text-foreground">sync_abandoned_event</span>, <span className="text-foreground">bulk_sync</span>
+              Eventos: <span className="text-foreground">sync_customer</span>, <span className="text-foreground">sync_transaction</span>, <span className="text-foreground">transaction_webhook</span>, <span className="text-foreground">sync_abandoned_event</span>, <span className="text-foreground">bulk_sync</span>
             </p>
           </div>
         </div>
