@@ -438,6 +438,11 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── PING / HEALTH CHECK ────────────────────────────────
+    if (resource === "ping" && method === "GET") {
+      return jsonResponse({ status: "ok", timestamp: new Date().toISOString() });
+    }
+
     return jsonResponse(
       {
         error: "Not found",
