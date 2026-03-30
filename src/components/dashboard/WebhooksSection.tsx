@@ -251,6 +251,77 @@ function AbandonoWebhook() {
   );
 }
 
+// API Externa (Mensagens) Webhook
+function MensagensWebhook() {
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/external-messaging-webhook`;
+
+  const reminderPayload = {
+    event: "reminder_updated",
+    id: "uuid-do-lembrete",
+    completed: true,
+    title: "Cobrar João",
+    due_date: "2026-03-30T10:00:00Z"
+  };
+
+  const reminderCreatePayload = {
+    event: "sync_reminder",
+    id: "uuid-do-lembrete",
+    title: "Novo lembrete",
+    description: "Descrição do lembrete",
+    due_date: "2026-04-01T10:00:00Z",
+    completed: false
+  };
+
+  const reminderDeletePayload = {
+    event: "reminder_deleted",
+    id: "uuid-do-lembrete"
+  };
+
+  const usefulLinkPayload = {
+    event: "useful_link_created",
+    title: "Meu Link Útil",
+    url: "https://exemplo.com",
+    description: "Descrição do link",
+    icon: "🔗",
+    is_active: true
+  };
+
+  const usefulLinkDeletePayload = {
+    event: "useful_link_deleted",
+    url: "https://exemplo.com"
+  };
+
+  return (
+    <div className="space-y-4">
+      <WebhookUrlCard url={webhookUrl} label="URL do Webhook (API Externa)" />
+
+      <div className="space-y-2">
+        <h5 className="text-xs font-semibold text-muted-foreground">Lembretes</h5>
+        <PayloadExample title="Criar/Atualizar Lembrete (sync_reminder)" payload={reminderCreatePayload} defaultOpen />
+        <PayloadExample title="Marcar como Concluído (reminder_updated)" payload={reminderPayload} />
+        <PayloadExample title="Excluir Lembrete (reminder_deleted)" payload={reminderDeletePayload} />
+      </div>
+
+      <div className="space-y-2">
+        <h5 className="text-xs font-semibold text-muted-foreground">Links Úteis</h5>
+        <PayloadExample title="Criar/Atualizar Link (useful_link_created)" payload={usefulLinkPayload} />
+        <PayloadExample title="Excluir Link (useful_link_deleted)" payload={usefulLinkDeletePayload} />
+      </div>
+
+      <div className="p-4 bg-info/5 border border-info/20 rounded-lg">
+        <h5 className="text-xs font-semibold text-info mb-2">Eventos Suportados</h5>
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p><strong>Lembretes:</strong> sync_reminder, reminder_updated, reminder_deleted</p>
+          <p><strong>Links Úteis:</strong> useful_link_created, useful_link_updated, useful_link_deleted</p>
+          <p><strong>Pagamentos:</strong> payment_confirmed, payment_failed, payment_refunded, invoice_created</p>
+          <p><strong>Clientes:</strong> customer_updated, sync_customer</p>
+          <p><strong>Outros:</strong> sync_transaction, sync_abandoned_event, bulk_sync</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function WebhooksSection() {
   return (
     <div className="bg-card/60 border border-border/30 rounded-xl p-5 lg:p-6">
@@ -259,8 +330,12 @@ export function WebhooksSection() {
         <p className="text-xs text-muted-foreground">URLs para integração com sistemas externos</p>
       </div>
 
-      <Tabs defaultValue="transacoes" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
+      <Tabs defaultValue="mensagens" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-4">
+          <TabsTrigger value="mensagens" className="gap-1.5 text-xs">
+            <MessageSquare className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Mensagens</span>
+          </TabsTrigger>
           <TabsTrigger value="transacoes" className="gap-1.5 text-xs">
             <CreditCard className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Transações</span>
@@ -274,6 +349,10 @@ export function WebhooksSection() {
             <span className="hidden sm:inline">Abandono</span>
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="mensagens">
+          <MensagensWebhook />
+        </TabsContent>
 
         <TabsContent value="transacoes">
           <TransacoesWebhook />
