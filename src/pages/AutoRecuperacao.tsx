@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -257,128 +257,149 @@ const AutoRecuperacao = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <Zap className="h-5 w-5 text-primary" />
+      {/* Header with Save */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Zap className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Recuperação Automática</h1>
+            <p className="text-sm text-muted-foreground">Mensagens exclusivas da automação — independentes da recuperação manual</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">Recuperação Automática</h1>
-          <p className="text-sm text-muted-foreground">Mensagens exclusivas da automação — independentes da recuperação manual</p>
-        </div>
+        <Button onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending} size="sm">
+          {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+          Salvar
+        </Button>
       </div>
 
+      {/* API Warning */}
       {!apiConfigured && (
         <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs">
           ⚠️ Configure a API de mensagens em <strong>Configurações → API Mensagens</strong> antes de usar a recuperação automática.
         </div>
       )}
 
-      {/* ===== PIX/CARTÃO ===== */}
-      <Card className="bg-card/60 border-border/30">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-sm">PIX / Cartão</CardTitle>
-              <Badge variant="outline" className="text-[10px] h-5 gap-1">
-                <Radio className="h-2.5 w-2.5" />
-                Tempo Real
-              </Badge>
+      {/* Stats inline */}
+      {stats && (
+        <div className="grid grid-cols-5 gap-2">
+          {[
+            { label: "Enviadas", value: stats.sent, color: "text-foreground" },
+            { label: "Falharam", value: stats.failed, color: "text-destructive" },
+            { label: "Boleto", value: stats.boleto, color: "text-foreground" },
+            { label: "PIX/Cartão", value: stats.pix_card, color: "text-foreground" },
+            { label: "Abandonos", value: stats.abandoned, color: "text-foreground" },
+          ].map((s) => (
+            <div key={s.label} className="text-center p-3 rounded-lg bg-secondary/10">
+              <p className={`text-xl font-semibold ${s.color}`}>{s.value}</p>
+              <p className="text-[10px] text-muted-foreground">{s.label}</p>
             </div>
-            <Switch
-              checked={settings.pix_card_recovery_enabled}
-              onCheckedChange={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
-            />
-          </div>
-          <CardDescription className="text-xs">
-            Dispara automaticamente quando chega transação PIX/Cartão pendente via webhook.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <InstanceSelector type="pix_card" instanceName={settings.pix_card_instance_name} />
-          <div className="space-y-2">
-            <Label className="text-xs">Mensagem automática (exclusiva desta automação)</Label>
-            <Textarea
-              value={settings.auto_pix_card_message}
-              onChange={(e) => setSettings({ ...settings, auto_pix_card_message: e.target.value })}
-              placeholder="Olá {nome}! Seu pagamento de {valor} está pendente..."
-              className="min-h-[80px] text-sm"
-            />
-            <VariablesHint />
-          </div>
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      )}
 
-      {/* ===== ABANDONOS ===== */}
-      <Card className="bg-card/60 border-border/30">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-sm">Abandonos</CardTitle>
-              <Badge variant="outline" className="text-[10px] h-5 gap-1">
-                <Radio className="h-2.5 w-2.5" />
-                Tempo Real
-              </Badge>
+      {/* 3 Recovery Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* PIX/Cartão */}
+        <Card className="bg-card/60 border-border/30 flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm">PIX / Cartão</CardTitle>
+                <Badge variant="outline" className="text-[10px] h-5 gap-1">
+                  <Radio className="h-2.5 w-2.5" />
+                  Tempo Real
+                </Badge>
+              </div>
+              <Switch
+                checked={settings.pix_card_recovery_enabled}
+                onCheckedChange={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
+              />
             </div>
-            <Switch
-              checked={settings.abandoned_recovery_enabled}
-              onCheckedChange={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
-            />
-          </div>
-          <CardDescription className="text-xs">
-            Dispara automaticamente quando um evento de abandono é recebido via webhook.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <InstanceSelector type="abandoned" instanceName={settings.abandoned_instance_name} />
-          <div className="space-y-2">
-            <Label className="text-xs">Mensagem automática (exclusiva desta automação)</Label>
-            <Textarea
-              value={settings.auto_abandoned_message}
-              onChange={(e) => setSettings({ ...settings, auto_abandoned_message: e.target.value })}
-              placeholder="Olá {primeiro_nome}! Vi que você demonstrou interesse..."
-              className="min-h-[80px] text-sm"
-            />
-            <VariablesHint />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ===== BOLETO ===== */}
-      <Card className="bg-card/60 border-border/30">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-sm">Boleto</CardTitle>
-              <Badge variant="secondary" className="text-[10px] h-5 gap-1">
-                <Clock className="h-2.5 w-2.5" />
-                Diário 9h
-              </Badge>
+            <p className="text-[11px] text-muted-foreground">Dispara ao receber transação pendente via webhook.</p>
+          </CardHeader>
+          <CardContent className="space-y-3 flex-1 flex flex-col">
+            <InstanceSelector type="pix_card" instanceName={settings.pix_card_instance_name} />
+            <div className="space-y-1.5 flex-1">
+              <Label className="text-xs">Mensagem</Label>
+              <Textarea
+                value={settings.auto_pix_card_message}
+                onChange={(e) => setSettings({ ...settings, auto_pix_card_message: e.target.value })}
+                placeholder="Olá {primeiro_nome}! Seu pagamento de {valor} está pendente..."
+                className="min-h-[80px] text-sm flex-1"
+              />
+              <VariablesHint />
             </div>
-            <Switch
-              checked={settings.boleto_recovery_enabled}
-              onCheckedChange={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
-            />
-          </div>
-          <CardDescription className="text-xs">
-            Executa automaticamente todos os dias às 9h, seguindo a régua de cobrança abaixo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <InstanceSelector type="boleto" instanceName={settings.boleto_instance_name} />
-          <BoletoRecoveryRulesConfig />
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Limits & Working Hours */}
+        {/* Abandonos */}
+        <Card className="bg-card/60 border-border/30 flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm">Abandonos</CardTitle>
+                <Badge variant="outline" className="text-[10px] h-5 gap-1">
+                  <Radio className="h-2.5 w-2.5" />
+                  Tempo Real
+                </Badge>
+              </div>
+              <Switch
+                checked={settings.abandoned_recovery_enabled}
+                onCheckedChange={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Dispara ao receber evento de abandono via webhook.</p>
+          </CardHeader>
+          <CardContent className="space-y-3 flex-1 flex flex-col">
+            <InstanceSelector type="abandoned" instanceName={settings.abandoned_instance_name} />
+            <div className="space-y-1.5 flex-1">
+              <Label className="text-xs">Mensagem</Label>
+              <Textarea
+                value={settings.auto_abandoned_message}
+                onChange={(e) => setSettings({ ...settings, auto_abandoned_message: e.target.value })}
+                placeholder="Olá {primeiro_nome}! Vi que você demonstrou interesse..."
+                className="min-h-[80px] text-sm"
+              />
+              <VariablesHint />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Boleto */}
+        <Card className="bg-card/60 border-border/30 flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm">Boleto</CardTitle>
+                <Badge variant="secondary" className="text-[10px] h-5 gap-1">
+                  <Clock className="h-2.5 w-2.5" />
+                  Diário 9h
+                </Badge>
+              </div>
+              <Switch
+                checked={settings.boleto_recovery_enabled}
+                onCheckedChange={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">Executa diariamente às 9h seguindo a régua de cobrança.</p>
+          </CardHeader>
+          <CardContent className="space-y-3 flex-1">
+            <InstanceSelector type="boleto" instanceName={settings.boleto_instance_name} />
+            <BoletoRecoveryRulesConfig />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* General Settings + Manual Execution */}
       <Card className="bg-card/60 border-border/30">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Limites e Horário</CardTitle>
-          <CardDescription className="text-xs">Configure limites diários e horário de funcionamento</CardDescription>
+          <CardTitle className="text-sm">Configurações Gerais</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+            <div className="space-y-1.5">
               <Label className="text-xs">Limite diário</Label>
               <Input
                 type="number"
@@ -387,7 +408,7 @@ const AutoRecuperacao = () => {
                 className="bg-secondary/30 border-border/30 h-9 text-sm"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs">Delay entre msgs (seg)</Label>
               <Input
                 type="number"
@@ -396,105 +417,47 @@ const AutoRecuperacao = () => {
                 className="bg-secondary/30 border-border/30 h-9 text-sm"
               />
             </div>
-            <div className="flex items-center gap-3 pt-5">
+            <div className="flex items-center gap-2 pb-1">
               <Switch
                 checked={settings.working_hours_enabled}
                 onCheckedChange={(checked) => setSettings({ ...settings, working_hours_enabled: checked })}
               />
-              <Label className="text-xs">Horário comercial ({settings.working_hours_start}h - {settings.working_hours_end}h)</Label>
+              <Label className="text-xs">Horário comercial</Label>
             </div>
-          </div>
-
-          {settings.working_hours_enabled && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs">Início (hora)</Label>
+            {settings.working_hours_enabled && (
+              <div className="flex items-center gap-2">
                 <Input
-                  type="number"
-                  min={0}
-                  max={23}
+                  type="number" min={0} max={23}
                   value={settings.working_hours_start}
                   onChange={(e) => setSettings({ ...settings, working_hours_start: Number(e.target.value) })}
-                  className="bg-secondary/30 border-border/30 h-9 text-sm"
+                  className="bg-secondary/30 border-border/30 h-9 text-sm w-16"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Fim (hora)</Label>
+                <span className="text-xs text-muted-foreground">às</span>
                 <Input
-                  type="number"
-                  min={0}
-                  max={23}
+                  type="number" min={0} max={23}
                   value={settings.working_hours_end}
                   onChange={(e) => setSettings({ ...settings, working_hours_end: Number(e.target.value) })}
-                  className="bg-secondary/30 border-border/30 h-9 text-sm"
+                  className="bg-secondary/30 border-border/30 h-9 text-sm w-16"
                 />
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </div>
 
-      {/* Stats */}
-      {stats && (
-        <Card className="bg-card/60 border-border/30">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Estatísticas de Hoje</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-5 gap-2">
-              <div className="text-center p-3 rounded-lg bg-secondary/10">
-                <p className="text-xl font-semibold text-foreground">{stats.sent}</p>
-                <p className="text-[10px] text-muted-foreground">Enviadas</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-secondary/10">
-                <p className="text-xl font-semibold text-destructive">{stats.failed}</p>
-                <p className="text-[10px] text-muted-foreground">Falharam</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-secondary/10">
-                <p className="text-xl font-semibold text-foreground">{stats.boleto}</p>
-                <p className="text-[10px] text-muted-foreground">Boleto</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-secondary/10">
-                <p className="text-xl font-semibold text-foreground">{stats.pix_card}</p>
-                <p className="text-[10px] text-muted-foreground">PIX/Cartão</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-secondary/10">
-                <p className="text-xl font-semibold text-foreground">{stats.abandoned}</p>
-                <p className="text-[10px] text-muted-foreground">Abandonos</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Manual Trigger & Save */}
-      <Card className="bg-card/60 border-border/30">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Send className="h-4 w-4" />
-            Execução Manual
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-2 flex-wrap">
-            <Button size="sm" onClick={() => runAutoRecovery()} disabled={!apiConfigured}>
-              <Send className="h-3.5 w-3.5 mr-2" />
-              Executar Todas
+          {/* Manual execution bar */}
+          <div className="flex items-center gap-2 pt-2 border-t border-border/20">
+            <span className="text-xs text-muted-foreground mr-2">Execução manual:</span>
+            <Button size="sm" variant="outline" onClick={() => runAutoRecovery()} disabled={!apiConfigured} className="h-7 text-xs">
+              <Send className="h-3 w-3 mr-1.5" />
+              Todas
             </Button>
-            <Button size="sm" variant="outline" onClick={() => runAutoRecovery('boleto')} disabled={!apiConfigured}>
+            <Button size="sm" variant="ghost" onClick={() => runAutoRecovery('boleto')} disabled={!apiConfigured} className="h-7 text-xs">
               Boleto
             </Button>
-            <Button size="sm" variant="outline" onClick={() => runAutoRecovery('pix_card')} disabled={!apiConfigured}>
+            <Button size="sm" variant="ghost" onClick={() => runAutoRecovery('pix_card')} disabled={!apiConfigured} className="h-7 text-xs">
               PIX/Cartão
             </Button>
-            <Button size="sm" variant="outline" onClick={() => runAutoRecovery('abandoned')} disabled={!apiConfigured}>
+            <Button size="sm" variant="ghost" onClick={() => runAutoRecovery('abandoned')} disabled={!apiConfigured} className="h-7 text-xs">
               Abandonos
-            </Button>
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending}>
-              {saveMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />}
-              Salvar Todas as Configurações
             </Button>
           </div>
         </CardContent>
