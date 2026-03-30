@@ -5,14 +5,16 @@ const corsHeaders = {
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-async function getApiSettings() {
+const REMINDERS_BASE_URL = "https://api.chatbotsimplificado.com/api/platform/reminders";
+
+async function getApiKey() {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
-  const { data } = await supabase.from("messaging_api_settings").select("*").limit(1).maybeSingle();
-  if (!data?.server_url || !data?.api_key) throw new Error("API não configurada");
-  return { baseUrl: data.server_url.replace(/\/$/, ""), apiKey: data.api_key };
+  const { data } = await supabase.from("messaging_api_settings").select("api_key").limit(1).maybeSingle();
+  if (!data?.api_key) throw new Error("API key não configurada");
+  return data.api_key;
 }
 
 async function safeJsonParse(response: Response) {
@@ -31,13 +33,13 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { baseUrl, apiKey } = await getApiSettings();
+    const apiKey = await getApiKey();
     const body = await req.json();
     const { action } = body;
 
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      'X-API-Key': apiKey,
     };
 
     // LIST reminders
@@ -45,7 +47,7 @@ Deno.serve(async (req) => {
       const params = new URLSearchParams();
       if (body.filter) params.set('filter', body.filter);
       if (body.phone) params.set('phone', body.phone);
-      const url = `${baseUrl}/api/platform/reminders${params.toString() ? '?' + params.toString() : ''}`;
+      const url = `${REMINDERS_BASE_URL}${params.toString() ? '?' + params.toString() : ''}`;
       console.log("Fetching:", url);
       const res = await fetch(url, { method: 'GET', headers });
       const data = await safeJsonParse(res);
@@ -61,7 +63,7 @@ Deno.serve(async (req) => {
 
     // CREATE reminder
     if (action === 'create') {
-      const res = await fetch(`${baseUrl}/api/platform/reminders`, {
+      const res = await fetch(REMINDERS_BASE_URL, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -84,7 +86,7 @@ Deno.serve(async (req) => {
 
     // UPDATE reminder
     if (action === 'update') {
-      const res = await fetch(`${baseUrl}/api/platform/reminders/${body.reminder_id}`, {
+      const res = await fetch(`${REMINDERS_BASE_URL}/${body.reminder_id}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({

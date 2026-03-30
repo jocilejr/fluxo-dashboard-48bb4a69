@@ -5,6 +5,8 @@ const corsHeaders = {
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const REMINDERS_API_URL = "https://api.chatbotsimplificado.com/api/platform/reminders";
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -16,66 +18,48 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get API settings
+    // Get API key from settings
     const { data: settings } = await supabase
       .from("messaging_api_settings")
-      .select("*")
+      .select("api_key")
       .limit(1)
       .maybeSingle();
 
-    if (!settings?.server_url || !settings?.api_key) {
+    if (!settings?.api_key) {
       return new Response(
-        JSON.stringify({ success: false, error: "API não configurada" }),
+        JSON.stringify({ success: false, error: "API key não configurada" }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const baseUrl = settings.server_url.replace(/\/$/, "");
     const apiHeaders = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${settings.api_key}`,
+      'X-API-Key': settings.api_key,
     };
 
-    // Fetch all reminders from external API (all filters)
-    const filters = ['pending', 'overdue', 'today', 'completed'];
-    const allReminders: any[] = [];
-    const seenIds = new Set<string>();
+    // Fetch all reminders in a single request
+    console.log("Fetching reminders from:", REMINDERS_API_URL);
+    const res = await fetch(REMINDERS_API_URL, {
+      method: 'GET',
+      headers: apiHeaders,
+    });
 
-    for (const filter of filters) {
-      try {
-        const res = await fetch(`${baseUrl}/api/platform/reminders?filter=${filter}`, {
-          method: 'GET',
-          headers: apiHeaders,
-        });
-
-        if (!res.ok) {
-          console.error(`Failed to fetch ${filter}: ${res.status}`);
-          const text = await res.text();
-          console.error(text.substring(0, 200));
-          continue;
-        }
-
-        const contentType = res.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          const text = await res.text();
-          console.error(`Non-JSON response for ${filter}:`, text.substring(0, 200));
-          continue;
-        }
-
-        const data = await res.json();
-        const items = Array.isArray(data) ? data : data?.data || data?.reminders || [];
-        
-        for (const item of items) {
-          const itemId = item.id || item._id || `${item.phone}-${item.title}-${item.due_date}`;
-          if (!seenIds.has(itemId)) {
-            seenIds.add(itemId);
-            allReminders.push(item);
-          }
-        }
-      } catch (err) {
-        console.error(`Error fetching ${filter}:`, err);
-      }
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`API returned ${res.status}:`, text.substring(0, 500));
+      return new Response(
+        JSON.stringify({ success: false, error: `API retornou status ${res.status}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    const responseBody = await res.json();
+    console.log("Response keys:", Object.keys(responseBody));
+
+    // Extract reminders from response.data
+    const allReminders: any[] = Array.isArray(responseBody)
+      ? responseBody
+      : responseBody?.data || responseBody?.reminders || [];
 
     console.log(`Fetched ${allReminders.length} reminders from external API`);
 
@@ -100,7 +84,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Check if already exists (by phone + title + due_date combo)
+      // Check if already exists
       const { data: existing } = await supabase
         .from("reminders")
         .select("id")
@@ -110,7 +94,6 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        // Update if needed
         await supabase
           .from("reminders")
           .update({
@@ -121,7 +104,6 @@ Deno.serve(async (req) => {
           .eq("id", existing.id);
         skipped++;
       } else {
-        // Insert new
         const { error } = await supabase
           .from("reminders")
           .insert({
