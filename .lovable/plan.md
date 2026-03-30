@@ -1,25 +1,48 @@
 
 
-## Plano: Remover card de Conexão de Entrada e exposição de URLs/API
+## Plano: Sistema de seleção de instância WhatsApp por tipo de recuperação
 
-### O que será feito
+### Problema
+A API externa exige o campo `instance` em todas as chamadas de envio. Hoje não existe forma de escolher qual instância WhatsApp usar para cada tipo de recuperação (Boleto, PIX/Cartão, Abandono).
 
-**Arquivo: `src/components/settings/ExternalApiSettings.tsx`**
+### Solução
+Criar um sistema onde cada tipo de recuperação tem uma instância vinculada. Na seção "Recuperação Automática" das configurações, cada card (Boleto, PIX/Cartão, Abandonos) ganha um botão para abrir um modal que busca as instâncias disponíveis na API externa (`GET /api/platform/fetch-instances`) e permite vincular uma.
 
-1. **Remover a linha 444** que renderiza o `InboundConnectionCard`:
-   ```
-   {settings.api_key && <InboundConnectionCard apiKey={settings.api_key} />}
-   ```
+### Alterações
 
-2. **Remover o componente `InboundConnectionCard`** inteiro (linhas 542-663)
+**1. Migração SQL: adicionar colunas de instância na tabela `messaging_api_settings`**
+- `boleto_instance_name TEXT DEFAULT NULL`
+- `pix_card_instance_name TEXT DEFAULT NULL`
+- `abandoned_instance_name TEXT DEFAULT NULL`
 
-3. **Remover imports não usados**: `Copy`, `Check`, `Globe`, `Webhook` (que só eram usados pelo card removido)
+**2. Arquivo: `src/components/settings/ExternalApiSettings.tsx`**
+- Adicionar as 3 novas propriedades ao interface `MessagingSettings` e ao `defaultSettings`
+- Em cada card de recuperação (Boleto, PIX/Cartão, Abandonos), adicionar um botão "Instância" ao lado do Switch
+- O botão mostra o nome da instância vinculada (ou "Selecionar") e abre um modal/dialog
+- No modal: fetch `GET {server_url}/api/platform/fetch-instances` com Bearer token, listar instâncias disponíveis, permitir selecionar uma
+- Ao selecionar, salvar o `instance_name` no state e persistir junto com o save geral
 
-4. **Remover a exposição de URLs na seção "Externa → Dashboard"** dentro do `DataSyncSection` (linhas 523-535) — remover o bloco que mostra a URL do webhook e lista de eventos aceitos
+**3. Arquivo: `supabase/functions/send-external-message/index.ts`**
+- Ao montar o payload de envio para a API externa, buscar a instância correspondente ao `messageType` da tabela `messaging_api_settings`
+- Usar `boleto_instance_name`, `pix_card_instance_name` ou `abandoned_instance_name` conforme o tipo
+- Passar `instance` no payload de envio (`POST /api/platform/send-message`)
 
-### O que permanece
-- Card "Configuração da API Externa" (server_url, api_key, webhook_url, testar conexão)
-- Card "Recuperação Automática"
-- Card "Sincronização de Dados" — apenas o lado "Dashboard → Externa" (botões de sync de clientes e transações)
-- Message Logs
+**4. Arquivo: `supabase/functions/auto-recovery/index.ts`**
+- Passar `instanceName` ao chamar `send-external-message`, lendo da settings conforme o tipo de recuperação
+
+### Fluxo do usuário
+1. Configura URL + API Key da API externa
+2. Vai na seção "Recuperação Automática"
+3. Clica no botão "Instância" no card Boleto
+4. Modal abre, faz fetch das instâncias da API externa
+5. Seleciona a instância desejada
+6. Repete para PIX/Cartão e Abandonos
+7. Salva — as instâncias ficam persistidas no banco
+8. Envios automáticos usam a instância correta por tipo
+
+### Arquivos alterados
+- Nova migração SQL (3 colunas)
+- `src/components/settings/ExternalApiSettings.tsx` — UI do seletor de instância
+- `supabase/functions/send-external-message/index.ts` — usar instância por tipo
+- `supabase/functions/auto-recovery/index.ts` — passar instanceName
 
