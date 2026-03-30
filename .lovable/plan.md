@@ -1,55 +1,39 @@
 
 
-## Plano: Adicionar logging detalhado em cada ponto de falha
+## Plano: Separar API de Mensagens e criar página "Auto Rec." na sidebar
 
-### Problema
-A edge function `fetch-instances` tem falhas silenciosas — quando a resposta não é OK ou não é JSON, ela faz `continue` sem logar nada. Por isso não vemos o que a API retorna.
+### Resumo
+1. Mover toda a seção de **Recuperação Automática** (instâncias, limites, horário comercial, botões de execução, stats) do `ExternalApiSettings.tsx` para uma **nova página dedicada** acessível pela sidebar como **"Auto Rec."**
+2. Manter no `ExternalApiSettings.tsx` (aba "API Mensagens" em Configurações) apenas: configuração de conexão API, sincronização de dados e logs de mensagens
+3. Adicionar item **"Auto Rec."** na sidebar com ícone `Zap` (ou `RefreshCcw`)
 
-### Solução
-Adicionar `console.log`/`console.error` em cada ponto de falha para diagnosticar exatamente onde e por que a busca falha.
+### Alterações
 
-### Alteração
+**1. Nova página `src/pages/AutoRecuperacao.tsx`**
+- Página dedicada com título "Recuperação Automática"
+- Contém: cards de instâncias (Boleto, PIX/Cartão, Abandonos) com seleção e status visual, limites diários, delay, horário comercial, stats de hoje, botões de execução manual
+- Reutiliza o `InstanceSelectorModal` (extraído ou importado)
+- Usa os mesmos hooks de `messaging_api_settings` e `message_log`
 
-**Arquivo: `supabase/functions/fetch-instances/index.ts`**
+**2. Refatorar `src/components/settings/ExternalApiSettings.tsx`**
+- Remover toda a seção "Recuperação Automática" (cards de instâncias, limites, horário, stats, botões de execução)
+- Manter apenas: Configuração da API Externa (URL, API Key, Webhook, switch ativo, testar conexão, salvar), Sincronização de Dados e Message Logs
 
-Dentro do loop `for`, adicionar logs em cada branch de falha:
+**3. Extrair `InstanceSelectorModal` para arquivo próprio**
+- `src/components/recovery/InstanceSelectorModal.tsx` — reutilizável pela nova página
 
-```ts
-for (const url of urlsToTry) {
-  try {
-    console.log(`Trying URL: ${url}/api/platform/instances`);
-    const response = await fetch(`${url}/api/platform/instances`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': api_key,
-      },
-    });
+**4. Sidebar (`src/components/AppSidebar.tsx`)**
+- Adicionar item: `{ title: "Auto Rec.", icon: Zap, path: "/auto-recuperacao", permissionKey: "auto_recuperacao", desktopOnly: true }`
+- Posicionar após "Recuperação" na lista
 
-    console.log(`Response status: ${response.status}, content-type: ${response.headers.get('content-type')}`);
+**5. Rotas (`src/App.tsx`)**
+- Adicionar lazy import e rota: `<Route path="auto-recuperacao" element={<AutoRecuperacao />} />`
 
-    if (!response.ok) {
-      const body = await response.text();
-      console.error(`Non-OK response (${response.status}): ${body.substring(0, 500)}`);
-      continue;
-    }
+**6. Renomear sidebar "Recuperação" existente**
+- Manter como está (Recuperação = BoletoRecoveryDashboard, fila manual)
+- A nova "Auto Rec." é exclusivamente para configuração da recuperação automática
 
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('application/json')) {
-      const body = await response.text();
-      console.error(`Unexpected content type: ${contentType}. Body: ${body.substring(0, 500)}`);
-      continue;
-    }
-
-    const data = await response.json();
-    console.log('API response data:', JSON.stringify(data));
-    // ... rest stays the same
-  } catch (err) {
-    console.error(`Fetch error for ${url}:`, err);
-    continue;
-  }
-}
-```
-
-Isso é **apenas logging** — sem mudança de comportamento. Após testar novamente, os logs mostrarão exatamente o status HTTP, content-type e corpo da resposta para cada URL tentada.
+### Resultado
+- **Configurações > API Mensagens**: conexão API + sync de dados + logs
+- **Sidebar > Auto Rec.**: página dedicada com todas as configurações de recuperação automática (instâncias, limites, execução)
 
