@@ -15,6 +15,16 @@ async function getApiSettings() {
   return { baseUrl: data.server_url.replace(/\/$/, ""), apiKey: data.api_key };
 }
 
+async function safeJsonParse(response: Response) {
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    console.error("Non-JSON response:", text.substring(0, 500));
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -36,8 +46,14 @@ Deno.serve(async (req) => {
       if (body.filter) params.set('filter', body.filter);
       if (body.phone) params.set('phone', body.phone);
       const url = `${baseUrl}/api/platform/reminders${params.toString() ? '?' + params.toString() : ''}`;
+      console.log("Fetching:", url);
       const res = await fetch(url, { method: 'GET', headers });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
+      if (data === null) {
+        return new Response(JSON.stringify({ success: false, error: `API retornou status ${res.status} com resposta não-JSON` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       return new Response(JSON.stringify({ success: res.ok, data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -55,7 +71,12 @@ Deno.serve(async (req) => {
           due_date: body.due_date,
         }),
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
+      if (data === null) {
+        return new Response(JSON.stringify({ success: false, error: `API retornou status ${res.status} com resposta não-JSON` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       return new Response(JSON.stringify({ success: res.ok, data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -72,7 +93,12 @@ Deno.serve(async (req) => {
           due_date: body.due_date,
         }),
       });
-      const data = await res.json();
+      const data = await safeJsonParse(res);
+      if (data === null) {
+        return new Response(JSON.stringify({ success: false, error: `API retornou status ${res.status} com resposta não-JSON` }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       return new Response(JSON.stringify({ success: res.ok, data }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -83,6 +109,7 @@ Deno.serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    console.error("Edge function error:", error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
