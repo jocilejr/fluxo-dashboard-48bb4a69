@@ -289,13 +289,37 @@ Deno.serve(async (req) => {
         if (body.title !== undefined) updateData.title = body.title;
         if (body.description !== undefined) updateData.description = body.description;
         if (body.due_date !== undefined) updateData.due_date = new Date(body.due_date).toISOString();
+        if (body.phone !== undefined) updateData.phone = body.phone;
 
-        const { data, error } = await supabase
-          .from("reminders")
-          .update(updateData)
-          .eq("id", resourceId)
-          .select()
-          .single();
+        // Try by internal id first, then by external_id
+        let data = null;
+        let error = null;
+
+        // Check if resourceId looks like a UUID (internal id)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resourceId);
+
+        if (isUUID) {
+          const result = await supabase
+            .from("reminders")
+            .update(updateData)
+            .eq("id", resourceId)
+            .select()
+            .maybeSingle();
+          data = result.data;
+          error = result.error;
+        }
+
+        // If not found by id, try by external_id
+        if (!data && !error) {
+          const result = await supabase
+            .from("reminders")
+            .update(updateData)
+            .eq("external_id", resourceId)
+            .select()
+            .maybeSingle();
+          data = result.data;
+          error = result.error;
+        }
 
         if (error) return jsonResponse({ error: error.message }, 500);
         if (!data) return jsonResponse({ error: "Reminder not found" }, 404);
