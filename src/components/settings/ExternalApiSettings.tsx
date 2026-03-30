@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Wifi, WifiOff, Send, Settings2, RefreshCw, Users, ArrowUpDown, Smartphone } from "lucide-react";
+import { Loader2, Wifi, WifiOff, Send, Settings2, RefreshCw, Users, ArrowUpDown, Smartphone, X, Circle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
