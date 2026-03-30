@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Wifi, WifiOff, Send, Settings2, RefreshCw, Users, ArrowUpDown, Smartphone } from "lucide-react";
+import { Loader2, Wifi, WifiOff, Send, Settings2, RefreshCw, Users, ArrowUpDown, Smartphone, X, Circle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -422,16 +422,36 @@ export function ExternalApiSettings() {
                   onCheckedChange={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
                 />
               </div>
-              <Button
-                size="sm"
-                variant={settings.boleto_instance_name ? "default" : "outline"}
-                className={`w-full h-7 text-[11px] ${settings.boleto_instance_name ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500' : ''}`}
-                onClick={() => setInstanceModal({ open: true, type: 'boleto' })}
-                disabled={!settings.server_url || !settings.api_key}
-              >
-                <Smartphone className="h-3 w-3 mr-1.5" />
-                {settings.boleto_instance_name || 'Selecionar instância'}
-              </Button>
+              {settings.boleto_instance_name ? (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30">
+                  <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-medium truncate">{settings.boleto_instance_name}</p>
+                    <p className="text-[9px] text-emerald-400">Conectada</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const updated = { ...settings, boleto_instance_name: null };
+                      setSettings(updated);
+                      saveMutation.mutate(updated);
+                    }}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-[11px]"
+                  onClick={() => setInstanceModal({ open: true, type: 'boleto' })}
+                  disabled={!settings.server_url || !settings.api_key}
+                >
+                  <Smartphone className="h-3 w-3 mr-1.5" />
+                  Selecionar instância
+                </Button>
+              )}
             </div>
 
             {/* PIX / Cartão */}
@@ -446,16 +466,36 @@ export function ExternalApiSettings() {
                   onCheckedChange={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
                 />
               </div>
-              <Button
-                size="sm"
-                variant={settings.pix_card_instance_name ? "default" : "outline"}
-                className={`w-full h-7 text-[11px] ${settings.pix_card_instance_name ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500' : ''}`}
-                onClick={() => setInstanceModal({ open: true, type: 'pix_card' })}
-                disabled={!settings.server_url || !settings.api_key}
-              >
-                <Smartphone className="h-3 w-3 mr-1.5" />
-                {settings.pix_card_instance_name || 'Selecionar instância'}
-              </Button>
+              {settings.pix_card_instance_name ? (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30">
+                  <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-medium truncate">{settings.pix_card_instance_name}</p>
+                    <p className="text-[9px] text-emerald-400">Conectada</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const updated = { ...settings, pix_card_instance_name: null };
+                      setSettings(updated);
+                      saveMutation.mutate(updated);
+                    }}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-[11px]"
+                  onClick={() => setInstanceModal({ open: true, type: 'pix_card' })}
+                  disabled={!settings.server_url || !settings.api_key}
+                >
+                  <Smartphone className="h-3 w-3 mr-1.5" />
+                  Selecionar instância
+                </Button>
+              )}
             </div>
 
             {/* Abandonos */}
@@ -470,16 +510,36 @@ export function ExternalApiSettings() {
                   onCheckedChange={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
                 />
               </div>
-              <Button
-                size="sm"
-                variant={settings.abandoned_instance_name ? "default" : "outline"}
-                className={`w-full h-7 text-[11px] ${settings.abandoned_instance_name ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500' : ''}`}
-                onClick={() => setInstanceModal({ open: true, type: 'abandoned' })}
-                disabled={!settings.server_url || !settings.api_key}
-              >
-                <Smartphone className="h-3 w-3 mr-1.5" />
-                {settings.abandoned_instance_name || 'Selecionar instância'}
-              </Button>
+              {settings.abandoned_instance_name ? (
+                <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30">
+                  <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-medium truncate">{settings.abandoned_instance_name}</p>
+                    <p className="text-[9px] text-emerald-400">Conectada</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const updated = { ...settings, abandoned_instance_name: null };
+                      setSettings(updated);
+                      saveMutation.mutate(updated);
+                    }}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-[11px]"
+                  onClick={() => setInstanceModal({ open: true, type: 'abandoned' })}
+                  disabled={!settings.server_url || !settings.api_key}
+                >
+                  <Smartphone className="h-3 w-3 mr-1.5" />
+                  Selecionar instância
+                </Button>
+              )}
             </div>
           </div>
 
