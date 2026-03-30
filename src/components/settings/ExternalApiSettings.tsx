@@ -89,16 +89,12 @@ function InstanceSelectorModal({
     setIsLoading(true);
     setError(null);
     try {
-      const baseUrl = serverUrl.replace(/\/$/, '');
-      const response = await fetch(`${baseUrl}/api/platform/fetch-instances`, {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
+      const { data, error: fnError } = await supabase.functions.invoke('fetch-instances', {
+        body: { server_url: serverUrl, api_key: apiKey },
       });
-      if (!response.ok) throw new Error(`Erro ${response.status}`);
-      const data = await response.json();
-      setInstances(Array.isArray(data) ? data : data.instances || []);
+      if (fnError) throw new Error(fnError.message || 'Erro ao buscar instâncias');
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      setInstances(Array.isArray(parsed) ? parsed : parsed.instances || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar instâncias');
     } finally {
