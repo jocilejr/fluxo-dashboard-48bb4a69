@@ -1212,8 +1212,10 @@ export type Database = {
       }
       messaging_api_settings: {
         Row: {
+          abandoned_instance_name: string | null
           abandoned_recovery_enabled: boolean
           api_key: string
+          boleto_instance_name: string | null
           boleto_recovery_enabled: boolean
           created_at: string
           cron_enabled: boolean
@@ -1222,6 +1224,7 @@ export type Database = {
           delay_between_messages: number
           id: string
           is_active: boolean
+          pix_card_instance_name: string | null
           pix_card_recovery_enabled: boolean
           server_url: string
           updated_at: string
@@ -1231,8 +1234,10 @@ export type Database = {
           working_hours_start: number
         }
         Insert: {
+          abandoned_instance_name?: string | null
           abandoned_recovery_enabled?: boolean
           api_key?: string
+          boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
           created_at?: string
           cron_enabled?: boolean
@@ -1241,6 +1246,7 @@ export type Database = {
           delay_between_messages?: number
           id?: string
           is_active?: boolean
+          pix_card_instance_name?: string | null
           pix_card_recovery_enabled?: boolean
           server_url?: string
           updated_at?: string
@@ -1250,8 +1256,10 @@ export type Database = {
           working_hours_start?: number
         }
         Update: {
+          abandoned_instance_name?: string | null
           abandoned_recovery_enabled?: boolean
           api_key?: string
+          boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
           created_at?: string
           cron_enabled?: boolean
@@ -1260,6 +1268,7 @@ export type Database = {
           delay_between_messages?: number
           id?: string
           is_active?: boolean
+          pix_card_instance_name?: string | null
           pix_card_recovery_enabled?: boolean
           server_url?: string
           updated_at?: string

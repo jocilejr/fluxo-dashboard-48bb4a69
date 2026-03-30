@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Wifi, WifiOff, Send, Settings2, RefreshCw, Users, ArrowUpDown } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, Wifi, WifiOff, Send, Settings2, RefreshCw, Users, ArrowUpDown, Smartphone } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +27,9 @@ interface MessagingSettings {
   working_hours_enabled: boolean;
   working_hours_start: number;
   working_hours_end: number;
+  boleto_instance_name: string | null;
+  pix_card_instance_name: string | null;
+  abandoned_instance_name: string | null;
 }
 
 const defaultSettings: MessagingSettings = {
@@ -43,13 +47,129 @@ const defaultSettings: MessagingSettings = {
   working_hours_enabled: false,
   working_hours_start: 8,
   working_hours_end: 20,
+  boleto_instance_name: null,
+  pix_card_instance_name: null,
+  abandoned_instance_name: null,
 };
+
+interface WhatsAppInstance {
+  instance_name: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+function InstanceSelectorModal({
+  open,
+  onOpenChange,
+  serverUrl,
+  apiKey,
+  currentInstance,
+  onSelect,
+  title,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  serverUrl: string;
+  apiKey: string;
+  currentInstance: string | null;
+  onSelect: (instanceName: string) => void;
+  title: string;
+}) {
+  const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && serverUrl && apiKey) {
+      fetchInstances();
+    }
+  }, [open]);
+
+  const fetchInstances = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const baseUrl = serverUrl.replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/api/platform/fetch-instances`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) throw new Error(`Erro ${response.status}`);
+      const data = await response.json();
+      setInstances(Array.isArray(data) ? data : data.instances || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao buscar instâncias');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-sm">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Buscando instâncias...</span>
+            </div>
+          )}
+          {error && (
+            <div className="text-sm text-destructive p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+              {error}
+              <Button size="sm" variant="outline" className="mt-2 w-full" onClick={fetchInstances}>
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+          {!isLoading && !error && instances.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">Nenhuma instância encontrada</p>
+          )}
+          {!isLoading && instances.map((inst) => (
+            <button
+              key={inst.instance_name}
+              onClick={() => {
+                onSelect(inst.instance_name);
+                onOpenChange(false);
+              }}
+              className={`w-full flex items-center justify-between p-3 rounded-lg border transition-colors text-left ${
+                currentInstance === inst.instance_name
+                  ? 'bg-primary/10 border-primary/40 text-primary'
+                  : 'bg-secondary/20 border-border/20 hover:bg-secondary/40'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4" />
+                <span className="text-sm font-medium">{inst.instance_name}</span>
+              </div>
+              {inst.status && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                  inst.status === 'open' || inst.status === 'connected'
+                    ? 'bg-emerald-500/10 text-emerald-500'
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {inst.status}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function ExternalApiSettings() {
   const queryClient = useQueryClient();
   const [settings, setSettings] = useState<MessagingSettings>(defaultSettings);
   const [isTesting, setIsTesting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "error">("idle");
+  const [instanceModal, setInstanceModal] = useState<{ open: boolean; type: 'boleto' | 'pix_card' | 'abandoned' } | null>(null);
 
   const { data: savedSettings, isLoading } = useQuery({
     queryKey: ["messaging-api-settings"],
@@ -63,20 +183,16 @@ export function ExternalApiSettings() {
     },
   });
 
-  // Stats query
   const { data: stats } = useQuery({
     queryKey: ["messaging-stats"],
     queryFn: async () => {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
-
       const { data, error } = await supabase
         .from("message_log")
         .select("status, message_type")
         .gte("created_at", todayStart.toISOString());
-
       if (error) return { sent: 0, failed: 0, boleto: 0, pix_card: 0, abandoned: 0 };
-
       return {
         sent: data?.filter((l) => l.status === "sent").length || 0,
         failed: data?.filter((l) => l.status === "failed").length || 0,
@@ -96,46 +212,36 @@ export function ExternalApiSettings() {
 
   const saveMutation = useMutation({
     mutationFn: async (newSettings: MessagingSettings) => {
+      const payload = {
+        server_url: newSettings.server_url,
+        api_key: newSettings.api_key,
+        webhook_url: newSettings.webhook_url,
+        is_active: newSettings.is_active,
+        boleto_recovery_enabled: newSettings.boleto_recovery_enabled,
+        pix_card_recovery_enabled: newSettings.pix_card_recovery_enabled,
+        abandoned_recovery_enabled: newSettings.abandoned_recovery_enabled,
+        delay_between_messages: newSettings.delay_between_messages,
+        daily_limit: newSettings.daily_limit,
+        cron_enabled: newSettings.cron_enabled,
+        cron_interval_minutes: newSettings.cron_interval_minutes,
+        working_hours_enabled: newSettings.working_hours_enabled,
+        working_hours_start: newSettings.working_hours_start,
+        working_hours_end: newSettings.working_hours_end,
+        boleto_instance_name: newSettings.boleto_instance_name,
+        pix_card_instance_name: newSettings.pix_card_instance_name,
+        abandoned_instance_name: newSettings.abandoned_instance_name,
+      };
+
       if (newSettings.id) {
         const { error } = await supabase
           .from("messaging_api_settings")
-          .update({
-            server_url: newSettings.server_url,
-            api_key: newSettings.api_key,
-            webhook_url: newSettings.webhook_url,
-            is_active: newSettings.is_active,
-            boleto_recovery_enabled: newSettings.boleto_recovery_enabled,
-            pix_card_recovery_enabled: newSettings.pix_card_recovery_enabled,
-            abandoned_recovery_enabled: newSettings.abandoned_recovery_enabled,
-            delay_between_messages: newSettings.delay_between_messages,
-            daily_limit: newSettings.daily_limit,
-            cron_enabled: newSettings.cron_enabled,
-            cron_interval_minutes: newSettings.cron_interval_minutes,
-            working_hours_enabled: newSettings.working_hours_enabled,
-            working_hours_start: newSettings.working_hours_start,
-            working_hours_end: newSettings.working_hours_end,
-          })
+          .update(payload)
           .eq("id", newSettings.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("messaging_api_settings")
-          .insert({
-            server_url: newSettings.server_url,
-            api_key: newSettings.api_key,
-            webhook_url: newSettings.webhook_url,
-            is_active: newSettings.is_active,
-            boleto_recovery_enabled: newSettings.boleto_recovery_enabled,
-            pix_card_recovery_enabled: newSettings.pix_card_recovery_enabled,
-            abandoned_recovery_enabled: newSettings.abandoned_recovery_enabled,
-            delay_between_messages: newSettings.delay_between_messages,
-            daily_limit: newSettings.daily_limit,
-            cron_enabled: newSettings.cron_enabled,
-            cron_interval_minutes: newSettings.cron_interval_minutes,
-            working_hours_enabled: newSettings.working_hours_enabled,
-            working_hours_start: newSettings.working_hours_start,
-            working_hours_end: newSettings.working_hours_end,
-          });
+          .insert(payload);
         if (error) throw error;
       }
     },
@@ -193,6 +299,18 @@ export function ExternalApiSettings() {
     } catch {
       toast.error("Erro ao executar recuperação automática");
     }
+  };
+
+  const getInstanceKey = (type: 'boleto' | 'pix_card' | 'abandoned'): keyof MessagingSettings => {
+    const map = { boleto: 'boleto_instance_name', pix_card: 'pix_card_instance_name', abandoned: 'abandoned_instance_name' } as const;
+    return map[type];
+  };
+
+  const handleInstanceSelect = (type: 'boleto' | 'pix_card' | 'abandoned', instanceName: string) => {
+    const key = getInstanceKey(type);
+    const updated = { ...settings, [key]: instanceName };
+    setSettings(updated);
+    saveMutation.mutate(updated);
   };
 
   if (isLoading) {
@@ -262,12 +380,7 @@ export function ExternalApiSettings() {
             </div>
 
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={testConnection}
-                disabled={isTesting}
-              >
+              <Button variant="outline" size="sm" onClick={testConnection} disabled={isTesting}>
                 {isTesting ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
                 ) : connectionStatus === "connected" ? (
@@ -279,14 +392,8 @@ export function ExternalApiSettings() {
                 )}
                 Testar Conexão
               </Button>
-              <Button
-                size="sm"
-                onClick={() => saveMutation.mutate(settings)}
-                disabled={saveMutation.isPending}
-              >
-                {saveMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
-                ) : null}
+              <Button size="sm" onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : null}
                 Salvar
               </Button>
             </div>
@@ -302,40 +409,81 @@ export function ExternalApiSettings() {
             Recuperação Automática
           </CardTitle>
           <CardDescription className="text-xs">
-            Configure quais tipos de recuperação automática estão ativos
+            Configure quais tipos de recuperação automática estão ativos e suas instâncias WhatsApp
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border/20">
-              <div>
-                <p className="text-xs font-medium">Boleto</p>
-                <p className="text-[10px] text-muted-foreground">Recuperar boletos pendentes</p>
+            {/* Boleto */}
+            <div className="p-3 rounded-lg bg-secondary/20 border border-border/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium">Boleto</p>
+                  <p className="text-[10px] text-muted-foreground">Recuperar boletos pendentes</p>
+                </div>
+                <Switch
+                  checked={settings.boleto_recovery_enabled}
+                  onCheckedChange={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
+                />
               </div>
-              <Switch
-                checked={settings.boleto_recovery_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
-              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-7 text-[11px]"
+                onClick={() => setInstanceModal({ open: true, type: 'boleto' })}
+                disabled={!settings.server_url || !settings.api_key}
+              >
+                <Smartphone className="h-3 w-3 mr-1.5" />
+                {settings.boleto_instance_name || 'Selecionar instância'}
+              </Button>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border/20">
-              <div>
-                <p className="text-xs font-medium">PIX / Cartão</p>
-                <p className="text-[10px] text-muted-foreground">Recuperar pagamentos pendentes</p>
+
+            {/* PIX / Cartão */}
+            <div className="p-3 rounded-lg bg-secondary/20 border border-border/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium">PIX / Cartão</p>
+                  <p className="text-[10px] text-muted-foreground">Recuperar pagamentos pendentes</p>
+                </div>
+                <Switch
+                  checked={settings.pix_card_recovery_enabled}
+                  onCheckedChange={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
+                />
               </div>
-              <Switch
-                checked={settings.pix_card_recovery_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
-              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-7 text-[11px]"
+                onClick={() => setInstanceModal({ open: true, type: 'pix_card' })}
+                disabled={!settings.server_url || !settings.api_key}
+              >
+                <Smartphone className="h-3 w-3 mr-1.5" />
+                {settings.pix_card_instance_name || 'Selecionar instância'}
+              </Button>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border/20">
-              <div>
-                <p className="text-xs font-medium">Abandonos</p>
-                <p className="text-[10px] text-muted-foreground">Recuperar carrinhos abandonados</p>
+
+            {/* Abandonos */}
+            <div className="p-3 rounded-lg bg-secondary/20 border border-border/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium">Abandonos</p>
+                  <p className="text-[10px] text-muted-foreground">Recuperar carrinhos abandonados</p>
+                </div>
+                <Switch
+                  checked={settings.abandoned_recovery_enabled}
+                  onCheckedChange={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
+                />
               </div>
-              <Switch
-                checked={settings.abandoned_recovery_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
-              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full h-7 text-[11px]"
+                onClick={() => setInstanceModal({ open: true, type: 'abandoned' })}
+                disabled={!settings.server_url || !settings.api_key}
+              >
+                <Smartphone className="h-3 w-3 mr-1.5" />
+                {settings.abandoned_instance_name || 'Selecionar instância'}
+              </Button>
             </div>
           </div>
 
@@ -445,8 +593,28 @@ export function ExternalApiSettings() {
 
       {/* Message Logs */}
       <MessageLogs />
+
+      {/* Instance Selector Modal */}
+      {instanceModal && (
+        <InstanceSelectorModal
+          open={instanceModal.open}
+          onOpenChange={(open) => {
+            if (!open) setInstanceModal(null);
+          }}
+          serverUrl={settings.server_url}
+          apiKey={settings.api_key}
+          currentInstance={settings[getInstanceKey(instanceModal.type)] as string | null}
+          onSelect={(name) => handleInstanceSelect(instanceModal.type, name)}
+          title={`Selecionar instância — ${instanceModal.type === 'boleto' ? 'Boleto' : instanceModal.type === 'pix_card' ? 'PIX/Cartão' : 'Abandonos'}`}
+        />
+      )}
     </div>
   );
+
+  function getInstanceKey(type: 'boleto' | 'pix_card' | 'abandoned'): keyof MessagingSettings {
+    const map = { boleto: 'boleto_instance_name', pix_card: 'pix_card_instance_name', abandoned: 'abandoned_instance_name' } as const;
+    return map[type];
+  }
 }
 
 function DataSyncSection({ settings }: { settings: MessagingSettings }) {
@@ -516,10 +684,8 @@ function DataSyncSection({ settings }: { settings: MessagingSettings }) {
               </Button>
             </div>
           </div>
-
         </div>
       </CardContent>
     </Card>
   );
 }
-
