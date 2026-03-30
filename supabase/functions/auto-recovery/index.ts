@@ -84,7 +84,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Skip working hours check for single-item webhook triggers
     const isSingleItem = !!specificTransactionId || !!specificAbandonedEventId;
     if (!forceRun && !isSingleItem && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
       return new Response(
@@ -122,6 +121,13 @@ Deno.serve(async (req) => {
       boleto: settings.boleto_instance_name || null,
       pix_card: settings.pix_card_instance_name || null,
       abandoned: settings.abandoned_instance_name || null,
+    };
+
+    // Use dedicated auto-recovery messages from messaging_api_settings
+    const autoMessages = {
+      pix_card: settings.auto_pix_card_message || 'Olá {primeiro_nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?',
+      abandoned: settings.auto_abandoned_message || 'Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?',
+      boleto: settings.auto_boleto_message || '{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!',
     };
 
     async function sendMessage(
@@ -171,7 +177,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== SINGLE PIX/CARD TRANSACTION =====
-    if (specificTransactionId && (specificType === 'pix_card')) {
+    if (specificTransactionId && specificType === 'pix_card') {
       if (!settings.pix_card_recovery_enabled) {
         return new Response(
           JSON.stringify({ success: true, message: 'PIX/Card recovery disabled', skipped: true }),
@@ -186,17 +192,10 @@ Deno.serve(async (req) => {
         .single();
 
       if (tx && tx.customer_phone) {
-        const { data: pixSettings } = await supabase
-          .from('pix_card_recovery_settings')
-          .select('message')
-          .limit(1)
-          .single();
-
-        const messageTemplate = pixSettings?.message || 'Olá {nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?';
         const firstName = tx.customer_name?.split(' ')[0] || 'Cliente';
         const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount);
 
-        const message = formatMessage(messageTemplate, {
+        const message = formatMessage(autoMessages.pix_card, {
           nome: tx.customer_name || 'Cliente',
           primeiro_nome: firstName,
           valor: formattedValue,
@@ -214,7 +213,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== SINGLE ABANDONED EVENT =====
-    if (specificAbandonedEventId && (specificType === 'abandoned')) {
+    if (specificAbandonedEventId && specificType === 'abandoned') {
       if (!settings.abandoned_recovery_enabled) {
         return new Response(
           JSON.stringify({ success: true, message: 'Abandoned recovery disabled', skipped: true }),
@@ -229,17 +228,10 @@ Deno.serve(async (req) => {
         .single();
 
       if (event && event.customer_phone) {
-        const { data: abandonedSettings } = await supabase
-          .from('abandoned_recovery_settings')
-          .select('message')
-          .limit(1)
-          .single();
-
-        const messageTemplate = abandonedSettings?.message || 'Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?';
         const firstName = event.customer_name?.split(' ')[0] || 'Cliente';
         const formattedValue = event.amount ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.amount) : '';
 
-        const message = formatMessage(messageTemplate, {
+        const message = formatMessage(autoMessages.abandoned, {
           nome: event.customer_name || 'Cliente',
           primeiro_nome: firstName,
           valor: formattedValue,
@@ -279,7 +271,7 @@ Deno.serve(async (req) => {
           .from('transactions')
           .select('*')
           .eq('type', 'boleto')
-          .eq('status', 'gerado')
+          .in('status', ['gerado', 'pendente'])
           .not('customer_phone', 'is', null);
 
         if (boletos) {
@@ -319,6 +311,7 @@ Deno.serve(async (req) => {
                 const firstName = boleto.customer_name?.split(' ')[0] || 'Cliente';
                 const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(boleto.amount);
                 
+                // Use rule-specific message for boleto (régua de cobrança)
                 const message = formatMessage(rule.message, {
                   nome: boleto.customer_name || 'Cliente',
                   primeiro_nome: firstName,
@@ -350,14 +343,6 @@ Deno.serve(async (req) => {
     if ((specificType === null || specificType === 'pix_card') && settings.pix_card_recovery_enabled && !specificTransactionId) {
       console.log('Processing PIX/Card recovery...');
 
-      const { data: pixSettings } = await supabase
-        .from('pix_card_recovery_settings')
-        .select('message')
-        .limit(1)
-        .single();
-
-      const messageTemplate = pixSettings?.message || 'Olá {nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?';
-
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
 
@@ -387,7 +372,7 @@ Deno.serve(async (req) => {
           const firstName = tx.customer_name?.split(' ')[0] || 'Cliente';
           const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount);
 
-          const message = formatMessage(messageTemplate, {
+          const message = formatMessage(autoMessages.pix_card, {
             nome: tx.customer_name || 'Cliente',
             primeiro_nome: firstName,
             valor: formattedValue,
@@ -403,14 +388,6 @@ Deno.serve(async (req) => {
     // ===== BATCH: ABANDONED recovery =====
     if ((specificType === null || specificType === 'abandoned') && settings.abandoned_recovery_enabled && !specificAbandonedEventId) {
       console.log('Processing abandoned cart recovery...');
-
-      const { data: abandonedSettings } = await supabase
-        .from('abandoned_recovery_settings')
-        .select('message')
-        .limit(1)
-        .single();
-
-      const messageTemplate = abandonedSettings?.message || 'Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?';
 
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
@@ -439,7 +416,7 @@ Deno.serve(async (req) => {
           const firstName = event.customer_name?.split(' ')[0] || 'Cliente';
           const formattedValue = event.amount ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.amount) : '';
 
-          const message = formatMessage(messageTemplate, {
+          const message = formatMessage(autoMessages.abandoned, {
             nome: event.customer_name || 'Cliente',
             primeiro_nome: firstName,
             valor: formattedValue,

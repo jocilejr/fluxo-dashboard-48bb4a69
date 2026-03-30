@@ -32,6 +32,9 @@ interface MessagingSettings {
   boleto_instance_name: string | null;
   pix_card_instance_name: string | null;
   abandoned_instance_name: string | null;
+  auto_pix_card_message: string;
+  auto_abandoned_message: string;
+  auto_boleto_message: string;
 }
 
 const defaultSettings: MessagingSettings = {
@@ -52,6 +55,9 @@ const defaultSettings: MessagingSettings = {
   boleto_instance_name: null,
   pix_card_instance_name: null,
   abandoned_instance_name: null,
+  auto_pix_card_message: "Olá {primeiro_nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?",
+  auto_abandoned_message: "Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?",
+  auto_boleto_message: "{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!",
 };
 
 const VARIABLES_INFO = [
@@ -66,8 +72,6 @@ const AutoRecuperacao = () => {
   const queryClient = useQueryClient();
   const [settings, setSettings] = useState<MessagingSettings>(defaultSettings);
   const [instanceModal, setInstanceModal] = useState<{ open: boolean; type: 'boleto' | 'pix_card' | 'abandoned' } | null>(null);
-  const [pixCardMessage, setPixCardMessage] = useState("");
-  const [abandonedMessage, setAbandonedMessage] = useState("");
 
   const { data: savedSettings, isLoading } = useQuery({
     queryKey: ["messaging-api-settings"],
@@ -78,30 +82,6 @@ const AutoRecuperacao = () => {
         .maybeSingle();
       if (error) throw error;
       return data as MessagingSettings | null;
-    },
-  });
-
-  const { data: pixCardSettings } = useQuery({
-    queryKey: ["pix-card-recovery-settings"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pix_card_recovery_settings")
-        .select("*")
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: abandonedSettings } = useQuery({
-    queryKey: ["abandoned-recovery-settings"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("abandoned_recovery_settings")
-        .select("*")
-        .maybeSingle();
-      if (error) throw error;
-      return data;
     },
   });
 
@@ -127,16 +107,8 @@ const AutoRecuperacao = () => {
   });
 
   useEffect(() => {
-    if (savedSettings) setSettings(savedSettings);
+    if (savedSettings) setSettings({ ...defaultSettings, ...savedSettings });
   }, [savedSettings]);
-
-  useEffect(() => {
-    if (pixCardSettings?.message) setPixCardMessage(pixCardSettings.message);
-  }, [pixCardSettings]);
-
-  useEffect(() => {
-    if (abandonedSettings?.message) setAbandonedMessage(abandonedSettings.message);
-  }, [abandonedSettings]);
 
   const saveMutation = useMutation({
     mutationFn: async (newSettings: MessagingSettings) => {
@@ -158,6 +130,9 @@ const AutoRecuperacao = () => {
         boleto_instance_name: newSettings.boleto_instance_name,
         pix_card_instance_name: newSettings.pix_card_instance_name,
         abandoned_instance_name: newSettings.abandoned_instance_name,
+        auto_pix_card_message: newSettings.auto_pix_card_message,
+        auto_abandoned_message: newSettings.auto_abandoned_message,
+        auto_boleto_message: newSettings.auto_boleto_message,
       };
 
       if (newSettings.id) {
@@ -178,50 +153,6 @@ const AutoRecuperacao = () => {
       toast.success("Configurações salvas!");
     },
     onError: () => toast.error("Erro ao salvar configurações"),
-  });
-
-  const savePixCardMessage = useMutation({
-    mutationFn: async (message: string) => {
-      if (pixCardSettings?.id) {
-        const { error } = await supabase
-          .from("pix_card_recovery_settings")
-          .update({ message })
-          .eq("id", pixCardSettings.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("pix_card_recovery_settings")
-          .insert({ message });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pix-card-recovery-settings"] });
-      toast.success("Mensagem PIX/Cartão salva!");
-    },
-    onError: () => toast.error("Erro ao salvar mensagem"),
-  });
-
-  const saveAbandonedMessage = useMutation({
-    mutationFn: async (message: string) => {
-      if (abandonedSettings?.id) {
-        const { error } = await supabase
-          .from("abandoned_recovery_settings")
-          .update({ message })
-          .eq("id", abandonedSettings.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("abandoned_recovery_settings")
-          .insert({ message });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["abandoned-recovery-settings"] });
-      toast.success("Mensagem de abandonos salva!");
-    },
-    onError: () => toast.error("Erro ao salvar mensagem"),
   });
 
   const runAutoRecovery = async (type?: string) => {
@@ -271,43 +202,30 @@ const AutoRecuperacao = () => {
     );
   }
 
-  const VariablesHint = () => (
+  const VariablesHint = ({ extra }: { extra?: string[] }) => (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {VARIABLES_INFO.map((v) => (
         <span key={v.var} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground">
           {v.var}
         </span>
       ))}
+      {extra?.map((v) => (
+        <span key={v} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground">
+          {v}
+        </span>
+      ))}
     </div>
   );
 
-  const InstanceCard = ({ 
-    title, 
+  const InstanceSelector = ({ 
     type, 
-    enabled, 
-    onToggle, 
     instanceName,
-    badgeLabel,
-    badgeVariant,
   }: { 
-    title: string; 
     type: 'boleto' | 'pix_card' | 'abandoned'; 
-    enabled: boolean; 
-    onToggle: (checked: boolean) => void; 
     instanceName: string | null;
-    badgeLabel: string;
-    badgeVariant: "default" | "secondary" | "outline";
   }) => (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium">{title}</p>
-          <Badge variant={badgeVariant} className="text-[10px] h-5">
-            {badgeLabel}
-          </Badge>
-        </div>
-        <Switch checked={enabled} onCheckedChange={onToggle} />
-      </div>
+      <Label className="text-xs font-medium">Instância WhatsApp</Label>
       {instanceName ? (
         <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
           <Circle className="h-2.5 w-2.5 fill-emerald-500 text-emerald-500 shrink-0" />
@@ -339,13 +257,14 @@ const AutoRecuperacao = () => {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-lg bg-primary/10">
           <Zap className="h-5 w-5 text-primary" />
         </div>
         <div>
           <h1 className="text-2xl font-bold">Recuperação Automática</h1>
-          <p className="text-sm text-muted-foreground">Configure instâncias, mensagens e automações</p>
+          <p className="text-sm text-muted-foreground">Mensagens exclusivas da automação — independentes da recuperação manual</p>
         </div>
       </div>
 
@@ -358,47 +277,34 @@ const AutoRecuperacao = () => {
       {/* ===== PIX/CARTÃO ===== */}
       <Card className="bg-card/60 border-border/30">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-sm">PIX / Cartão</CardTitle>
-            <Badge variant="outline" className="text-[10px] h-5 gap-1">
-              <Radio className="h-2.5 w-2.5" />
-              Tempo Real
-            </Badge>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm">PIX / Cartão</CardTitle>
+              <Badge variant="outline" className="text-[10px] h-5 gap-1">
+                <Radio className="h-2.5 w-2.5" />
+                Tempo Real
+              </Badge>
+            </div>
+            <Switch
+              checked={settings.pix_card_recovery_enabled}
+              onCheckedChange={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
+            />
           </div>
           <CardDescription className="text-xs">
-            Envia mensagem automaticamente quando chega uma nova transação PIX/Cartão pendente via webhook.
+            Dispara automaticamente quando chega transação PIX/Cartão pendente via webhook.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <InstanceCard
-            title="Instância WhatsApp"
-            type="pix_card"
-            enabled={settings.pix_card_recovery_enabled}
-            onToggle={(checked) => setSettings({ ...settings, pix_card_recovery_enabled: checked })}
-            instanceName={settings.pix_card_instance_name}
-            badgeLabel="Tempo Real"
-            badgeVariant="outline"
-          />
+          <InstanceSelector type="pix_card" instanceName={settings.pix_card_instance_name} />
           <div className="space-y-2">
-            <Label className="text-xs">Mensagem de recuperação</Label>
+            <Label className="text-xs">Mensagem automática (exclusiva desta automação)</Label>
             <Textarea
-              value={pixCardMessage}
-              onChange={(e) => setPixCardMessage(e.target.value)}
+              value={settings.auto_pix_card_message}
+              onChange={(e) => setSettings({ ...settings, auto_pix_card_message: e.target.value })}
               placeholder="Olá {nome}! Seu pagamento de {valor} está pendente..."
               className="min-h-[80px] text-sm"
             />
             <VariablesHint />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => savePixCardMessage.mutate(pixCardMessage.trim())}
-                disabled={savePixCardMessage.isPending || !pixCardMessage.trim()}
-              >
-                {savePixCardMessage.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
-                Salvar Mensagem
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -406,47 +312,34 @@ const AutoRecuperacao = () => {
       {/* ===== ABANDONOS ===== */}
       <Card className="bg-card/60 border-border/30">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-sm">Abandonos</CardTitle>
-            <Badge variant="outline" className="text-[10px] h-5 gap-1">
-              <Radio className="h-2.5 w-2.5" />
-              Tempo Real
-            </Badge>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm">Abandonos</CardTitle>
+              <Badge variant="outline" className="text-[10px] h-5 gap-1">
+                <Radio className="h-2.5 w-2.5" />
+                Tempo Real
+              </Badge>
+            </div>
+            <Switch
+              checked={settings.abandoned_recovery_enabled}
+              onCheckedChange={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
+            />
           </div>
           <CardDescription className="text-xs">
-            Envia mensagem automaticamente quando um evento de abandono é recebido via webhook.
+            Dispara automaticamente quando um evento de abandono é recebido via webhook.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <InstanceCard
-            title="Instância WhatsApp"
-            type="abandoned"
-            enabled={settings.abandoned_recovery_enabled}
-            onToggle={(checked) => setSettings({ ...settings, abandoned_recovery_enabled: checked })}
-            instanceName={settings.abandoned_instance_name}
-            badgeLabel="Tempo Real"
-            badgeVariant="outline"
-          />
+          <InstanceSelector type="abandoned" instanceName={settings.abandoned_instance_name} />
           <div className="space-y-2">
-            <Label className="text-xs">Mensagem de recuperação</Label>
+            <Label className="text-xs">Mensagem automática (exclusiva desta automação)</Label>
             <Textarea
-              value={abandonedMessage}
-              onChange={(e) => setAbandonedMessage(e.target.value)}
+              value={settings.auto_abandoned_message}
+              onChange={(e) => setSettings({ ...settings, auto_abandoned_message: e.target.value })}
               placeholder="Olá {primeiro_nome}! Vi que você demonstrou interesse..."
               className="min-h-[80px] text-sm"
             />
             <VariablesHint />
-            <div className="flex justify-end">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => saveAbandonedMessage.mutate(abandonedMessage.trim())}
-                disabled={saveAbandonedMessage.isPending || !abandonedMessage.trim()}
-              >
-                {saveAbandonedMessage.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
-                Salvar Mensagem
-              </Button>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -454,27 +347,25 @@ const AutoRecuperacao = () => {
       {/* ===== BOLETO ===== */}
       <Card className="bg-card/60 border-border/30">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-sm">Boleto</CardTitle>
-            <Badge variant="secondary" className="text-[10px] h-5 gap-1">
-              <Clock className="h-2.5 w-2.5" />
-              Diário 9h
-            </Badge>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-sm">Boleto</CardTitle>
+              <Badge variant="secondary" className="text-[10px] h-5 gap-1">
+                <Clock className="h-2.5 w-2.5" />
+                Diário 9h
+              </Badge>
+            </div>
+            <Switch
+              checked={settings.boleto_recovery_enabled}
+              onCheckedChange={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
+            />
           </div>
           <CardDescription className="text-xs">
-            Executa automaticamente todos os dias às 9h da manhã, seguindo a régua de cobrança configurada abaixo.
+            Executa automaticamente todos os dias às 9h, seguindo a régua de cobrança abaixo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <InstanceCard
-            title="Instância WhatsApp"
-            type="boleto"
-            enabled={settings.boleto_recovery_enabled}
-            onToggle={(checked) => setSettings({ ...settings, boleto_recovery_enabled: checked })}
-            instanceName={settings.boleto_instance_name}
-            badgeLabel="Diário 9h"
-            badgeVariant="secondary"
-          />
+          <InstanceSelector type="boleto" instanceName={settings.boleto_instance_name} />
           <BoletoRecoveryRulesConfig />
         </CardContent>
       </Card>
@@ -601,9 +492,9 @@ const AutoRecuperacao = () => {
             </Button>
           </div>
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending}>
+            <Button onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending}>
               {saveMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />}
-              Salvar Configurações
+              Salvar Todas as Configurações
             </Button>
           </div>
         </CardContent>
