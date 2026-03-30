@@ -92,3 +92,6 @@ verify_jwt = true
 
 [functions.send-outbound-webhook]
 verify_jwt = true
+
+[functions.platform-api]
+verify_jwt = false
