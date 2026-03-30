@@ -1,60 +1,34 @@
 
 
-## Plano: Implementar Webhooks de Saída (Dashboard → App Externa)
+## Plano: Adicionar seção "Conexão de Entrada" nas configurações da API
 
-Atualmente, o sistema só recebe webhooks da app externa. Falta o fluxo inverso: quando dados mudam no dashboard, enviar notificações para a app externa.
+### Problema
+A tela de configurações só mostra como o dashboard se conecta à app externa. Não existe nenhum lugar que mostre à app externa **como se conectar ao dashboard** (URLs + token).
 
-### O que será feito
+### Solução
+Adicionar um novo card **"Conexão de Entrada (App Externa → Você)"** na página `ExternalApiSettings.tsx`, logo abaixo do card existente "Configuração da API Externa".
 
-**1. Migração: adicionar coluna `webhook_url` na tabela `messaging_api_settings`**
-- Campo separado do `server_url` (que é a base da API REST)
-- Será a URL onde a app externa recebe os webhooks de saída
+### O que o card vai mostrar
 
-**2. Criar edge function `send-outbound-webhook`**
-- Recebe `event` e `data` do frontend
-- Lê `webhook_url` e `api_key` de `messaging_api_settings`
-- Se `webhook_url` estiver configurado, faz POST com o payload padronizado:
-  ```json
-  {
-    "event": "reminder_updated",
-    "timestamp": "2026-03-30T14:30:00Z",
-    "data": { /* objeto completo */ }
-  }
-  ```
-- Inclui header `X-API-Key`
-- Falha silenciosa (não bloqueia o fluxo principal)
+1. **URL da API REST** (copiável):
+   `{SUPABASE_URL}/functions/v1/platform-api`
+   - Descrição: "Use esta URL como base para consultar e criar dados (contatos, transações, lembretes, mensagens)"
 
-**3. Modificar `src/pages/Lembretes.tsx`**
-- Após `createMutation` → invocar webhook com evento `reminder_created`
-- Após `toggleMutation` → invocar webhook com evento `reminder_updated`
-- Após `deleteMutation` → invocar webhook com evento `reminder_deleted`
-- Chamadas assíncronas (fire-and-forget), não bloqueiam a UI
+2. **URL do Webhook de Entrada** (copiável):
+   `{SUPABASE_URL}/functions/v1/external-messaging-webhook`
+   - Descrição: "Use esta URL para enviar eventos (sync_reminder, payment_confirmed, etc.)"
 
-**4. Atualizar `src/components/settings/ExternalApiSettings.tsx`**
-- Adicionar campo "Webhook URL" na interface de configurações
-- Incluir na lógica de save/load o novo campo `webhook_url`
-- Documentar na UI os eventos de saída suportados
+3. **API Key**: mostra a mesma `api_key` já configurada acima, com botão de copiar
+   - Descrição: "Envie no header `X-API-Key` em todas as requisições"
 
-**5. Atualizar `src/components/dashboard/WebhooksSection.tsx`**
-- Documentar os eventos de saída na aba Mensagens
+4. **Mini-documentação inline**: lista dos endpoints disponíveis e eventos aceitos (texto compacto)
 
-### Eventos de saída implementados
-| Evento | Quando |
-|---|---|
-| `reminder_created` | Lembrete criado no dashboard |
-| `reminder_updated` | Lembrete atualizado (toggle, edição) |
-| `reminder_deleted` | Lembrete excluído |
-
-### Arquivos alterados
-- Nova migração SQL (adicionar `webhook_url`)
-- Novo: `supabase/functions/send-outbound-webhook/index.ts`
-- `supabase/config.toml` (config da nova function)
-- `src/pages/Lembretes.tsx`
-- `src/components/settings/ExternalApiSettings.tsx`
-- `src/components/dashboard/WebhooksSection.tsx`
+### Arquivo alterado
+- `src/components/settings/ExternalApiSettings.tsx` — novo card após o card de configuração existente
 
 ### Detalhes técnicos
-- A edge function usa `verify_jwt = true` (chamada pelo frontend autenticado)
-- O webhook de saída é best-effort: se falhar, loga o erro mas não impede a operação local
-- A coluna `webhook_url` tem default vazio, mantendo compatibilidade
+- As URLs são construídas com `import.meta.env.VITE_SUPABASE_URL`
+- A API Key é lida do state `settings.api_key` já existente
+- Componente com botões de copiar (reutiliza padrão do `WebhooksSection`)
+- Só exibe o card quando `settings.api_key` estiver preenchido (sem API Key não faz sentido mostrar)
 
