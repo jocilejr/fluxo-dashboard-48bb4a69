@@ -28,16 +28,35 @@ Deno.serve(async (req) => {
       },
     });
 
-    const data = await response.text();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`External API error: ${response.status} - ${errorText.substring(0, 200)}`);
+      return new Response(
+        JSON.stringify({ success: false, error: `Erro da API externa: ${response.status}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    return new Response(data, {
-      status: response.status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error(`Unexpected content type: ${contentType}. Body: ${text.substring(0, 200)}`);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Resposta inesperada da API externa (não é JSON)' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const data = await response.json();
+    return new Response(
+      JSON.stringify({ success: true, instances: Array.isArray(data) ? data : data.instances || [] }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
+    console.error('fetch-instances error:', error);
     return new Response(
       JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
