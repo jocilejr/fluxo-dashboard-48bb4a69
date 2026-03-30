@@ -484,7 +484,7 @@ function DataSyncSection({ settings }: { settings: MessagingSettings }) {
           Sincronização de Dados
         </CardTitle>
         <CardDescription className="text-xs">
-          Envie dados de clientes e transações para sua aplicação externa. Sua aplicação também pode enviar dados via webhook.
+          Envie dados de clientes e transações para sua aplicação externa
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
