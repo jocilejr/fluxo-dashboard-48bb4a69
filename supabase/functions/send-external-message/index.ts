@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -12,9 +11,11 @@ interface SendMessageRequest {
   transactionId?: string;
   abandonedEventId?: string;
   messageType: 'boleto' | 'pix_card' | 'abandoned';
+  customerName?: string;
+  amount?: number;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,33 +25,33 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { phone, message, transactionId, abandonedEventId, messageType }: SendMessageRequest = await req.json();
+    const { phone, message, transactionId, abandonedEventId, messageType, customerName, amount }: SendMessageRequest = await req.json();
 
-    console.log(`Sending message to ${phone} via Evolution API`);
+    console.log(`Sending message to ${phone} via external messaging API`);
 
-    // Get Evolution API settings
+    // Get messaging API settings
     const { data: settings, error: settingsError } = await supabase
-      .from('evolution_api_settings')
+      .from('messaging_api_settings')
       .select('*')
       .limit(1)
       .single();
 
     if (settingsError || !settings) {
-      console.error('Evolution API settings not found:', settingsError);
+      console.error('Messaging API settings not found:', settingsError);
       return new Response(
-        JSON.stringify({ success: false, error: 'Evolution API não configurada' }),
+        JSON.stringify({ success: false, error: 'API de mensagens não configurada' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     if (!settings.is_active) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Evolution API está desativada' }),
+        JSON.stringify({ success: false, error: 'API de mensagens está desativada' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Normalize phone number (remove non-digits, ensure starts with country code)
+    // Normalize phone number
     let normalizedPhone = phone.replace(/\D/g, '');
     if (!normalizedPhone.startsWith('55')) {
       normalizedPhone = '55' + normalizedPhone;
@@ -58,7 +59,7 @@ serve(async (req) => {
 
     // Create log entry
     const { data: logEntry, error: logError } = await supabase
-      .from('evolution_message_log')
+      .from('message_log')
       .insert({
         phone: normalizedPhone,
         message,
@@ -74,69 +75,74 @@ serve(async (req) => {
       console.error('Error creating log entry:', logError);
     }
 
-    // Send message via Evolution API
-    const evolutionUrl = `${settings.server_url.replace(/\/$/, '')}/message/sendText/${settings.instance_name}`;
+    // Send message via external API
+    const apiUrl = `${settings.server_url.replace(/\/$/, '')}/api/send-message`;
     
-    console.log(`Calling Evolution API: ${evolutionUrl}`);
+    console.log(`Calling external API: ${apiUrl}`);
 
-    const evolutionResponse = await fetch(evolutionUrl, {
+    const externalResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': settings.api_key
+        'Authorization': `Bearer ${settings.api_key}`
       },
       body: JSON.stringify({
-        number: normalizedPhone,
-        text: message
+        phone: normalizedPhone,
+        message,
+        type: messageType,
+        reference_id: transactionId || abandonedEventId || logEntry?.id,
+        customer_name: customerName || null,
+        amount: amount || null
       })
     });
 
-    const evolutionData = await evolutionResponse.json();
-    console.log('Evolution API response:', JSON.stringify(evolutionData));
+    const externalData = await externalResponse.json();
+    console.log('External API response:', JSON.stringify(externalData));
 
     // Update log with response
     if (logEntry) {
       const updateData: Record<string, unknown> = {
-        evolution_response: evolutionData,
+        external_response: externalData,
         sent_at: new Date().toISOString()
       };
 
-      if (evolutionResponse.ok) {
+      if (externalResponse.ok && externalData.success) {
         updateData.status = 'sent';
+        updateData.external_message_id = externalData.message_id || null;
       } else {
         updateData.status = 'failed';
-        updateData.error_message = evolutionData.message || 'Erro ao enviar mensagem';
+        updateData.error_message = externalData.error || 'Erro ao enviar mensagem';
       }
 
       await supabase
-        .from('evolution_message_log')
+        .from('message_log')
         .update(updateData)
         .eq('id', logEntry.id);
     }
 
-    if (!evolutionResponse.ok) {
-      console.error('Evolution API error:', evolutionData);
+    if (!externalResponse.ok || !externalData.success) {
+      console.error('External API error:', externalData);
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: evolutionData.message || 'Erro ao enviar mensagem',
-          details: evolutionData 
+          error: externalData.error || 'Erro ao enviar mensagem',
+          details: externalData 
         }),
-        { status: evolutionResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: externalResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        messageId: evolutionData.key?.id,
-        response: evolutionData 
+        messageId: externalData.message_id,
+        response: externalData 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error in evolution-send-message:', error);
+    console.error('Error in send-external-message:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
