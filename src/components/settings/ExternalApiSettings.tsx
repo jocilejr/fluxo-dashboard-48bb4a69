@@ -123,6 +123,7 @@ export function ExternalApiSettings() {
           .insert({
             server_url: newSettings.server_url,
             api_key: newSettings.api_key,
+            webhook_url: newSettings.webhook_url,
             is_active: newSettings.is_active,
             boleto_recovery_enabled: newSettings.boleto_recovery_enabled,
             pix_card_recovery_enabled: newSettings.pix_card_recovery_enabled,
