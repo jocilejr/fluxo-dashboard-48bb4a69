@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Transacoes = lazy(() => import("./pages/Transacoes"));
 const Recuperacao = lazy(() => import("./pages/Recuperacao"));
+const AutoRecuperacao = lazy(() => import("./pages/AutoRecuperacao"));
 const Projetos = lazy(() => import("./pages/Projetos"));
 const TypebotRanking = lazy(() => import("./pages/TypebotRanking"));
 const GerarBoleto = lazy(() => import("./pages/GerarBoleto"));
