@@ -54,6 +54,24 @@ export default function Lembretes() {
   });
   const queryClient = useQueryClient();
 
+  // Realtime subscription for reminders table
+  useEffect(() => {
+    const channel = supabase
+      .channel('reminders-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reminders' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["reminders"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   // Fetch ALL reminders (filter in frontend for stats)
   const { data: allReminders = [], isLoading } = useQuery({
     queryKey: ["reminders"],
