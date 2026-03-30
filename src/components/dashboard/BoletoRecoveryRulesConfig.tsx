@@ -29,6 +29,7 @@ interface BoletoSettings {
 }
 
 const RULE_TYPE_LABELS: Record<string, string> = {
+  immediate: "Imediatamente",
   days_after_generation: "Dias após geração",
   days_before_due: "Dias antes do vencimento",
   days_after_due: "Dias após vencimento",
