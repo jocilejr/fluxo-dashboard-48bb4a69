@@ -239,6 +239,19 @@ export function ExternalApiSettings() {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label className="text-xs">Webhook URL (eventos de saída)</Label>
+            <Input
+              placeholder="https://sua-api.com/api/webhook"
+              value={settings.webhook_url}
+              onChange={(e) => setSettings({ ...settings, webhook_url: e.target.value })}
+              className="bg-secondary/30 border-border/30 h-9 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              URL onde sua aplicação receberá notificações quando dados mudarem no dashboard (lembretes, transações, etc.)
+            </p>
+          </div>
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Switch
