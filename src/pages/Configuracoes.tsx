@@ -12,7 +12,7 @@ import ActivityLogs from "@/components/settings/ActivityLogs";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { WebhooksSection } from "@/components/dashboard/WebhooksSection";
-import { EvolutionApiSettings } from "@/components/settings/EvolutionApiSettings";
+import { ExternalApiSettings } from "@/components/settings/ExternalApiSettings";
 import { Trash2, Plus, Loader2, Key, Save, Copy } from "lucide-react";
 
 interface UserWithPermissions {
@@ -664,9 +664,9 @@ const Configuracoes = () => {
               <FileText className="h-3.5 w-3.5" />
               Logs
             </TabsTrigger>
-            <TabsTrigger value="evolution" className="gap-2 data-[state=active]:bg-foreground data-[state=active]:text-background text-xs">
+            <TabsTrigger value="messaging" className="gap-2 data-[state=active]:bg-foreground data-[state=active]:text-background text-xs">
               <Smartphone className="h-3.5 w-3.5" />
-              Evolution API
+              API Mensagens
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1201,8 +1201,8 @@ const Configuracoes = () => {
           <ActivityLogs />
         </TabsContent>
 
-        <TabsContent value="evolution">
-          <EvolutionApiSettings />
+        <TabsContent value="messaging">
+          <ExternalApiSettings />
         </TabsContent>
       </Tabs>
     </div>
