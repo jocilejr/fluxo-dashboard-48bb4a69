@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Wifi, WifiOff, Send, Settings2 } from "lucide-react";
+import { Loader2, Wifi, WifiOff, Send, Settings2, RefreshCw, Users, ArrowUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -424,8 +424,98 @@ export function ExternalApiSettings() {
         </CardContent>
       </Card>
 
+      {/* Data Sync */}
+      <DataSyncSection settings={settings} />
+
       {/* Message Logs */}
       <MessageLogs />
     </div>
+  );
+}
+
+function DataSyncSection({ settings }: { settings: MessagingSettings }) {
+  const [isSyncing, setIsSyncing] = useState<string | null>(null);
+
+  const syncData = async (action: string, label: string) => {
+    if (!settings.server_url) {
+      toast.error("Configure a URL da API primeiro");
+      return;
+    }
+    setIsSyncing(action);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-external-data", {
+        body: { action },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        const sent = data.sent || data.customers_synced || data.transactions_created || 0;
+        toast.success(`${label} concluída! ${sent} registros enviados`);
+      } else {
+        toast.error(data?.error || "Erro na sincronização");
+      }
+    } catch {
+      toast.error(`Erro ao sincronizar: ${label}`);
+    } finally {
+      setIsSyncing(null);
+    }
+  };
+
+  return (
+    <Card className="bg-card/60 border-border/30">
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ArrowUpDown className="h-4 w-4" />
+          Sincronização de Dados
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Envie dados de clientes e transações para sua aplicação externa. Sua aplicação também pode enviar dados via webhook.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="p-3 rounded-lg bg-secondary/20 border border-border/20 space-y-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs font-medium">Dashboard → Externa</p>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Envie clientes e transações para sua aplicação</p>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => syncData('sync_customers', 'Clientes')}
+                disabled={isSyncing !== null}
+              >
+                {isSyncing === 'sync_customers' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                Clientes
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => syncData('sync_transactions', 'Transações')}
+                disabled={isSyncing !== null}
+              >
+                {isSyncing === 'sync_transactions' ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                Transações
+              </Button>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-secondary/20 border border-border/20 space-y-2">
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <p className="text-xs font-medium">Externa → Dashboard</p>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Sua aplicação envia dados via webhook:</p>
+            <code className="text-[10px] block bg-secondary/40 p-2 rounded text-muted-foreground break-all">
+              POST {import.meta.env.VITE_SUPABASE_URL}/functions/v1/external-messaging-webhook
+            </code>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Eventos: <span className="text-foreground">sync_customer</span>, <span className="text-foreground">sync_transaction</span>, <span className="text-foreground">sync_abandoned_event</span>, <span className="text-foreground">bulk_sync</span>
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
