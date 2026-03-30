@@ -1225,6 +1225,7 @@ export type Database = {
           pix_card_recovery_enabled: boolean
           server_url: string
           updated_at: string
+          webhook_url: string
           working_hours_enabled: boolean
           working_hours_end: number
           working_hours_start: number
@@ -1243,6 +1244,7 @@ export type Database = {
           pix_card_recovery_enabled?: boolean
           server_url?: string
           updated_at?: string
+          webhook_url?: string
           working_hours_enabled?: boolean
           working_hours_end?: number
           working_hours_start?: number
@@ -1261,6 +1263,7 @@ export type Database = {
           pix_card_recovery_enabled?: boolean
           server_url?: string
           updated_at?: string
+          webhook_url?: string
           working_hours_enabled?: boolean
           working_hours_end?: number
           working_hours_start?: number
