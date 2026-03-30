@@ -17,6 +17,7 @@ import {
   UsersRound,
   Crown,
   Bell,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/", permissionKey: "dashboard" },
   { title: "Transações", icon: List, path: "/transacoes", permissionKey: "transacoes" },
   { title: "Recuperação", icon: RefreshCcw, path: "/recuperacao", permissionKey: "recuperacao", desktopOnly: true },
+  { title: "Auto Rec.", icon: Zap, path: "/auto-recuperacao", permissionKey: "auto_recuperacao", desktopOnly: true },
   { title: "Clientes", icon: Users, path: "/clientes", permissionKey: "clientes", desktopOnly: true },
   { title: "Grupos", icon: UsersRound, path: "/grupos", permissionKey: "grupos", desktopOnly: true },
   { title: "Entrega", icon: Package, path: "/entrega", permissionKey: "entrega", desktopOnly: true },
