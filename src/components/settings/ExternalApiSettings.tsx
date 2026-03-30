@@ -14,6 +14,7 @@ interface MessagingSettings {
   id?: string;
   server_url: string;
   api_key: string;
+  webhook_url: string;
   is_active: boolean;
   boleto_recovery_enabled: boolean;
   pix_card_recovery_enabled: boolean;
@@ -30,6 +31,7 @@ interface MessagingSettings {
 const defaultSettings: MessagingSettings = {
   server_url: "",
   api_key: "",
+  webhook_url: "",
   is_active: false,
   boleto_recovery_enabled: false,
   pix_card_recovery_enabled: false,
@@ -100,6 +102,7 @@ export function ExternalApiSettings() {
           .update({
             server_url: newSettings.server_url,
             api_key: newSettings.api_key,
+            webhook_url: newSettings.webhook_url,
             is_active: newSettings.is_active,
             boleto_recovery_enabled: newSettings.boleto_recovery_enabled,
             pix_card_recovery_enabled: newSettings.pix_card_recovery_enabled,
@@ -120,6 +123,7 @@ export function ExternalApiSettings() {
           .insert({
             server_url: newSettings.server_url,
             api_key: newSettings.api_key,
+            webhook_url: newSettings.webhook_url,
             is_active: newSettings.is_active,
             boleto_recovery_enabled: newSettings.boleto_recovery_enabled,
             pix_card_recovery_enabled: newSettings.pix_card_recovery_enabled,
@@ -233,6 +237,19 @@ export function ExternalApiSettings() {
                 className="bg-secondary/30 border-border/30 h-9 text-sm"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Webhook URL (eventos de saída)</Label>
+            <Input
+              placeholder="https://sua-api.com/api/webhook"
+              value={settings.webhook_url}
+              onChange={(e) => setSettings({ ...settings, webhook_url: e.target.value })}
+              className="bg-secondary/30 border-border/30 h-9 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              URL onde sua aplicação receberá notificações quando dados mudarem no dashboard (lembretes, transações, etc.)
+            </p>
           </div>
 
           <div className="flex items-center justify-between">

@@ -129,21 +129,30 @@ export default function Lembretes() {
     return list;
   }, [allReminders, filter, selectedDate, stats]);
 
+  // Fire-and-forget outbound webhook
+  const sendOutboundWebhook = (event: string, data: any) => {
+    supabase.functions.invoke("send-outbound-webhook", {
+      body: { event, data },
+    }).catch((err) => console.error("Outbound webhook error:", err));
+  };
+
   const createMutation = useMutation({
     mutationFn: async (reminder: typeof newReminder) => {
-      const { error } = await supabase.from("reminders").insert({
+      const { data, error } = await supabase.from("reminders").insert({
         phone: reminder.phone,
         title: reminder.title,
         description: reminder.description || null,
         due_date: new Date(reminder.due_date).toISOString(),
-      });
+      }).select().single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Lembrete criado!");
       setCreateOpen(false);
       setNewReminder({ phone: "", title: "", description: "", due_date: "" });
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      sendOutboundWebhook("reminder_created", data);
     },
     onError: (err: any) => toast.error("Erro: " + err.message),
   });
@@ -174,8 +183,9 @@ export default function Lembretes() {
         console.log("No external_id for reminder", id, "- skipping external sync");
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      sendOutboundWebhook("reminder_updated", { id: variables.id, completed: variables.completed, external_id: variables.external_id });
     },
   });
 
@@ -183,10 +193,12 @@ export default function Lembretes() {
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("reminders").delete().eq("id", id);
       if (error) throw error;
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
       toast.success("Lembrete excluído");
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
+      sendOutboundWebhook("reminder_deleted", { id });
     },
   });
 

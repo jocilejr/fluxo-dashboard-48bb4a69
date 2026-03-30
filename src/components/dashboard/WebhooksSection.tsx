@@ -309,13 +309,23 @@ function MensagensWebhook() {
       </div>
 
       <div className="p-4 bg-info/5 border border-info/20 rounded-lg">
-        <h5 className="text-xs font-semibold text-info mb-2">Eventos Suportados</h5>
+        <h5 className="text-xs font-semibold text-info mb-2">Eventos de Entrada (Externa → Dashboard)</h5>
         <div className="text-xs text-muted-foreground space-y-1">
           <p><strong>Lembretes:</strong> sync_reminder, reminder_updated, reminder_deleted</p>
           <p><strong>Links Úteis:</strong> useful_link_created, useful_link_updated, useful_link_deleted</p>
           <p><strong>Pagamentos:</strong> payment_confirmed, payment_failed, payment_refunded, invoice_created</p>
           <p><strong>Clientes:</strong> customer_updated, sync_customer</p>
           <p><strong>Outros:</strong> sync_transaction, sync_abandoned_event, bulk_sync</p>
+        </div>
+      </div>
+
+      <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-lg">
+        <h5 className="text-xs font-semibold text-green-600 mb-2">Eventos de Saída (Dashboard → Externa)</h5>
+        <p className="text-[10px] text-muted-foreground mb-2">
+          Configure a <strong>Webhook URL</strong> em Configurações → API para receber estes eventos automaticamente.
+        </p>
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p><strong>Lembretes:</strong> reminder_created, reminder_updated, reminder_deleted</p>
         </div>
       </div>
     </div>
