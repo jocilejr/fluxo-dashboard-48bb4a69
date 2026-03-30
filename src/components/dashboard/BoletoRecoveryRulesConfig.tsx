@@ -339,7 +339,9 @@ export function BoletoRecoveryRulesConfig() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium truncate">{rule.name}</span>
                       <Badge variant="outline" className="text-xs shrink-0">
-                        {rule.days} {RULE_TYPE_LABELS[rule.rule_type]?.split(" ").slice(1).join(" ")}
+                        {rule.rule_type === 'immediate' 
+                          ? 'Imediatamente' 
+                          : `${rule.days} ${RULE_TYPE_LABELS[rule.rule_type]?.split(" ").slice(1).join(" ")}`}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground truncate mt-1">{rule.message}</p>
