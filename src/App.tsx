@@ -78,6 +78,7 @@ const App = () => {
             <Route index element={<Dashboard />} />
             <Route path="transacoes" element={<Transacoes />} />
             <Route path="recuperacao" element={<Recuperacao />} />
+            <Route path="auto-recuperacao" element={<AutoRecuperacao />} />
             <Route path="projetos" element={<Projetos />} />
             <Route path="typebots" element={<TypebotRanking />} />
             <Route path="gerar-boleto" element={<GerarBoleto />} />
