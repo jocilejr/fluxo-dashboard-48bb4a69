@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -53,6 +53,24 @@ export default function Lembretes() {
     due_date: "",
   });
   const queryClient = useQueryClient();
+
+  // Realtime subscription for reminders table
+  useEffect(() => {
+    const channel = supabase
+      .channel('reminders-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reminders' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["reminders"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Fetch ALL reminders (filter in frontend for stats)
   const { data: allReminders = [], isLoading } = useQuery({
