@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -23,24 +23,28 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle2,
-  Calendar,
+  Calendar as CalendarIcon,
   Loader2,
   Phone,
   Trash2,
   Download,
+  Circle,
+  CheckCircle,
 } from "lucide-react";
-import { format, isPast, isToday } from "date-fns";
+import {
+  format,
+  isPast,
+  isToday,
+  isSameDay,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+} from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const filterOptions = [
-  { value: "pending", label: "Pendentes", icon: Clock, color: "text-yellow-500" },
-  { value: "overdue", label: "Atrasados", icon: AlertTriangle, color: "text-red-500" },
-  { value: "today", label: "Hoje", icon: Calendar, color: "text-blue-500" },
-  { value: "completed", label: "Concluídos", icon: CheckCircle2, color: "text-green-500" },
-];
-
 export default function Lembretes() {
-  const [filter, setFilter] = useState("pending");
+  const [filter, setFilter] = useState<string>("all");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [createOpen, setCreateOpen] = useState(false);
   const [newReminder, setNewReminder] = useState({
     phone: "",
@@ -50,36 +54,62 @@ export default function Lembretes() {
   });
   const queryClient = useQueryClient();
 
-  const { data: reminders = [], isLoading } = useQuery({
-    queryKey: ["reminders", filter],
+  // Fetch ALL reminders (filter in frontend for stats)
+  const { data: allReminders = [], isLoading } = useQuery({
+    queryKey: ["reminders"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("reminders")
         .select("*")
         .order("due_date", { ascending: true });
-
-      if (filter === "completed") {
-        query = query.eq("completed", true);
-      } else if (filter === "pending") {
-        query = query.eq("completed", false);
-      } else if (filter === "overdue") {
-        query = query.eq("completed", false).lt("due_date", new Date().toISOString());
-      } else if (filter === "today") {
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        const end = new Date();
-        end.setHours(23, 59, 59, 999);
-        query = query
-          .eq("completed", false)
-          .gte("due_date", start.toISOString())
-          .lte("due_date", end.toISOString());
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
   });
+
+  // Compute stats
+  const stats = useMemo(() => {
+    const now = new Date();
+    const overdue = allReminders.filter(
+      (r: any) => !r.completed && isPast(new Date(r.due_date)) && !isToday(new Date(r.due_date))
+    );
+    const today = allReminders.filter(
+      (r: any) => !r.completed && isToday(new Date(r.due_date))
+    );
+    const pending = allReminders.filter((r: any) => !r.completed);
+    const completed = allReminders.filter((r: any) => r.completed);
+    return { overdue, today, pending, completed };
+  }, [allReminders]);
+
+  // Days that have reminders (for calendar indicators)
+  const reminderDates = useMemo(() => {
+    const dates = new Set<string>();
+    allReminders.forEach((r: any) => {
+      if (!r.completed) {
+        dates.add(format(new Date(r.due_date), "yyyy-MM-dd"));
+      }
+    });
+    return dates;
+  }, [allReminders]);
+
+  // Filtered reminders for the list
+  const filteredReminders = useMemo(() => {
+    let list = allReminders;
+
+    if (selectedDate) {
+      list = list.filter((r: any) => isSameDay(new Date(r.due_date), selectedDate));
+    } else if (filter === "overdue") {
+      list = stats.overdue;
+    } else if (filter === "today") {
+      list = stats.today;
+    } else if (filter === "pending") {
+      list = stats.pending;
+    } else if (filter === "completed") {
+      list = stats.completed;
+    }
+
+    return list;
+  }, [allReminders, filter, selectedDate, stats]);
 
   const createMutation = useMutation({
     mutationFn: async (reminder: typeof newReminder) => {
@@ -101,9 +131,22 @@ export default function Lembretes() {
   });
 
   const toggleMutation = useMutation({
-    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+    mutationFn: async ({ id, completed, external_id }: { id: string; completed: boolean; external_id?: string | null }) => {
+      // Update locally
       const { error } = await supabase.from("reminders").update({ completed }).eq("id", id);
       if (error) throw error;
+
+      // Sync with external API if has external_id
+      if (external_id) {
+        try {
+          await supabase.functions.invoke("external-reminders", {
+            body: { action: "update", reminder_id: external_id, completed },
+          });
+        } catch (e) {
+          console.error("External sync failed:", e);
+          // Don't fail the local update
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reminders"] });
@@ -129,10 +172,22 @@ export default function Lembretes() {
     createMutation.mutate(newReminder);
   };
 
-  const activeFilter = filterOptions.find(f => f.value === filter);
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date && selectedDate && isSameDay(date, selectedDate)) {
+      setSelectedDate(undefined); // deselect
+    } else {
+      setSelectedDate(date);
+      if (date) setFilter("all");
+    }
+  };
+
+  const handleFilterClick = (f: string) => {
+    setSelectedDate(undefined);
+    setFilter(f === filter ? "all" : f);
+  };
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -151,7 +206,7 @@ export default function Lembretes() {
             variant="outline"
             size="sm"
             onClick={async () => {
-              toast.info("Importando lembretes da API externa...");
+              toast.info("Importando lembretes...");
               try {
                 const { data, error } = await supabase.functions.invoke("sync-reminders");
                 if (error) throw error;
@@ -167,7 +222,7 @@ export default function Lembretes() {
             }}
           >
             <Download className="h-4 w-4 mr-2" />
-            Importar API
+            Importar
           </Button>
           <Button
             variant="outline"
@@ -175,8 +230,7 @@ export default function Lembretes() {
             onClick={() => queryClient.invalidateQueries({ queryKey: ["reminders"] })}
             disabled={isLoading}
           >
-            <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-            Atualizar
+            <RefreshCcw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           </Button>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
@@ -195,7 +249,7 @@ export default function Lembretes() {
                   <Input
                     placeholder="5511999999999"
                     value={newReminder.phone}
-                    onChange={e => setNewReminder(p => ({ ...p, phone: e.target.value }))}
+                    onChange={(e) => setNewReminder((p) => ({ ...p, phone: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -203,7 +257,7 @@ export default function Lembretes() {
                   <Input
                     placeholder="Ex: Ligar para confirmar pagamento"
                     value={newReminder.title}
-                    onChange={e => setNewReminder(p => ({ ...p, title: e.target.value }))}
+                    onChange={(e) => setNewReminder((p) => ({ ...p, title: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -211,7 +265,7 @@ export default function Lembretes() {
                   <Textarea
                     placeholder="Detalhes do lembrete..."
                     value={newReminder.description}
-                    onChange={e => setNewReminder(p => ({ ...p, description: e.target.value }))}
+                    onChange={(e) => setNewReminder((p) => ({ ...p, description: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -219,11 +273,15 @@ export default function Lembretes() {
                   <Input
                     type="datetime-local"
                     value={newReminder.due_date}
-                    onChange={e => setNewReminder(p => ({ ...p, due_date: e.target.value }))}
+                    onChange={(e) => setNewReminder((p) => ({ ...p, due_date: e.target.value }))}
                   />
                 </div>
                 <Button className="w-full" onClick={handleCreate} disabled={createMutation.isPending}>
-                  {createMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                  {createMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4 mr-2" />
+                  )}
                   Criar Lembrete
                 </Button>
               </div>
@@ -232,100 +290,239 @@ export default function Lembretes() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-2">
-        {filterOptions.map(opt => (
-          <Button
-            key={opt.value}
-            variant={filter === opt.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter(opt.value)}
-            className="gap-2"
-          >
-            <opt.icon className={`h-4 w-4 ${filter !== opt.value ? opt.color : ""}`} />
-            {opt.label}
-          </Button>
-        ))}
-      </div>
-
-      {/* Content */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : reminders.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Bell className="h-12 w-12 text-muted-foreground/40 mb-4" />
-            <p className="text-muted-foreground font-medium">
-              Nenhum lembrete {activeFilter?.label.toLowerCase()}
-            </p>
-            <Button variant="link" size="sm" onClick={() => setCreateOpen(true)}>
-              Criar primeiro lembrete
-            </Button>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${filter === "overdue" && !selectedDate ? "ring-2 ring-destructive" : ""}`}
+          onClick={() => handleFilterClick("overdue")}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-full bg-destructive/10">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.overdue.length}</p>
+              <p className="text-xs text-muted-foreground">Atrasados</p>
+            </div>
           </CardContent>
         </Card>
-      ) : (
+
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${filter === "today" && !selectedDate ? "ring-2 ring-yellow-500" : ""}`}
+          onClick={() => handleFilterClick("today")}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-full bg-yellow-500/10">
+              <CalendarIcon className="h-5 w-5 text-yellow-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.today.length}</p>
+              <p className="text-xs text-muted-foreground">Para hoje</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${filter === "pending" && !selectedDate ? "ring-2 ring-orange-500" : ""}`}
+          onClick={() => handleFilterClick("pending")}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-full bg-orange-500/10">
+              <Clock className="h-5 w-5 text-orange-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.pending.length}</p>
+              <p className="text-xs text-muted-foreground">Pendentes</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${filter === "completed" && !selectedDate ? "ring-2 ring-green-500" : ""}`}
+          onClick={() => handleFilterClick("completed")}
+        >
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-full bg-green-500/10">
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.completed.length}</p>
+              <p className="text-xs text-muted-foreground">Concluídos</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Body: Calendar + List */}
+      <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6">
+        {/* Calendar */}
+        <Card className="h-fit">
+          <CardContent className="p-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleDateSelect}
+              locale={ptBR}
+              className="pointer-events-auto"
+              modifiers={{
+                hasReminder: (date) =>
+                  reminderDates.has(format(date, "yyyy-MM-dd")),
+              }}
+              modifiersClassNames={{
+                hasReminder: "bg-green-500/20 text-green-700 font-bold",
+              }}
+            />
+            {selectedDate && (
+              <div className="mt-2 text-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedDate(undefined)}
+                >
+                  Limpar seleção
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Reminders list */}
         <div className="space-y-3">
-          {reminders.map((reminder: any) => {
-            const isOverdue = !reminder.completed && isPast(new Date(reminder.due_date));
-            return (
-              <Card key={reminder.id} className="transition-all hover:shadow-md">
-                <CardContent className="flex items-center gap-4 py-4">
-                  <Checkbox
-                    checked={reminder.completed}
-                    onCheckedChange={() =>
-                      toggleMutation.mutate({ id: reminder.id, completed: !reminder.completed })
-                    }
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-medium ${reminder.completed ? "line-through text-muted-foreground" : ""}`}>
-                        {reminder.title}
-                      </span>
-                      {reminder.completed && (
-                        <Badge variant="secondary" className="text-xs">Concluído</Badge>
-                      )}
-                      {isOverdue && (
-                        <Badge variant="destructive" className="text-xs">Atrasado</Badge>
-                      )}
-                    </div>
-                    {reminder.description && (
-                      <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                        {reminder.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        {reminder.phone}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {(() => {
-                          try {
-                            return format(new Date(reminder.due_date), "dd/MM/yyyy HH:mm", { locale: ptBR });
-                          } catch {
-                            return reminder.due_date;
-                          }
-                        })()}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => deleteMutation.mutate(reminder.id)}
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">
+              {selectedDate
+                ? `Lembretes de ${format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}`
+                : filter === "overdue"
+                ? "Lembretes Atrasados"
+                : filter === "today"
+                ? "Lembretes de Hoje"
+                : filter === "pending"
+                ? "Lembretes Pendentes"
+                : filter === "completed"
+                ? "Lembretes Concluídos"
+                : "Todos os Lembretes"}
+            </h2>
+            <Badge variant="secondary">{filteredReminders.length}</Badge>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredReminders.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16">
+                <Bell className="h-12 w-12 text-muted-foreground/40 mb-4" />
+                <p className="text-muted-foreground font-medium">
+                  Nenhum lembrete encontrado
+                </p>
+                <Button variant="link" size="sm" onClick={() => setCreateOpen(true)}>
+                  Criar primeiro lembrete
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {filteredReminders.map((reminder: any) => {
+                const isOverdue =
+                  !reminder.completed &&
+                  isPast(new Date(reminder.due_date)) &&
+                  !isToday(new Date(reminder.due_date));
+                const isTodayReminder = isToday(new Date(reminder.due_date));
+
+                return (
+                  <Card
+                    key={reminder.id}
+                    className={`transition-all hover:shadow-md ${
+                      reminder.completed ? "opacity-60" : ""
+                    }`}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+                    <CardContent className="flex items-center gap-3 py-3 px-4">
+                      <button
+                        className="flex-shrink-0 transition-colors"
+                        onClick={() =>
+                          toggleMutation.mutate({
+                            id: reminder.id,
+                            completed: !reminder.completed,
+                            external_id: reminder.external_id,
+                          })
+                        }
+                      >
+                        {reminder.completed ? (
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                        )}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            className={`font-medium text-sm ${
+                              reminder.completed
+                                ? "line-through text-muted-foreground"
+                                : ""
+                            }`}
+                          >
+                            {reminder.title}
+                          </span>
+                          {isTodayReminder && !reminder.completed && (
+                            <Badge className="text-[10px] px-1.5 py-0 bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                              Hoje
+                            </Badge>
+                          )}
+                          {isOverdue && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                              Atrasado
+                            </Badge>
+                          )}
+                          {reminder.completed && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              Concluído
+                            </Badge>
+                          )}
+                        </div>
+                        {reminder.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {reminder.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {reminder.phone}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <CalendarIcon className="h-3 w-3" />
+                            {(() => {
+                              try {
+                                return format(
+                                  new Date(reminder.due_date),
+                                  "dd/MM/yyyy HH:mm",
+                                  { locale: ptBR }
+                                );
+                              } catch {
+                                return reminder.due_date;
+                              }
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+                        onClick={() => deleteMutation.mutate(reminder.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

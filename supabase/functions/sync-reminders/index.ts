@@ -75,6 +75,7 @@ Deno.serve(async (req) => {
     let skipped = 0;
 
     for (const reminder of allReminders) {
+      const externalId = String(reminder.id || reminder._id || '');
       const phone = reminder.phone_number || reminder.phone || reminder.remote_jid || '';
       const title = reminder.title || '';
       const dueDate = reminder.due_date || reminder.dueDate || null;
@@ -91,14 +92,28 @@ Deno.serve(async (req) => {
       // Build description with contact name if available
       const description = reminder.description || (contactName ? `Contato: ${contactName}` : null);
 
-      // Check if already exists
-      const { data: existing } = await supabase
-        .from("reminders")
-        .select("id")
-        .eq("phone", cleanPhone)
-        .eq("title", title)
-        .limit(1)
-        .maybeSingle();
+      // Check if already exists by external_id first, then by phone+title
+      let existing: any = null;
+      if (externalId) {
+        const { data } = await supabase
+          .from("reminders")
+          .select("id")
+          .eq("external_id", externalId)
+          .limit(1)
+          .maybeSingle();
+        existing = data;
+      }
+
+      if (!existing) {
+        const { data } = await supabase
+          .from("reminders")
+          .select("id")
+          .eq("phone", cleanPhone)
+          .eq("title", title)
+          .limit(1)
+          .maybeSingle();
+        existing = data;
+      }
 
       if (existing) {
         await supabase
@@ -107,6 +122,7 @@ Deno.serve(async (req) => {
             description,
             due_date: new Date(dueDate).toISOString(),
             completed: reminder.completed ?? false,
+            external_id: externalId || undefined,
           })
           .eq("id", existing.id);
         skipped++;
@@ -119,6 +135,7 @@ Deno.serve(async (req) => {
             description,
             due_date: new Date(dueDate).toISOString(),
             completed: reminder.completed ?? false,
+            external_id: externalId || null,
           });
 
         if (error) {
