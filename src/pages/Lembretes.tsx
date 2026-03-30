@@ -368,8 +368,21 @@ export default function Lembretes() {
                 hasReminder: (date) =>
                   reminderDates.has(format(date, "yyyy-MM-dd")),
               }}
-              modifiersClassNames={{
-                hasReminder: "bg-green-500/20 text-green-700 font-bold",
+              modifiersStyles={{
+                hasReminder: {},
+              }}
+              components={{
+                DayContent: ({ date, ...props }) => {
+                  const hasReminder = reminderDates.has(format(date, "yyyy-MM-dd"));
+                  return (
+                    <div className="relative flex items-center justify-center w-full h-full">
+                      <span>{date.getDate()}</span>
+                      {hasReminder && (
+                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-green-500" />
+                      )}
+                    </div>
+                  );
+                },
               }}
             />
             {selectedDate && (
