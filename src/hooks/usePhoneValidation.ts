@@ -8,7 +8,7 @@ import {
   CachedPhoneValidation 
 } from "@/lib/localCache";
 
-// Check if Evolution API is active before validating
+// Check if messaging API is active before validating
 function useMessagingApiActive() {
   const { data: isActive = false } = useQuery({
     queryKey: ['messaging-api-active'],
