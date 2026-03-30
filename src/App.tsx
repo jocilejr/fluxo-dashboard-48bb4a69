@@ -25,6 +25,7 @@ const EntregaPublica = lazy(() => import("./pages/EntregaPublica"));
 const LinksUteis = lazy(() => import("./pages/LinksUteis"));
 const Clientes = lazy(() => import("./pages/Clientes"));
 const Grupos = lazy(() => import("./pages/Grupos"));
+const Lembretes = lazy(() => import("./pages/Lembretes"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -85,6 +86,7 @@ const App = () => {
             <Route path="clientes" element={<Clientes />} />
             <Route path="grupos" element={<Grupos />} />
             <Route path="area-membros" element={<AreaMembros />} />
+            <Route path="lembretes" element={<Lembretes />} />
             <Route path="perfil" element={<Dashboard />} />
           </Route>
 
