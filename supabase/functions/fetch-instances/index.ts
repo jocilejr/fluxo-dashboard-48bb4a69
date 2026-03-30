@@ -48,8 +48,10 @@ Deno.serve(async (req) => {
         }
 
         const data = await response.json();
+        console.log('API response data:', JSON.stringify(data));
+        const instances = Array.isArray(data) ? data : data.instances || data.data || data.results || [];
         return new Response(
-          JSON.stringify({ success: true, instances: Array.isArray(data) ? data : data.instances || [] }),
+          JSON.stringify({ success: true, instances }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch {
