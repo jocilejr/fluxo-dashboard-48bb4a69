@@ -151,19 +151,19 @@ export function ExternalApiSettings() {
     setIsTesting(true);
     setConnectionStatus("idle");
     try {
-      const response = await fetch(`${settings.server_url.replace(/\/$/, '')}/api/platform/contacts?limit=1`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.api_key}`,
+      const { data, error } = await supabase.functions.invoke('test-external-connection', {
+        body: {
+          server_url: settings.server_url,
+          api_key: settings.api_key,
         },
       });
-      if (response.ok) {
+      if (error) throw error;
+      if (data?.success) {
         setConnectionStatus("connected");
         toast.success("Conexão com API externa estabelecida!");
       } else {
         setConnectionStatus("error");
-        toast.error("API externa não respondeu corretamente");
+        toast.error(data?.error || "API externa não respondeu corretamente");
       }
     } catch {
       setConnectionStatus("error");
