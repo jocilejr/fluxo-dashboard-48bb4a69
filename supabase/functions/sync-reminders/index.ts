@@ -88,45 +88,43 @@ Deno.serve(async (req) => {
       // Use phone or remote_jid, clean it
       const cleanPhone = phone.replace(/[^0-9]/g, '') || 'sem-telefone';
 
+      // Build description with contact name if available
+      const description = reminder.description || (contactName ? `Contato: ${contactName}` : null);
+
       // Check if already exists
       const { data: existing } = await supabase
         .from("reminders")
         .select("id")
-        .eq("phone", phone)
+        .eq("phone", cleanPhone)
         .eq("title", title)
         .limit(1)
         .maybeSingle();
 
       if (existing) {
-        const { error: updateError } = await supabase
+        await supabase
           .from("reminders")
           .update({
-            description: reminder.description || null,
+            description,
             due_date: new Date(dueDate).toISOString(),
             completed: reminder.completed ?? false,
           })
           .eq("id", existing.id);
-        if (updateError) {
-          console.error("Update error:", updateError.message);
-        }
         skipped++;
       } else {
-        const { data: insertData, error } = await supabase
+        const { error } = await supabase
           .from("reminders")
           .insert({
-            phone,
+            phone: cleanPhone,
             title,
-            description: reminder.description || null,
+            description,
             due_date: new Date(dueDate).toISOString(),
             completed: reminder.completed ?? false,
-          })
-          .select("id");
+          });
 
         if (error) {
-          console.error("Insert error for", title, ":", error.message, error.details, error.hint);
+          console.error("Insert error for", title, ":", error.message);
           skipped++;
         } else {
-          console.log("Inserted reminder:", title, insertData);
           imported++;
         }
       }
