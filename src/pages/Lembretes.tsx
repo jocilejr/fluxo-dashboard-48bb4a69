@@ -150,6 +150,28 @@ export default function Lembretes() {
           <Button
             variant="outline"
             size="sm"
+            onClick={async () => {
+              toast.info("Importando lembretes da API externa...");
+              try {
+                const { data, error } = await supabase.functions.invoke("sync-reminders");
+                if (error) throw error;
+                if (data?.success) {
+                  toast.success(`Importados: ${data.imported} novos, ${data.skipped} atualizados`);
+                  queryClient.invalidateQueries({ queryKey: ["reminders"] });
+                } else {
+                  toast.error(data?.error || "Erro ao importar");
+                }
+              } catch (err: any) {
+                toast.error("Erro: " + (err.message || ""));
+              }
+            }}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Importar API
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => queryClient.invalidateQueries({ queryKey: ["reminders"] })}
             disabled={isLoading}
           >
