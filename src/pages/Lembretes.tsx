@@ -139,13 +139,21 @@ export default function Lembretes() {
       // Sync with external API if has external_id
       if (external_id) {
         try {
-          await supabase.functions.invoke("external-reminders", {
+          const { data, error: fnError } = await supabase.functions.invoke("external-reminders", {
             body: { action: "update", reminder_id: external_id, completed },
           });
+          if (fnError) {
+            console.error("External sync error:", fnError);
+            toast.warning("Atualizado localmente, mas falhou ao sincronizar com API externa");
+          } else {
+            console.log("External sync response:", data);
+          }
         } catch (e) {
           console.error("External sync failed:", e);
-          // Don't fail the local update
+          toast.warning("Atualizado localmente, mas falhou ao sincronizar com API externa");
         }
+      } else {
+        console.log("No external_id for reminder", id, "- skipping external sync");
       }
     },
     onSuccess: () => {
