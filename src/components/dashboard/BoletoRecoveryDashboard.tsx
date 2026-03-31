@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +7,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Transaction } from "@/hooks/useTransactions";
 import { useBoletoRecovery, BoletoWithRecovery } from "@/hooks/useBoletoRecovery";
 import { useWhatsAppExtension } from "@/hooks/useWhatsAppExtension";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,40 +16,17 @@ import { BoletoRecoveryQueue } from "./BoletoRecoveryQueue";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  Clock,
-  CalendarClock,
-  AlertTriangle,
-  Phone,
-  Copy,
-  CheckCircle2,
-  MessageSquare,
-  User,
-  DollarSign,
-  Barcode,
-  FileText,
-  List,
-  Search,
-  Trash2,
+  Clock, CalendarClock, AlertTriangle, Phone, Copy, CheckCircle2,
+  User, DollarSign, FileText, List, Search, Trash2,
 } from "lucide-react";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { addActivityLog } from "@/components/settings/ActivityLogs";
 
-interface BoletoRecoveryDashboardProps {
-  transactions?: Transaction[];
-  isLoading?: boolean;
-}
-
-export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp }: BoletoRecoveryDashboardProps) {
+export function BoletoRecoveryDashboard() {
   const { toast } = useToast();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
@@ -59,30 +35,24 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
 
   const {
     todayBoletos,
+    pendingTodayBoletos,
     pendingBoletos,
     overdueBoletos,
     processedBoletos,
     stats,
     addContact,
-    isLoading: isLoadingHook,
-  } = useBoletoRecovery(transactions);
+    isLoading,
+  } = useBoletoRecovery();
 
-  const isLoading = isLoadingProp || isLoadingHook;
-
-  // Filter boletos by search
   const filterBoletos = (boletos: BoletoWithRecovery[]) => {
     if (!searchQuery.trim()) return boletos;
-    const query = searchQuery.toLowerCase().trim();
-    return boletos.filter((boleto) => {
-      const name = boleto.customer_name?.toLowerCase() || "";
-      const phone = boleto.customer_phone?.toLowerCase() || "";
-      const email = boleto.customer_email?.toLowerCase() || "";
-      const barcode = boleto.external_id?.toLowerCase() || "";
+    const q = searchQuery.toLowerCase().trim();
+    return boletos.filter((b) => {
       return (
-        name.includes(query) ||
-        phone.includes(query) ||
-        email.includes(query) ||
-        barcode.includes(query)
+        (b.customer_name?.toLowerCase() || "").includes(q) ||
+        (b.customer_phone?.toLowerCase() || "").includes(q) ||
+        (b.customer_email?.toLowerCase() || "").includes(q) ||
+        (b.external_id?.toLowerCase() || "").includes(q)
       );
     });
   };
@@ -96,18 +66,11 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
     addContact.mutate(
       { transactionId, ruleId, notes },
       {
-        onSuccess: () => {
-          toast({ title: "Sucesso", description: "Contato registrado" });
-        },
-        onError: () => {
-          toast({ title: "Erro", description: "Não foi possível registrar", variant: "destructive" });
-        },
+        onSuccess: () => toast({ title: "Sucesso", description: "Contato registrado" }),
+        onError: () => toast({ title: "Erro", description: "Não foi possível registrar", variant: "destructive" }),
       }
     );
   };
-
-  const formatCurrency = (value: number) =>
-    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   if (isLoading) {
     return (
@@ -121,58 +84,47 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
 
   return (
     <div className="space-y-6">
-      {/* Hero Card */}
       <BoletoRecoveryHeroCard
-        todayCount={stats.todayCount}
+        totalToday={stats.totalToday}
         todayValue={stats.todayValue}
         contactedToday={stats.contactedToday}
-        remainingToContact={stats.remainingToContact}
+        pendingToday={stats.pendingToday}
         onStartRecovery={() => setQueueOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      {/* Tabs */}
       <Tabs defaultValue="today" className="w-full">
         <TabsList className="grid w-full max-w-xl grid-cols-4">
           <TabsTrigger value="today" className="gap-2">
             <Clock className="h-4 w-4" />
             Hoje
-            {stats.remainingToContact > 0 && (
-              <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                {stats.remainingToContact}
-              </Badge>
+            {stats.totalToday > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5">{stats.totalToday}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="pending" className="gap-2">
             <CalendarClock className="h-4 w-4" />
             Pendentes
             {stats.pendingCount > 0 && (
-              <Badge variant="outline" className="ml-1 h-5 px-1.5">
-                {stats.pendingCount}
-              </Badge>
+              <Badge variant="outline" className="ml-1 h-5 px-1.5">{stats.pendingCount}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="overdue" className="gap-2">
             <AlertTriangle className="h-4 w-4" />
             Vencidos
             {stats.overdueCount > 0 && (
-              <Badge variant="destructive" className="ml-1 h-5 px-1.5">
-                {stats.overdueCount}
-              </Badge>
+              <Badge variant="destructive" className="ml-1 h-5 px-1.5">{stats.overdueCount}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="all" className="gap-2">
             <List className="h-4 w-4" />
             Todos
             {stats.totalCount > 0 && (
-              <Badge variant="outline" className="ml-1 h-5 px-1.5">
-                {stats.totalCount}
-              </Badge>
+              <Badge variant="outline" className="ml-1 h-5 px-1.5">{stats.totalCount}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
-        {/* Search Bar - visible in all tabs */}
         <div className="relative mt-4">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -187,12 +139,12 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
           <BoletoList
             boletos={filteredTodayBoletos}
             emptyMessage={searchQuery ? "Nenhum boleto encontrado" : "Nenhum boleto para contatar hoje"}
-            emptyIcon={<CheckCircle2 className="h-12 w-12 text-success" />}
+            emptyIcon={<CheckCircle2 className="h-12 w-12 text-emerald-500" />}
             onSelect={setSelectedBoleto}
             onMarkContacted={handleMarkContacted}
+            showContactedBadge
           />
         </TabsContent>
-
         <TabsContent value="pending" className="mt-4">
           <BoletoList
             boletos={filteredPendingBoletos}
@@ -202,7 +154,6 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
             onMarkContacted={handleMarkContacted}
           />
         </TabsContent>
-
         <TabsContent value="overdue" className="mt-4">
           <BoletoList
             boletos={filteredOverdueBoletos}
@@ -213,7 +164,6 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
             showOverdueWarning
           />
         </TabsContent>
-
         <TabsContent value="all" className="mt-4">
           <BoletoList
             boletos={filteredAllBoletos}
@@ -225,7 +175,6 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
         </TabsContent>
       </Tabs>
 
-      {/* Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
@@ -237,15 +186,13 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
         </DialogContent>
       </Dialog>
 
-      {/* Recovery Queue Dialog */}
       <BoletoRecoveryQueue
         open={queueOpen}
         onOpenChange={setQueueOpen}
-        boletos={todayBoletos}
+        boletos={pendingTodayBoletos}
         onMarkContacted={handleMarkContacted}
       />
 
-      {/* Boleto Detail Dialog */}
       {selectedBoleto && (
         <BoletoDetailDialog
           boleto={selectedBoleto}
@@ -257,7 +204,7 @@ export function BoletoRecoveryDashboard({ transactions, isLoading: isLoadingProp
   );
 }
 
-// Boleto List Component
+// ── Boleto List ──
 interface BoletoListProps {
   boletos: BoletoWithRecovery[];
   emptyMessage: string;
@@ -265,40 +212,23 @@ interface BoletoListProps {
   onSelect: (boleto: BoletoWithRecovery) => void;
   onMarkContacted: (transactionId: string, ruleId?: string) => void;
   showOverdueWarning?: boolean;
+  showContactedBadge?: boolean;
 }
 
-function BoletoList({
-  boletos,
-  emptyMessage,
-  emptyIcon,
-  onSelect,
-  onMarkContacted,
-  showOverdueWarning,
-}: BoletoListProps) {
+function BoletoList({ boletos, emptyMessage, emptyIcon, onSelect, onMarkContacted, showOverdueWarning, showContactedBadge }: BoletoListProps) {
   const { toast } = useToast();
   const { extensionStatus, sendText } = useWhatsAppExtension();
 
-  const formatCurrency = (value: number) =>
-    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  const handleCopyBarcode = (barcode: string) => {
-    navigator.clipboard.writeText(barcode);
-    toast({ title: "Copiado!", description: "Código de barras copiado" });
-  };
+  const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const handleWhatsApp = async (phone: string, message?: string) => {
     if (extensionStatus !== "connected") {
       toast({ title: "Erro", description: "Extensão WhatsApp não detectada", variant: "destructive" });
       return;
     }
-    const normalizedPhone = phone.replace(/\D/g, "").replace(/^0+/, "");
-    const fullPhone = normalizedPhone.startsWith("55") ? normalizedPhone : `55${normalizedPhone}`;
-    const success = await sendText(fullPhone, message || "");
-    if (success) {
-      toast({ title: "Sucesso", description: "Mensagem preparada no WhatsApp" });
-    } else {
-      toast({ title: "Erro", description: "Erro ao preparar mensagem", variant: "destructive" });
-    }
+    const norm = phone.replace(/\D/g, "").replace(/^0+/, "");
+    const full = norm.startsWith("55") ? norm : `55${norm}`;
+    await sendText(full, message || "");
   };
 
   if (boletos.length === 0) {
@@ -319,14 +249,11 @@ function BoletoList({
           {boletos.map((boleto) => (
             <Card
               key={boleto.id}
-              className={`cursor-pointer transition-all hover:border-primary/50 ${
-                showOverdueWarning ? "border-destructive/30" : ""
-              }`}
+              className={`cursor-pointer transition-all hover:border-primary/50 ${showOverdueWarning ? "border-destructive/30" : ""}`}
               onClick={() => onSelect(boleto)}
             >
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  {/* Customer Info */}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted shrink-0">
                       <User className="h-5 w-5 text-muted-foreground" />
@@ -348,57 +275,35 @@ function BoletoList({
                       </div>
                     </div>
                   </div>
-
-                  {/* Badges and Actions */}
                   <div className="flex items-center gap-2 flex-wrap justify-end">
-                    {boleto.applicableRule && (
-                      <Badge variant="secondary" className="text-xs">
-                        {boleto.applicableRule.name}
+                    {showContactedBadge && boleto.contactedToday && (
+                      <Badge className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30 text-xs gap-1">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Enviado
                       </Badge>
                     )}
-                    {boleto.contacts.length > 0 && (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        {boleto.contacts.length}x
+                    {showContactedBadge && !boleto.contactedToday && boleto.applicableRule && (
+                      <Badge variant="secondary" className="text-xs gap-1">
+                        <Clock className="h-3 w-3" />
+                        Pendente
                       </Badge>
+                    )}
+                    {boleto.applicableRule && (
+                      <Badge variant="outline" className="text-xs">{boleto.applicableRule.name}</Badge>
                     )}
                     <div className="flex gap-1">
                       {(boleto.metadata as any)?.boleto_url && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open((boleto.metadata as any).boleto_url, "_blank");
-                          }}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); window.open((boleto.metadata as any).boleto_url, "_blank"); }}>
                           <FileText className="h-4 w-4" />
                         </Button>
                       )}
                       {boleto.external_id && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCopyBarcode(boleto.external_id!);
-                          }}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(boleto.external_id!); toast({ title: "Copiado!" }); }}>
                           <Copy className="h-4 w-4" />
                         </Button>
                       )}
                       {boleto.customer_phone && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleWhatsApp(boleto.customer_phone!, boleto.formattedMessage || undefined);
-                          }}
-                        >
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleWhatsApp(boleto.customer_phone!, boleto.formattedMessage || undefined); }}>
                           <Phone className="h-4 w-4" />
                         </Button>
                       )}
@@ -414,7 +319,7 @@ function BoletoList({
   );
 }
 
-// Boleto Detail Dialog
+// ── Boleto Detail Dialog ──
 interface BoletoDetailDialogProps {
   boleto: BoletoWithRecovery;
   onClose: () => void;
@@ -428,15 +333,7 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const formatCurrency = (value: number) =>
-    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  const handleCopyMessage = () => {
-    if (boleto.formattedMessage) {
-      navigator.clipboard.writeText(boleto.formattedMessage);
-      toast({ title: "Copiado!", description: "Mensagem copiada" });
-    }
-  };
+  const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const handleWhatsApp = async () => {
     if (!boleto.customer_phone) return;
@@ -445,42 +342,21 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
       return;
     }
     const phone = boleto.customer_phone.replace(/\D/g, "").replace(/^0+/, "");
-    const fullPhone = phone.startsWith("55") ? phone : `55${phone}`;
-    const success = await sendText(fullPhone, boleto.formattedMessage || "");
-    if (success) {
-      toast({ title: "Sucesso", description: "Mensagem preparada no WhatsApp" });
-    } else {
-      toast({ title: "Erro", description: "Erro ao preparar mensagem", variant: "destructive" });
-    }
+    const full = phone.startsWith("55") ? phone : `55${phone}`;
+    await sendText(full, boleto.formattedMessage || "");
   };
 
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      const { error } = await supabase
-        .from("transactions")
-        .delete()
-        .eq("id", boleto.id);
-
+      const { error } = await supabase.from("transactions").delete().eq("id", boleto.id);
       if (error) throw error;
-
-      addActivityLog({
-        type: "warning",
-        category: "Recuperação Boleto",
-        message: `Boleto deletado: ${boleto.customer_name || "cliente"}`,
-        details: `Telefone: ${boleto.customer_phone}, Valor: ${formatCurrency(boleto.amount)}`
-      });
-
+      addActivityLog({ type: "warning", category: "Recuperação Boleto", message: `Boleto deletado: ${boleto.customer_name || "cliente"}`, details: `Valor: ${formatCurrency(boleto.amount)}` });
       toast({ title: "Deletado", description: "Boleto removido do sistema" });
-      
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       await queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
-      await queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
-      
       setDeleteDialogOpen(false);
       onClose();
-    } catch (error) {
-      console.error("Error deleting boleto:", error);
+    } catch {
       toast({ title: "Erro", description: "Não foi possível deletar", variant: "destructive" });
     } finally {
       setIsDeleting(false);
@@ -496,9 +372,7 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
             {boleto.customer_name || "Cliente"}
           </DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4">
-          {/* Info Grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-muted-foreground" />
@@ -518,20 +392,18 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
             </div>
           </div>
 
-          {/* Barcode */}
+          {boleto.contactedToday && (
+            <Badge className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30 gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              Já contactado hoje
+            </Badge>
+          )}
+
           {boleto.external_id && (
             <div className="p-3 bg-muted/50 rounded-lg">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-muted-foreground">Código de barras</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={() => {
-                    navigator.clipboard.writeText(boleto.external_id!);
-                    toast({ title: "Copiado!" });
-                  }}
-                >
+                <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => { navigator.clipboard.writeText(boleto.external_id!); toast({ title: "Copiado!" }); }}>
                   <Copy className="h-3 w-3" />
                 </Button>
               </div>
@@ -539,41 +411,19 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
             </div>
           )}
 
-          {/* Message */}
           {boleto.formattedMessage && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Mensagem</span>
-                <Button variant="ghost" size="sm" onClick={handleCopyMessage}>
+                <Button variant="ghost" size="sm" onClick={() => { navigator.clipboard.writeText(boleto.formattedMessage!); toast({ title: "Copiado!" }); }}>
                   <Copy className="h-3 w-3 mr-1" />
                   Copiar
                 </Button>
               </div>
-              <div className="p-3 bg-muted/30 rounded-lg text-sm whitespace-pre-wrap border">
-                {boleto.formattedMessage}
-              </div>
+              <div className="p-3 bg-muted/30 rounded-lg text-sm whitespace-pre-wrap border">{boleto.formattedMessage}</div>
             </div>
           )}
 
-          {/* Contact History */}
-          {boleto.contacts.length > 0 && (
-            <div className="space-y-2">
-              <span className="text-sm font-medium">Histórico de contatos</span>
-              <div className="space-y-1">
-                {boleto.contacts.slice(0, 3).map((contact) => (
-                  <div key={contact.id} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CheckCircle2 className="h-3 w-3 text-success" />
-                    <span>
-                      {format(new Date(contact.contacted_at), "dd/MM HH:mm", { locale: ptBR })}
-                    </span>
-                    {contact.notes && <span>- {contact.notes}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
           <div className="flex gap-2 pt-2">
             <Button onClick={handleWhatsApp} className="flex-1 gap-2" disabled={!boleto.customer_phone}>
               <Phone className="h-4 w-4" />
@@ -582,10 +432,7 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
             <Button
               variant="secondary"
               className="flex-1 gap-2"
-              onClick={() => {
-                onMarkContacted(boleto.id, boleto.applicableRule?.id);
-                onClose();
-              }}
+              onClick={() => { onMarkContacted(boleto.id, boleto.applicableRule?.id); onClose(); }}
             >
               <CheckCircle2 className="h-4 w-4" />
               Marcar Contactado
@@ -602,13 +449,12 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
         </div>
       </DialogContent>
 
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="border-destructive/20">
           <AlertDialogHeader>
             <AlertDialogTitle>Deletar boleto?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja deletar este boleto permanentemente? Esta ação não pode ser desfeita.
+              Tem certeza que deseja deletar este boleto permanentemente?
               <div className="mt-3 p-3 rounded-lg bg-muted text-sm">
                 <p><strong>Cliente:</strong> {boleto.customer_name || "Não identificado"}</p>
                 <p><strong>Valor:</strong> {formatCurrency(boleto.amount)}</p>
@@ -617,11 +463,7 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {isDeleting ? "Deletando..." : "Deletar"}
             </AlertDialogAction>
           </AlertDialogFooter>
