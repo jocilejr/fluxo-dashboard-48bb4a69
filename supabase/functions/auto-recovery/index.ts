@@ -408,6 +408,7 @@ Deno.serve(async (req) => {
             .select('transaction_id, rule_id, phone')
             .eq('message_type', 'boleto')
             .eq('status', 'sent')
+            .not('rule_id', 'is', null)
             .gte('created_at', todayIso);
 
           const sentTodayKeys = new Set<string>();
