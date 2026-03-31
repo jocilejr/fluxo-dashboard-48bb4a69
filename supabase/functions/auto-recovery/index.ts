@@ -395,6 +395,7 @@ Deno.serve(async (req) => {
 
           // Normalize phone for direct API calls
           let normalizedPhone = tx.customer_phone.replace(/\D/g, '');
+          if (normalizedPhone.startsWith('0')) normalizedPhone = normalizedPhone.slice(1);
           if (!normalizedPhone.startsWith('55')) {
             normalizedPhone = '55' + normalizedPhone;
           }
@@ -723,7 +724,8 @@ Deno.serve(async (req) => {
             }
 
             // Dedup: phone daily limit
-            const phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
+            let phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
+            if (phoneNorm.startsWith('0')) phoneNorm = phoneNorm.slice(1);
             const phone8 = phoneNorm.slice(-8);
 
             // Check rule match FIRST so we can log duplicate with rule_id
@@ -848,7 +850,8 @@ Deno.serve(async (req) => {
           if (messagesSent >= remainingLimit && !forceRun) break;
           if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
-          const txPhoneNorm = tx.customer_phone!.replace(/\D/g, '');
+          let txPhoneNorm = tx.customer_phone!.replace(/\D/g, '');
+          if (txPhoneNorm.startsWith('0')) txPhoneNorm = txPhoneNorm.slice(1);
           const txPhone8 = txPhoneNorm.slice(-8);
           if (txPhone8.length === 8 && pixCardPhonesContacted.has(txPhone8)) {
             stats.pix_card.skipped++;
@@ -902,7 +905,8 @@ Deno.serve(async (req) => {
           if (messagesSent >= remainingLimit && !forceRun) break;
           if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
-          const evPhoneNorm = event.customer_phone!.replace(/\D/g, '');
+          let evPhoneNorm = event.customer_phone!.replace(/\D/g, '');
+          if (evPhoneNorm.startsWith('0')) evPhoneNorm = evPhoneNorm.slice(1);
           const evPhone8 = evPhoneNorm.slice(-8);
           if (evPhone8.length === 8 && abandonedPhonesContacted.has(evPhone8)) {
             stats.abandoned.skipped++;

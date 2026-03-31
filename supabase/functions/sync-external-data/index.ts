@@ -118,7 +118,8 @@ Deno.serve(async (req) => {
           );
         }
 
-        const phone = body.customer_phone.replace(/\D/g, '');
+        let phone = body.customer_phone.replace(/\D/g, '');
+        if (phone.startsWith('0')) phone = phone.slice(1);
         const phoneLast8 = phone.slice(-8);
 
         const { data: customer, error: customerError } = await supabase

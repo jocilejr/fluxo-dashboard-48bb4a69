@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      const normPhone = phone.replace(/\D/g, '');
+      let normPhone = phone.replace(/\D/g, '');
+      if (normPhone.startsWith('0')) normPhone = normPhone.slice(1);
       const phoneLast8 = normPhone.slice(-8);
 
       const { data: existing } = await supabase
@@ -116,7 +117,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      const normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
+      let normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
+      if (normPhone?.startsWith('0')) normPhone = normPhone.slice(1);
 
       if (external_id) {
         const { data: existing } = await supabase
@@ -252,7 +254,8 @@ Deno.serve(async (req) => {
     if (event === 'sync_abandoned_event') {
       const { customer_name, customer_email, customer_phone, product_name, amount, event_type: evtType, metadata } = payload;
 
-      const normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
+      let normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
+      if (normPhone?.startsWith('0')) normPhone = normPhone.slice(1);
 
       const { data: newEvent, error: insertError } = await supabase
         .from('abandoned_events')
@@ -451,7 +454,9 @@ Deno.serve(async (req) => {
       if (payload.customer_document) updateFields.customer_document = payload.customer_document;
       if (payload.phone) {
         updateFields.customer_phone = payload.phone;
-        updateFields.normalized_phone = payload.phone.replace(/\D/g, '');
+        let pNorm = payload.phone.replace(/\D/g, '');
+        if (pNorm.startsWith('0')) pNorm = pNorm.slice(1);
+        updateFields.normalized_phone = pNorm;
       }
       if (payload.metadata) updateFields.metadata = payload.metadata;
 
@@ -577,7 +582,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      const normPhone = phone.replace(/\D/g, '');
+      let normPhone = phone.replace(/\D/g, '');
+      if (normPhone.startsWith('0')) normPhone = normPhone.slice(1);
       const phoneLast8 = normPhone.slice(-8);
 
       const { data: existing } = await supabase
@@ -621,7 +627,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      const normPhone = phone ? phone.replace(/\D/g, '') : null;
+      let normPhone = phone ? phone.replace(/\D/g, '') : null;
+      if (normPhone?.startsWith('0')) normPhone = normPhone.slice(1);
 
       const { data: newTx, error: insertError } = await supabase
         .from('transactions')
