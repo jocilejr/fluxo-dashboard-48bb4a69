@@ -410,6 +410,7 @@ const AutoRecuperacao = () => {
               </div>
             </div>
 
+          </CardContent>
         </Card>
 
         {/* Right: Phone mockup preview */}
