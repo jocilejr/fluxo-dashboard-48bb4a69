@@ -796,7 +796,13 @@ Deno.serve(async (req) => {
                 boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
               }
               if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
-                boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
+                const imgUrl = await convertPdfToImageUrl(boletoUrl, supabase);
+                if (imgUrl) {
+                  boletoMedia.push({ media_url: imgUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
+                } else {
+                  // Fallback: send as document if image conversion fails
+                  boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
+                }
               }
             }
 
