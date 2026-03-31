@@ -444,10 +444,15 @@ export function BoletoAutoRecoveryToggle() {
                   <span className="text-[10px] text-muted-foreground">{formatTimeAgo(recoveryFinishedAt)}</span>
                 )}
                 {recoveryStats?.boleto && (
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex items-center gap-2 ml-auto flex-wrap">
                     <Badge variant="outline" className="text-[9px] h-4 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
                       {recoveryStats.boleto.sent} enviada(s)
                     </Badge>
+                    {(recoveryStats.boleto.duplicates ?? 0) > 0 && (
+                      <Badge variant="outline" className="text-[9px] h-4 bg-yellow-500/10 border-yellow-500/30 text-yellow-500">
+                        {recoveryStats.boleto.duplicates} duplicada(s)
+                      </Badge>
+                    )}
                     {recoveryStats.boleto.skipped > 0 && (
                       <Badge variant="outline" className="text-[9px] h-4 text-muted-foreground">
                         {recoveryStats.boleto.skipped} ignorada(s)

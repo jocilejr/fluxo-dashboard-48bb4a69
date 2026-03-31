@@ -1,12 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Settings, Play, CheckCircle2, Clock, DollarSign } from "lucide-react";
+import { Settings, Play, CheckCircle2, Clock, DollarSign, Copy } from "lucide-react";
 
 interface BoletoRecoveryHeroCardProps {
   totalToday: number;
   todayValue: number;
   contactedToday: number;
+  duplicatesToday: number;
   pendingToday: number;
   onStartRecovery: () => void;
   onOpenSettings: () => void;
@@ -16,11 +17,13 @@ export function BoletoRecoveryHeroCard({
   totalToday,
   todayValue,
   contactedToday,
+  duplicatesToday,
   pendingToday,
   onStartRecovery,
   onOpenSettings,
 }: BoletoRecoveryHeroCardProps) {
-  const progress = totalToday > 0 ? (contactedToday / totalToday) * 100 : 0;
+  const resolved = contactedToday + duplicatesToday;
+  const progress = totalToday > 0 ? (resolved / totalToday) * 100 : 0;
 
   const formatCurrency = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -62,6 +65,15 @@ export function BoletoRecoveryHeroCard({
                   <p className="font-semibold text-foreground">{contactedToday} / {totalToday}</p>
                 </div>
               </div>
+              {duplicatesToday > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/50 border border-border/50">
+                  <Copy className="h-4 w-4 text-yellow-500" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Duplicados</p>
+                    <p className="font-semibold text-foreground">{duplicatesToday}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {totalToday > 0 && (
