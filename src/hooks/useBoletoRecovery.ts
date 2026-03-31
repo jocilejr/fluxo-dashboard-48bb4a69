@@ -206,13 +206,14 @@ export function useBoletoRecovery() {
     [todayBoletos]
   );
 
+  // sent takes priority: if a boleto has both sent+duplicate logs, it's "sent"
   const sentTodayBoletos = useMemo(
-    () => todayBoletos.filter((b) => b.contactedToday && !b.duplicateToday),
+    () => todayBoletos.filter((b) => b.contactedToday),
     [todayBoletos]
   );
 
   const duplicateTodayBoletos = useMemo(
-    () => todayBoletos.filter((b) => b.duplicateToday),
+    () => todayBoletos.filter((b) => b.duplicateToday && !b.contactedToday),
     [todayBoletos]
   );
 
