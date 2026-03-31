@@ -157,6 +157,25 @@ Deno.serve(async (req) => {
       boleto: settings.auto_boleto_message || '{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!',
     };
 
+    // === Pause / Stop control ===
+    // Returns 'running' | 'paused' | 'stopped'
+    // If paused, polls every 3s until resumed or stopped
+    async function checkControlStatus(): Promise<'running' | 'stopped'> {
+      while (true) {
+        const { data: current } = await supabase
+          .from('messaging_api_settings')
+          .select('last_recovery_status')
+          .eq('id', settings.id)
+          .single();
+        const status = current?.last_recovery_status;
+        if (status === 'stopped') return 'stopped';
+        if (status !== 'paused') return 'running';
+        // paused — wait 3s then check again
+        console.log('[auto-recovery] Paused, waiting...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+
     async function sendMessage(
       phone: string,
       message: string,
@@ -167,6 +186,15 @@ Deno.serve(async (req) => {
       ruleId?: string
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
+
+      // Check pause/stop before each message (skip for single-item sends)
+      if (!isSingleItem) {
+        const controlStatus = await checkControlStatus();
+        if (controlStatus === 'stopped') {
+          console.log('[auto-recovery] Stopped by user');
+          return false;
+        }
+      }
 
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
