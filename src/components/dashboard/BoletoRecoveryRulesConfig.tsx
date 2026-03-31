@@ -408,9 +408,7 @@ export function BoletoRecoveryRulesConfig() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium truncate">{rule.name}</span>
                         <Badge variant="outline" className="text-xs shrink-0">
-                          {rule.rule_type === 'immediate'
-                            ? 'Imediatamente'
-                            : `${rule.days} ${RULE_TYPE_LABELS[rule.rule_type]?.split(" ").slice(1).join(" ")}`}
+                          {`${rule.days} ${RULE_TYPE_LABELS[rule.rule_type]?.split(" ").slice(1).join(" ")}`}
                         </Badge>
                         {/* Media badges */}
                         <Badge variant="secondary" className="text-[10px] shrink-0 gap-1">
