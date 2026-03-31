@@ -92,6 +92,10 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check boleto send hour — only run boleto batch if current hour matches configured hour
+    const boletoSendHour = settings.boleto_send_hour ?? 9;
+    const currentBrazilHour = getBrazilDate().getHours();
+
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     
@@ -249,7 +253,8 @@ Deno.serve(async (req) => {
     }
 
     // ===== BATCH: BOLETO recovery =====
-    if ((specificType === null || specificType === 'boleto') && settings.boleto_recovery_enabled) {
+    const shouldRunBoleto = forceRun || currentBrazilHour === boletoSendHour;
+    if ((specificType === null || specificType === 'boleto') && settings.boleto_recovery_enabled && shouldRunBoleto) {
       console.log('Processing boleto recovery...');
       
       const { data: boletoSettings } = await supabase

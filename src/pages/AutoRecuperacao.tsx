@@ -37,6 +37,7 @@ interface MessagingSettings {
   auto_pix_card_message: string;
   auto_abandoned_message: string;
   auto_boleto_message: string;
+  boleto_send_hour: number;
 }
 
 const defaultSettings: MessagingSettings = {
@@ -60,6 +61,7 @@ const defaultSettings: MessagingSettings = {
   auto_pix_card_message: "Olá {primeiro_nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?",
   auto_abandoned_message: "Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?",
   auto_boleto_message: "{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!",
+  boleto_send_hour: 9,
 };
 
 const VARIABLES_INFO = [
@@ -249,6 +251,7 @@ const AutoRecuperacao = () => {
         auto_pix_card_message: newSettings.auto_pix_card_message,
         auto_abandoned_message: newSettings.auto_abandoned_message,
         auto_boleto_message: newSettings.auto_boleto_message,
+        boleto_send_hour: newSettings.boleto_send_hour,
       };
 
       if (newSettings.id) {
@@ -312,6 +315,7 @@ const AutoRecuperacao = () => {
     message,
     onMessageChange,
     showBoletoRules,
+    extraSettings,
   }: {
     type: 'boleto' | 'pix_card' | 'abandoned';
     title: string;
@@ -324,6 +328,7 @@ const AutoRecuperacao = () => {
     message: string;
     onMessageChange: (v: string) => void;
     showBoletoRules?: boolean;
+    extraSettings?: React.ReactNode;
   }) => (
     <div className="space-y-4">
       <Card className="border-border/40">
@@ -402,6 +407,7 @@ const AutoRecuperacao = () => {
         </CardContent>
       </Card>
 
+      {extraSettings}
       {showBoletoRules && <BoletoRecoveryRulesConfig />}
     </div>
   );
@@ -505,8 +511,8 @@ const AutoRecuperacao = () => {
           <RecoveryTabContent
             type="boleto"
             title="Boleto"
-            description="Executa diariamente às 9h, seguindo a régua de cobrança."
-            badgeLabel="Diário 9h"
+            description={`Executa diariamente às ${settings.boleto_send_hour}h, seguindo a régua de cobrança.`}
+            badgeLabel={`Diário ${settings.boleto_send_hour}h`}
             badgeIcon={Clock}
             enabled={settings.boleto_recovery_enabled}
             onToggle={(v) => setSettings({ ...settings, boleto_recovery_enabled: v })}
@@ -514,6 +520,30 @@ const AutoRecuperacao = () => {
             message={settings.auto_boleto_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_boleto_message: v })}
             showBoletoRules
+            extraSettings={
+              <Card className="border-border/40">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <Label className="text-sm font-medium">Horário de envio</Label>
+                      <p className="text-[10px] text-muted-foreground">Define a hora do disparo diário automático</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={settings.boleto_send_hour}
+                      onChange={(e) => setSettings({ ...settings, boleto_send_hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
+                      className="bg-secondary/30 border-border/30 h-9 text-sm w-20 text-center"
+                    />
+                    <span className="text-sm text-muted-foreground">h</span>
+                  </div>
+                </div>
+              </Card>
+            }
           />
         </TabsContent>
 

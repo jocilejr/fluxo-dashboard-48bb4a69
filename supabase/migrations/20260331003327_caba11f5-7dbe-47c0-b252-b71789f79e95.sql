@@ -1,0 +1,1 @@
+ALTER TABLE public.messaging_api_settings ADD COLUMN boleto_send_hour integer NOT NULL DEFAULT 9;

@@ -1220,6 +1220,7 @@ export type Database = {
           auto_pix_card_message: string
           boleto_instance_name: string | null
           boleto_recovery_enabled: boolean
+          boleto_send_hour: number
           created_at: string
           cron_enabled: boolean
           cron_interval_minutes: number
@@ -1245,6 +1246,7 @@ export type Database = {
           auto_pix_card_message?: string
           boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
+          boleto_send_hour?: number
           created_at?: string
           cron_enabled?: boolean
           cron_interval_minutes?: number
@@ -1270,6 +1272,7 @@ export type Database = {
           auto_pix_card_message?: string
           boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
+          boleto_send_hour?: number
           created_at?: string
           cron_enabled?: boolean
           cron_interval_minutes?: number
