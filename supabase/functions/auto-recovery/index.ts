@@ -158,9 +158,15 @@ Deno.serve(async (req) => {
     };
 
     // === Pause / Stop control ===
-    // Returns 'running' | 'paused' | 'stopped'
-    // If paused, polls every 3s until resumed or stopped
+    let _lastControlCheck = 0;
+    const CONTROL_CHECK_INTERVAL_MS = 5000; // Check at most every 5s
+
     async function checkControlStatus(): Promise<'running' | 'stopped'> {
+      // Throttle: only actually query DB every 5 seconds
+      const now = Date.now();
+      if (now - _lastControlCheck < CONTROL_CHECK_INTERVAL_MS) return 'running';
+      _lastControlCheck = now;
+
       while (true) {
         const { data: current } = await supabase
           .from('messaging_api_settings')
@@ -170,7 +176,6 @@ Deno.serve(async (req) => {
         const status = current?.last_recovery_status;
         if (status === 'stopped') return 'stopped';
         if (status !== 'paused') return 'running';
-        // paused — wait 3s then check again
         console.log('[auto-recovery] Paused, waiting...');
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
@@ -186,15 +191,6 @@ Deno.serve(async (req) => {
       ruleId?: string
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
-
-      // Check pause/stop before each message (skip for single-item sends)
-      if (!isSingleItem) {
-        const controlStatus = await checkControlStatus();
-        if (controlStatus === 'stopped') {
-          console.log('[auto-recovery] Stopped by user');
-          return false;
-        }
-      }
 
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
