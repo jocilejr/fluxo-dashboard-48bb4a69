@@ -315,7 +315,7 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
         shouldContactToday,
       };
     });
-  }, [transactions, settings, rules, contacts]);
+  }, [transactions, settings, rules, contacts, todaySentMessages]);
 
   // Filter boletos that match any rule today (for total count including contacted)
   const boletosMatchingRulesToday = useMemo(() => {
