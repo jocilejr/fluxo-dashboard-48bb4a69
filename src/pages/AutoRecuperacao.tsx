@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Send, Smartphone, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Check, CheckCheck } from "lucide-react";
+import { Loader2, Send, Smartphone, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck, Wifi, Battery, Signal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -79,7 +79,8 @@ const EXAMPLE_VALUES: Record<string, string> = {
   "{vencimento}": "05/04/2026",
 };
 
-const WhatsAppPreview = ({ message }: { message: string }) => {
+// Mobile WhatsApp mockup preview
+const WhatsAppPhoneMockup = ({ message }: { message: string }) => {
   const rendered = useMemo(() => {
     let text = message || "Sua mensagem aparecerá aqui...";
     Object.entries(EXAMPLE_VALUES).forEach(([key, value]) => {
@@ -92,32 +93,90 @@ const WhatsAppPreview = ({ message }: { message: string }) => {
   const time = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
 
   return (
-    <div className="rounded-xl overflow-hidden border border-border/30 bg-[#0b141a] flex flex-col h-full min-h-[280px]">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-[#202c33] border-b border-[#2a3942]">
-        <div className="w-8 h-8 rounded-full bg-[#6b7b8d] flex items-center justify-center text-white text-xs font-bold">
-          J
+    <div className="flex items-start justify-center py-4">
+      {/* Phone frame */}
+      <div className="w-[280px] rounded-[2rem] border-[3px] border-[#2a2a2e] bg-[#111b21] shadow-2xl shadow-black/40 overflow-hidden">
+        {/* Status bar */}
+        <div className="flex items-center justify-between px-5 pt-2 pb-1 bg-[#1f2c33]">
+          <span className="text-[10px] font-medium text-[#aebac1]">{time}</span>
+          <div className="flex items-center gap-1">
+            <Signal className="h-2.5 w-2.5 text-[#aebac1]" />
+            <Wifi className="h-2.5 w-2.5 text-[#aebac1]" />
+            <Battery className="h-2.5 w-2.5 text-[#aebac1]" />
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-medium text-[#e9edef]">João Silva</p>
-          <p className="text-[10px] text-[#8696a0]">online</p>
-        </div>
-      </div>
 
-      {/* Chat area */}
-      <div className="flex-1 p-4 flex items-end" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
-        <div className="w-full">
-          {/* Bubble */}
-          <div className="max-w-[85%] ml-auto bg-[#005c4b] rounded-lg rounded-tr-none px-3 py-2 relative">
-            <p className="text-[13px] text-[#e9edef] whitespace-pre-wrap leading-relaxed break-words">
-              {rendered}
-            </p>
-            <div className="flex items-center justify-end gap-1 mt-1">
-              <span className="text-[10px] text-[#ffffff99]">{time}</span>
-              <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" />
+        {/* WhatsApp header */}
+        <div className="flex items-center gap-2.5 px-3 py-2 bg-[#1f2c33] border-b border-[#2a3942]">
+          <div className="text-[#aebac1] text-lg">←</div>
+          <div className="w-8 h-8 rounded-full bg-[#6b7b8d] flex items-center justify-center text-[#e9edef] text-xs font-bold shrink-0">
+            J
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-medium text-[#e9edef] truncate">João Silva</p>
+            <p className="text-[10px] text-[#8696a0]">online</p>
+          </div>
+          <div className="flex items-center gap-3 text-[#aebac1]">
+            <span className="text-sm">📹</span>
+            <span className="text-sm">📞</span>
+            <span className="text-sm">⋮</span>
+          </div>
+        </div>
+
+        {/* Chat area */}
+        <div
+          className="min-h-[320px] px-3 py-4 flex flex-col justify-end"
+          style={{
+            backgroundColor: "#0b141a",
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M20 18v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }}
+        >
+          {/* Date chip */}
+          <div className="flex justify-center mb-3">
+            <span className="text-[10px] bg-[#182229] text-[#8696a0] px-3 py-1 rounded-md shadow-sm">
+              HOJE
+            </span>
+          </div>
+
+          {/* Incoming message (from contact) */}
+          <div className="max-w-[82%] mr-auto mb-2">
+            <div className="bg-[#202c33] rounded-lg rounded-tl-none px-2.5 py-1.5">
+              <p className="text-[12px] text-[#e9edef] leading-relaxed">
+                Olá, gostaria de mais informações
+              </p>
+              <div className="flex justify-end mt-0.5">
+                <span className="text-[9px] text-[#8696a0]">
+                  {`${(now.getHours() - 1 + 24) % 24}`.padStart(2, "0")}:{now.getMinutes().toString().padStart(2, "0")}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Our auto message (sent) */}
+          <div className="max-w-[82%] ml-auto">
+            <div className="bg-[#005c4b] rounded-lg rounded-tr-none px-2.5 py-1.5 relative">
+              <p className="text-[12px] text-[#e9edef] whitespace-pre-wrap leading-relaxed break-words">
+                {rendered}
+              </p>
+              <div className="flex items-center justify-end gap-1 mt-0.5">
+                <span className="text-[9px] text-[#ffffff80]">{time}</span>
+                <CheckCheck className="h-3 w-3 text-[#53bdeb]" />
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Input bar */}
+        <div className="flex items-center gap-2 px-2 py-2 bg-[#1f2c33] border-t border-[#2a3942]">
+          <span className="text-[#8696a0] text-sm">😊</span>
+          <div className="flex-1 bg-[#2a3942] rounded-full px-3 py-1.5">
+            <span className="text-[11px] text-[#8696a0]">Mensagem</span>
+          </div>
+          <span className="text-[#8696a0] text-sm">🎤</span>
+        </div>
+
+        {/* Bottom nav bar */}
+        <div className="h-1 bg-[#e9edef] rounded-full w-24 mx-auto my-1.5 opacity-30" />
       </div>
     </div>
   );
@@ -312,59 +371,64 @@ const AutoRecuperacao = () => {
     showBoletoRules?: boolean;
   }) => (
     <div className="space-y-4">
-      <Card className="bg-card/60 border-border/30">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CardTitle className="text-base">{title}</CardTitle>
-              <Badge variant={showBoletoRules ? "secondary" : "outline"} className="text-[10px] h-5 gap-1">
-                <BadgeIcon className="h-2.5 w-2.5" />
-                {badgeLabel}
-              </Badge>
-            </div>
-            <Switch checked={enabled} onCheckedChange={onToggle} />
-          </div>
-          <CardDescription className="text-xs">{description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Left: Config */}
-            <div className="space-y-4">
-              <InstanceSelector type={type} instanceName={instanceName} />
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <Badge variant={showBoletoRules ? "secondary" : "outline"} className="text-[10px] h-5 gap-1">
+            <BadgeIcon className="h-2.5 w-2.5" />
+            {badgeLabel}
+          </Badge>
+        </div>
+        <Switch checked={enabled} onCheckedChange={onToggle} />
+      </div>
+      <p className="text-xs text-muted-foreground -mt-2">{description}</p>
 
-              {!showBoletoRules && (
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground">Mensagem automática</Label>
-                  <Textarea
-                    value={message}
-                    onChange={(e) => onMessageChange(e.target.value)}
-                    placeholder="Digite a mensagem..."
-                    className="min-h-[120px] text-sm bg-secondary/20 border-border/30 resize-none"
-                  />
-                  <div className="flex flex-wrap gap-1">
-                    {VARIABLES_INFO.map((v) => (
-                      <span key={v.var} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground cursor-default">
-                        {v.var}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* Two-column layout: config + phone preview */}
+      <div className="grid md:grid-cols-[1fr_auto] gap-6">
+        {/* Left: Configuration card */}
+        <Card className="bg-card/60 border-border/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Configuração</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <InstanceSelector type={type} instanceName={instanceName} />
 
-              <Button size="sm" variant="outline" onClick={() => runAutoRecovery(type)} disabled={!apiConfigured} className="w-full">
-                <Send className="h-3.5 w-3.5 mr-2" />
-                Executar agora
-              </Button>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">Mensagem automática</Label>
+              <Textarea
+                value={message}
+                onChange={(e) => onMessageChange(e.target.value)}
+                placeholder="Digite a mensagem..."
+                className="min-h-[140px] text-sm bg-secondary/20 border-border/30 resize-none"
+              />
+              <div className="flex flex-wrap gap-1">
+                {VARIABLES_INFO.map((v) => (
+                  <button
+                    key={v.var}
+                    type="button"
+                    onClick={() => onMessageChange(message + v.var)}
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    {v.var}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Right: Preview */}
-            <div className="md:sticky md:top-4">
-              <Label className="text-xs font-medium text-muted-foreground mb-2 block">Preview</Label>
-              <WhatsAppPreview message={message} />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <Button size="sm" variant="outline" onClick={() => runAutoRecovery(type)} disabled={!apiConfigured} className="w-full">
+              <Send className="h-3.5 w-3.5 mr-2" />
+              Executar agora
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Right: Phone mockup preview */}
+        <div className="flex flex-col items-center">
+          <Label className="text-xs font-medium text-muted-foreground mb-1 text-center block">Preview da mensagem</Label>
+          <WhatsAppPhoneMockup message={message} />
+        </div>
+      </div>
 
       {showBoletoRules && <BoletoRecoveryRulesConfig />}
     </div>
@@ -413,20 +477,27 @@ const AutoRecuperacao = () => {
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Main Tabs: recovery types + settings */}
       <Tabs defaultValue="pix_card" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="pix_card" className="gap-2">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="pix_card" className="gap-1.5">
             <CreditCard className="h-4 w-4" />
-            PIX / Cartão
+            <span className="hidden sm:inline">PIX / Cartão</span>
+            <span className="sm:hidden">PIX</span>
           </TabsTrigger>
-          <TabsTrigger value="abandoned" className="gap-2">
+          <TabsTrigger value="abandoned" className="gap-1.5">
             <ShoppingCart className="h-4 w-4" />
-            Abandonos
+            <span className="hidden sm:inline">Abandonos</span>
+            <span className="sm:hidden">Aband.</span>
           </TabsTrigger>
-          <TabsTrigger value="boleto" className="gap-2">
+          <TabsTrigger value="boleto" className="gap-1.5">
             <FileText className="h-4 w-4" />
             Boleto
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="gap-1.5">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Configurações</span>
+            <span className="sm:hidden">Config</span>
           </TabsTrigger>
         </TabsList>
 
@@ -475,60 +546,83 @@ const AutoRecuperacao = () => {
             showBoletoRules
           />
         </TabsContent>
-      </Tabs>
 
-      {/* General Settings */}
-      <Card className="bg-card/60 border-border/30">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Configurações Gerais</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Limite diário</Label>
-              <Input
-                type="number"
-                value={settings.daily_limit}
-                onChange={(e) => setSettings({ ...settings, daily_limit: Number(e.target.value) })}
-                className="bg-secondary/30 border-border/30 h-9 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Delay entre msgs (seg)</Label>
-              <Input
-                type="number"
-                value={settings.delay_between_messages}
-                onChange={(e) => setSettings({ ...settings, delay_between_messages: Number(e.target.value) })}
-                className="bg-secondary/30 border-border/30 h-9 text-sm"
-              />
-            </div>
-            <div className="flex items-center gap-2 pb-1">
-              <Switch
-                checked={settings.working_hours_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, working_hours_enabled: checked })}
-              />
-              <Label className="text-xs">Horário comercial</Label>
-            </div>
-            {settings.working_hours_enabled && (
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number" min={0} max={23}
-                  value={settings.working_hours_start}
-                  onChange={(e) => setSettings({ ...settings, working_hours_start: Number(e.target.value) })}
-                  className="bg-secondary/30 border-border/30 h-9 text-sm w-16"
-                />
-                <span className="text-xs text-muted-foreground">às</span>
-                <Input
-                  type="number" min={0} max={23}
-                  value={settings.working_hours_end}
-                  onChange={(e) => setSettings({ ...settings, working_hours_end: Number(e.target.value) })}
-                  className="bg-secondary/30 border-border/30 h-9 text-sm w-16"
-                />
+        {/* Settings Tab */}
+        <TabsContent value="settings">
+          <Card className="bg-card/60 border-border/30">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Configurações Gerais
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Limites de envio, delay entre mensagens e horário de funcionamento da automação.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Limite diário de mensagens</Label>
+                  <Input
+                    type="number"
+                    value={settings.daily_limit}
+                    onChange={(e) => setSettings({ ...settings, daily_limit: Number(e.target.value) })}
+                    className="bg-secondary/30 border-border/30 h-9 text-sm"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Máximo de mensagens enviadas por dia em todas as automações</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Delay entre mensagens (segundos)</Label>
+                  <Input
+                    type="number"
+                    value={settings.delay_between_messages}
+                    onChange={(e) => setSettings({ ...settings, delay_between_messages: Number(e.target.value) })}
+                    className="bg-secondary/30 border-border/30 h-9 text-sm"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Intervalo mínimo entre cada mensagem enviada</p>
+                </div>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+
+              <div className="border-t border-border/30 pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Horário comercial</Label>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Enviar mensagens apenas dentro do horário definido</p>
+                  </div>
+                  <Switch
+                    checked={settings.working_hours_enabled}
+                    onCheckedChange={(checked) => setSettings({ ...settings, working_hours_enabled: checked })}
+                  />
+                </div>
+
+                {settings.working_hours_enabled && (
+                  <div className="flex items-center gap-3 pl-1">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Início</Label>
+                      <Input
+                        type="number" min={0} max={23}
+                        value={settings.working_hours_start}
+                        onChange={(e) => setSettings({ ...settings, working_hours_start: Number(e.target.value) })}
+                        className="bg-secondary/30 border-border/30 h-9 text-sm w-20"
+                      />
+                    </div>
+                    <span className="text-sm text-muted-foreground mt-5">às</span>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Fim</Label>
+                      <Input
+                        type="number" min={0} max={23}
+                        value={settings.working_hours_end}
+                        onChange={(e) => setSettings({ ...settings, working_hours_end: Number(e.target.value) })}
+                        className="bg-secondary/30 border-border/30 h-9 text-sm w-20"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Instance Selector Modal */}
       {instanceModal && (
