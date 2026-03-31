@@ -443,7 +443,6 @@ Deno.serve(async (req) => {
           }
         }
       }
-      }
     }
 
     // ===== BATCH: PIX/CARD recovery =====
