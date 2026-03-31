@@ -21,6 +21,7 @@ interface SendMessageRequest {
   amount?: number;
   instanceName?: string;
   mediaAttachments?: MediaAttachment[];
+  ruleId?: string;
 }
 
 function getErrorMessage(value: unknown, fallback: string): string {
