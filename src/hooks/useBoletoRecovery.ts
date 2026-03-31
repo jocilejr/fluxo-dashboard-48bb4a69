@@ -206,13 +206,18 @@ export function useBoletoRecovery() {
     [todayBoletos]
   );
 
-  const contactedTodayBoletos = useMemo(
-    () => todayBoletos.filter((b) => b.contactedToday || b.duplicateToday),
+  const sentTodayBoletos = useMemo(
+    () => todayBoletos.filter((b) => b.contactedToday && !b.duplicateToday),
     [todayBoletos]
   );
 
   const duplicateTodayBoletos = useMemo(
     () => todayBoletos.filter((b) => b.duplicateToday),
+    [todayBoletos]
+  );
+
+  const resolvedTodayBoletos = useMemo(
+    () => todayBoletos.filter((b) => b.contactedToday || b.duplicateToday),
     [todayBoletos]
   );
 
