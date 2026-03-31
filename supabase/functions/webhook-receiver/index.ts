@@ -388,7 +388,7 @@ async function sendInstantPixCardRecovery(
     const firstName = transaction.customer_name?.split(' ')[0] || 'Cliente';
     const formattedValue = `R$ ${Number(transaction.amount).toFixed(2).replace('.', ',')}`;
     
-    const message = formatMessage(recoverySettings.message, {
+    const message = formatMessage(recoveryMessage, {
       nome: transaction.customer_name || 'Cliente',
       primeiro_nome: firstName,
       valor: formattedValue,
