@@ -390,46 +390,103 @@ Deno.serve(async (req) => {
             codigo_barras: tx.external_id || '',
           };
 
-          // Process each block from the template
-          const textBlocks = templateData.blocks.filter((b: any) => b.type === 'text');
-          const mediaBlocks = templateData.blocks.filter((b: any) => b.type === 'pdf' || b.type === 'image');
+          // Process blocks sequentially with 10s delay between each
+          const sortedBlocks = [...templateData.blocks].sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
 
-          // Build text message from all text blocks
-          const textMessage = textBlocks.map((b: any) => formatMessage(b.content || '', templateVars)).join('\n');
+          // Normalize phone for direct API calls
+          let normalizedPhone = tx.customer_phone.replace(/\D/g, '');
+          if (!normalizedPhone.startsWith('55')) {
+            normalizedPhone = '55' + normalizedPhone;
+          }
 
-          // Build media attachments
-          const mediaAttachments: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
-          for (const block of mediaBlocks) {
-            if ((block.type === 'pdf' || block.type === 'image') && boletoUrl) {
-              // Always send PDF files as 'document' type - WhatsApp can't render PDFs as images
-              const isPdfUrl = boletoUrl.toLowerCase().endsWith('.pdf');
-              const mediaType = isPdfUrl ? 'document' : (block.type === 'pdf' ? 'document' : 'image');
-              mediaAttachments.push({ media_url: boletoUrl, type: mediaType, caption: 'Boleto' });
+          // Pre-convert PDF to image if any image block exists
+          let convertedImageUrl: string | null = null;
+          const hasImageBlock = sortedBlocks.some((b: any) => b.type === 'image');
+          if (hasImageBlock && boletoUrl) {
+            console.log('[boleto-immediate] Converting PDF to image...');
+            convertedImageUrl = await convertPdfToImageUrl(boletoUrl, supabase);
+            if (!convertedImageUrl) {
+              console.warn('[boleto-immediate] PDF→IMG conversion failed, will send as document');
             }
           }
 
-          if (textMessage) {
-            const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${supabaseServiceKey}`
-              },
-              body: JSON.stringify({
-                phone: tx.customer_phone,
-                message: textMessage,
-                messageType: 'boleto_immediate',
-                transactionId: tx.id,
-                instanceName: instanceMap.boleto,
-                mediaAttachments: mediaAttachments.length > 0 ? mediaAttachments : undefined,
-              })
-            });
-            const result = await response.json();
-            if (result.success) {
-              messagesSent++;
-              stats.boleto.sent++;
-            } else {
-              stats.boleto.failed++;
+          for (let i = 0; i < sortedBlocks.length; i++) {
+            const block = sortedBlocks[i];
+
+            if (block.type === 'text') {
+              const textMessage = formatMessage(block.content || '', templateVars);
+              if (textMessage) {
+                const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${supabaseServiceKey}`
+                  },
+                  body: JSON.stringify({
+                    phone: tx.customer_phone,
+                    message: textMessage,
+                    messageType: 'boleto_immediate',
+                    transactionId: tx.id,
+                    instanceName: instanceMap.boleto,
+                  })
+                });
+                const result = await response.json();
+                if (result.success) {
+                  messagesSent++;
+                  stats.boleto.sent++;
+                } else {
+                  stats.boleto.failed++;
+                }
+              }
+            } else if ((block.type === 'image' || block.type === 'pdf') && boletoUrl) {
+              // Determine media URL and type
+              let mediaUrl = boletoUrl;
+              let mediaType: 'image' | 'document' = 'document';
+
+              if (block.type === 'image' && convertedImageUrl) {
+                mediaUrl = convertedImageUrl;
+                mediaType = 'image';
+              }
+
+              // Send media directly via platform API
+              const baseUrl = settings.server_url.replace(/\/$/, '');
+              try {
+                console.log(`[boleto-immediate] Sending media (${mediaType}): ${mediaUrl}`);
+                const mediaResponse = await fetch(`${baseUrl}/api/platform/send-media`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-API-Key': settings.api_key,
+                  },
+                  body: JSON.stringify({
+                    phone: normalizedPhone,
+                    media_url: mediaUrl,
+                    type: mediaType,
+                    caption: 'Boleto',
+                    instance: instanceMap.boleto,
+                  }),
+                });
+
+                if (mediaResponse.ok) {
+                  messagesSent++;
+                  stats.boleto.sent++;
+                  console.log(`[boleto-immediate] Media (${mediaType}) sent successfully`);
+                } else {
+                  const errBody = await mediaResponse.text();
+                  console.error(`[boleto-immediate] Media send failed (${mediaResponse.status}):`, errBody);
+                  stats.boleto.failed++;
+                }
+              } catch (err) {
+                console.error('[boleto-immediate] Media send error:', err);
+                stats.boleto.failed++;
+              }
+            }
+
+            // Wait 10 seconds between blocks (not after the last one)
+            if (i < sortedBlocks.length - 1) {
+              console.log('[boleto-immediate] Waiting 10s before next block...');
+              await new Promise(resolve => setTimeout(resolve, 10000));
             }
           }
         } else {
