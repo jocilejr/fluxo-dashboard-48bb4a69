@@ -597,14 +597,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log('Auto recovery completed:', stats);
+    // Check if user stopped mid-process
+    const { data: finalCheck } = await supabase
+      .from('messaging_api_settings')
+      .select('last_recovery_status')
+      .eq('id', settings.id)
+      .single();
+    const wasStopped = finalCheck?.last_recovery_status === 'stopped';
 
-    // Mark status as completed
+    console.log('Auto recovery completed:', stats, wasStopped ? '(stopped by user)' : '');
+
+    // Mark status as completed or stopped
     await supabase.from('messaging_api_settings').update({
-      last_recovery_status: 'completed',
+      last_recovery_status: wasStopped ? 'stopped' : 'completed',
       last_recovery_finished_at: new Date().toISOString(),
       last_recovery_stats: stats,
-      last_recovery_error: null,
+      last_recovery_error: wasStopped ? 'Parado pelo usuário' : null,
     }).eq('id', settings.id);
 
     return new Response(
