@@ -1,26 +1,23 @@
 
 
-## Plano: Preview WhatsApp preenchendo a coluna sem espaço vazio
+## Plano: Corrigir status "pendente" que nunca atualiza
 
 ### Problema
-O mockup de celular atual tem 260px fixos e fica centralizado, deixando muito espaço vazio ao redor. A segunda imagem de referência mostra o preview ocupando toda a coluna direita, integrado e sem moldura de celular.
+A API externa (`chatbotsimplificado.com`) retornou HTML em vez de JSON (provavelmente uma página de erro). A linha `await sendResponse.json()` lança uma exceção `SyntaxError`, que pula todo o bloco de atualização do `message_log`. Resultado: o status fica preso em "pending" para sempre.
 
-### Mudanças
+### Causa raiz
+`send-external-message/index.ts` linha 118: `const sendData = await sendResponse.json()` — sem tratamento para respostas não-JSON.
 
-1. **Substituir `WhatsAppMobilePreview` (mockup de celular)** por um preview estilo painel que preenche toda a coluna:
-   - Header com avatar + nome do contato (estilo WhatsApp, mas sem moldura de celular/status bar/home indicator)
-   - Área de chat com fundo escuro `#0b141a` preenchendo o espaço disponível (`flex-1`)
-   - Chip "HOJE", mensagem recebida, mensagem enviada com variáveis renderizadas
-   - Barra de input no rodapé
-   - **Sem bordas arredondadas de celular, sem status bar, sem home indicator**
-   - O container usa `h-full` para preencher a coluna inteira
+### Correção
 
-2. **Ajustar o grid** para `md:grid-cols-[1fr,320px]` — editor ocupa o espaço restante, preview tem largura fixa de 320px e altura total do card
+1. **Envolver o parse da resposta em try/catch** em `supabase/functions/send-external-message/index.ts`:
+   - Tentar `sendResponse.json()` primeiro
+   - Se falhar (HTML, texto, etc.), capturar via `sendResponse.text()` e usar como erro
+   - Garantir que o `message_log` seja sempre atualizado para `'failed'` com a mensagem de erro real
+   - O fluxo nunca mais ficará preso em "pending"
 
-3. **Preview com altura vinculada ao card** — usar `flex flex-col h-full` para que header, chat e input bar se distribuam verticalmente sem sobrar espaço
-
-4. **Placeholder quando sem mensagem** — texto centralizado "Componha uma mensagem para ver o preview" (como na imagem 2)
+2. **Adicionar header `Accept: application/json`** na requisição à API externa para sinalizar que esperamos JSON.
 
 ### Arquivo alterado
-- `src/pages/AutoRecuperacao.tsx`
+- `supabase/functions/send-external-message/index.ts`
 
