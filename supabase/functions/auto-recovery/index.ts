@@ -214,9 +214,17 @@ Deno.serve(async (req) => {
         
         if (result.success) {
           messagesSent++;
+          batchCounter++;
           stats[type].sent++;
-          if (settings.delay_between_messages > 0 && !isSingleItem) {
-            await new Promise(resolve => setTimeout(resolve, settings.delay_between_messages * 1000));
+          if (!isSingleItem) {
+            if (settings.delay_between_messages > 0) {
+              await new Promise(resolve => setTimeout(resolve, settings.delay_between_messages * 1000));
+            }
+            if (batchSize > 0 && batchCounter >= batchSize && batchPauseSeconds > 0) {
+              console.log(`[auto-recovery] Batch pause: ${batchPauseSeconds}s after ${batchCounter} messages`);
+              await new Promise(resolve => setTimeout(resolve, batchPauseSeconds * 1000));
+              batchCounter = 0;
+            }
           }
           return true;
         } else {
