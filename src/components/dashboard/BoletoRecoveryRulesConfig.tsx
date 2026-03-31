@@ -267,15 +267,6 @@ export function BoletoRecoveryRulesConfig() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Variable hints */}
-          <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg overflow-x-auto">
-            <span className="text-xs text-muted-foreground mr-2 shrink-0">Variáveis:</span>
-            {VARIABLE_HINTS.map((v) => (
-              <Badge key={v.var} variant="secondary" className="text-xs font-mono shrink-0">
-                {v.var}
-              </Badge>
-            ))}
-          </div>
 
           {/* Editing Form */}
           {editingRule && (
@@ -321,6 +312,22 @@ export function BoletoRecoveryRulesConfig() {
                     )}
                   </div>
                 </div>
+                {/* Variable hints inside the form */}
+                <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <span className="text-xs text-muted-foreground mr-1 shrink-0">Variáveis:</span>
+                  {VARIABLE_HINTS.map((v) => (
+                    <button
+                      key={v.var}
+                      type="button"
+                      onClick={() => setEditingRule({ ...editingRule, message: (editingRule.message || "") + v.var })}
+                      className="inline-flex items-center rounded-full border border-transparent bg-secondary px-2.5 py-0.5 text-xs font-mono font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors cursor-pointer shrink-0"
+                      title={v.desc}
+                    >
+                      {v.var}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="space-y-2">
                   <Label>Mensagem</Label>
                   <Textarea
