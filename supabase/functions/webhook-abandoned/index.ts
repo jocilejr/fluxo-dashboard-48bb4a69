@@ -166,11 +166,42 @@ async function sendInstantAbandonedRecovery(
       saudação: getGreeting(),
     });
 
-    console.log(`[InstantRecovery] Sending abandoned recovery message to ${event.customer_phone}`);
-
-    // Send via send-external-message (same pattern as webhook-receiver)
+    // Validate phone number before sending
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    console.log(`[InstantRecovery] Validating phone number: ${event.customer_phone}`);
+    try {
+      const validateResponse = await fetch(`${supabaseUrl}/functions/v1/validate-external-number`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`
+        },
+        body: JSON.stringify({ phone: event.customer_phone }),
+      });
+      const validateResult = await validateResponse.json();
+      
+      if (validateResult.exists === false) {
+        console.log(`[InstantRecovery] Phone ${event.customer_phone} is INVALID, skipping recovery`);
+        await supabase
+          .from('message_log')
+          .insert({
+            phone: event.customer_phone?.replace(/\D/g, '') || '',
+            message: message,
+            message_type: 'abandoned',
+            abandoned_event_id: event.id,
+            status: 'failed',
+            error_message: 'Número inválido - não existe no WhatsApp',
+            sent_at: new Date().toISOString(),
+          });
+        return;
+      }
+    } catch (valErr) {
+      console.error('[InstantRecovery] Phone validation error (proceeding with send):', valErr);
+    }
+
+    console.log(`[InstantRecovery] Sending abandoned recovery message to ${event.customer_phone}`);
 
     const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
       method: 'POST',
