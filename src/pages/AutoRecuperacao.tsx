@@ -83,7 +83,7 @@ const WhatsAppPreview = ({ message }: { message: string }) => {
   const rendered = useMemo(() => {
     let text = message || "Sua mensagem aparecerá aqui...";
     Object.entries(EXAMPLE_VALUES).forEach(([key, value]) => {
-      text = text.replaceAll(key, value);
+      text = text.split(key).join(value);
     });
     return text;
   }, [message]);
