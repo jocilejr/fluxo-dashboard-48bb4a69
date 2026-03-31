@@ -1,31 +1,51 @@
 
 
-## Plano: Redesign limpo da página Auto Rec.
+## Plano: Redesign com preview de mensagem WhatsApp
 
 ### Problema
-A página tem 7 cards empilhados verticalmente sem hierarquia clara. Muita repetição visual, informações espalhadas, e o botão "Salvar" fica perdido no final junto com execução manual.
+O layout atual empilha textarea + variáveis + instância de forma confusa. Falta contexto visual de como a mensagem vai ficar para o cliente.
 
-### Redesign
+### Solução
+Redesign de cada aba de recuperação com layout **lado a lado**: editor à esquerda, preview WhatsApp à direita.
 
-#### Estrutura nova
-1. **Header** com título + subtítulo + botão "Salvar" fixo no topo (sempre visível)
-2. **Stats em linha** logo abaixo do header (5 mini-stats horizontais, sem card wrapper)
-3. **3 cards de recuperação** lado a lado em grid `md:grid-cols-3` — cada um contendo:
-   - Switch de ativação no header
-   - Badge de tipo (Tempo Real / Diário 9h)
-   - Seletor de instância
-   - Textarea da mensagem
-   - Para Boleto: inclui `BoletoRecoveryRulesConfig` no lugar do textarea simples
-4. **Card "Configurações Gerais"** abaixo do grid, com limites + horário comercial em uma linha compacta
-5. **Seção "Execução Manual"** como uma barra simples com botões inline, sem card separado
+### Estrutura de cada aba (PIX/Cartão, Abandonos, Boleto)
 
-#### Detalhes visuais
-- Remover card wrapper dos stats (usar divs simples com fundo sutil)
-- Alinhar botão "Salvar" no header ao lado do título
-- Cards de recuperação com altura equilibrada usando flex-grow
-- Variáveis disponíveis compactadas em uma única linha de badges pequenos
-- Warning de API não configurada como banner fino no topo
+```text
+┌─────────────────────────────────────────────────────┐
+│ [Switch] PIX / Cartão          [Badge: Tempo Real]  │
+│ Descrição curta                                     │
+├────────────────────────┬────────────────────────────┤
+│  CONFIGURAÇÃO          │  PREVIEW                   │
+│                        │                            │
+│  Instância WhatsApp    │  ┌──────────────────────┐  │
+│  [card instância]      │  │ ☎ WhatsApp balloon   │  │
+│                        │  │                      │  │
+│  Mensagem              │  │ Olá João! Notamos    │  │
+│  [textarea]            │  │ que seu pagamento de │  │
+│                        │  │ R$ 97,00 está...     │  │
+│  Variáveis: {nome}...  │  │                      │  │
+│                        │  │         14:32 ✓✓     │  │
+│  [Executar agora]      │  └──────────────────────┘  │
+└────────────────────────┴────────────────────────────┘
+```
 
-#### Arquivo alterado
-- `src/pages/AutoRecuperacao.tsx` — rewrite completo do JSX
+### Detalhes
+
+1. **Componente `WhatsAppPreview`** — renderiza a mensagem como um balão de WhatsApp:
+   - Fundo verde claro (estilo WhatsApp)
+   - Substitui as variáveis por dados de exemplo: `{primeiro_nome}` → "João", `{valor}` → "R$ 97,00", `{produto}` → "Curso Digital", `{saudação}` → saudação baseada na hora
+   - Mostra horário atual e double-check (✓✓)
+   - Header com nome do contato e avatar placeholder
+   - Atualiza em tempo real conforme o usuário digita
+
+2. **Layout lado a lado** em `grid md:grid-cols-2`:
+   - Coluna esquerda: instância + textarea + variáveis + botão executar
+   - Coluna direita: preview WhatsApp sticky
+
+3. **Para Boleto**: o preview mostra a mensagem da primeira regra da régua, e a `BoletoRecoveryRulesConfig` fica abaixo do grid
+
+4. **Configurações gerais** permanecem como card separado abaixo
+
+### Arquivo alterado
+- `src/pages/AutoRecuperacao.tsx` — rewrite do JSX das abas + componente `WhatsAppPreview` inline
 
