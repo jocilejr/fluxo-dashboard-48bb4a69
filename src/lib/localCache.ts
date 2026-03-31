@@ -10,11 +10,30 @@ interface CacheStore<T> {
 }
 
 const PHONE_VALIDATION_CACHE_KEY = 'phone_validations_cache';
+const PHONE_VALIDATION_CACHE_VERSION_KEY = 'phone_validation_cache_version';
+const CURRENT_PHONE_VALIDATION_CACHE_VERSION = 2;
 const RECOVERY_LOGS_CACHE_KEY = 'recovery_logs_cache';
 
 // TTL in milliseconds
 const PHONE_VALIDATION_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const RECOVERY_LOGS_TTL = 60 * 60 * 1000; // 1 hour
+
+// Invalidate old phone validation cache on version change
+function ensurePhoneValidationCacheVersion(): void {
+  try {
+    const storedVersion = localStorage.getItem(PHONE_VALIDATION_CACHE_VERSION_KEY);
+    if (storedVersion !== String(CURRENT_PHONE_VALIDATION_CACHE_VERSION)) {
+      localStorage.removeItem(PHONE_VALIDATION_CACHE_KEY);
+      localStorage.setItem(PHONE_VALIDATION_CACHE_VERSION_KEY, String(CURRENT_PHONE_VALIDATION_CACHE_VERSION));
+      console.log('[LocalCache] Phone validation cache invalidated (version upgrade)');
+    }
+  } catch (e) {
+    console.error('[LocalCache] Error checking cache version:', e);
+  }
+}
+
+// Run on module load
+ensurePhoneValidationCacheVersion();
 
 function getCache<T>(key: string): CacheStore<T> {
   try {
