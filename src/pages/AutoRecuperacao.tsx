@@ -563,28 +563,45 @@ const AutoRecuperacao = () => {
             onSave={() => saveMutation.mutate(settings)}
             isSaving={saveMutation.isPending}
             extraSettings={
-              <Card className="border-border/40">
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <Label className="text-sm font-medium">Horário de envio</Label>
-                      <p className="text-[10px] text-muted-foreground">Define a hora do disparo diário automático</p>
+              <div className="space-y-3">
+                <Card className="border-border/40">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <Label className="text-sm font-medium">Enviar PDF do boleto</Label>
+                        <p className="text-[10px] text-muted-foreground">Envia o arquivo PDF do boleto junto com a mensagem (quando disponível)</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={settings.boleto_send_pdf}
+                      onCheckedChange={(checked) => setSettings({ ...settings, boleto_send_pdf: checked })}
+                    />
+                  </div>
+                </Card>
+                <Card className="border-border/40">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <Label className="text-sm font-medium">Horário de envio</Label>
+                        <p className="text-[10px] text-muted-foreground">Define a hora do disparo diário automático</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={settings.boleto_send_hour}
+                        onChange={(e) => setSettings({ ...settings, boleto_send_hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
+                        className="bg-secondary/30 border-border/30 h-9 text-sm w-20 text-center"
+                      />
+                      <span className="text-sm text-muted-foreground">h</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={settings.boleto_send_hour}
-                      onChange={(e) => setSettings({ ...settings, boleto_send_hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
-                      className="bg-secondary/30 border-border/30 h-9 text-sm w-20 text-center"
-                    />
-                    <span className="text-sm text-muted-foreground">h</span>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              </div>
             }
           />
         </TabsContent>
