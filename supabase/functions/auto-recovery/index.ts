@@ -163,7 +163,8 @@ Deno.serve(async (req) => {
       type: 'boleto' | 'pix_card' | 'abandoned',
       transactionId?: string,
       abandonedEventId?: string,
-      mediaAttachments?: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }>
+      mediaAttachments?: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }>,
+      ruleId?: string
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
 
@@ -182,6 +183,7 @@ Deno.serve(async (req) => {
             abandonedEventId,
             instanceName: instanceMap[type],
             mediaAttachments,
+            ruleId: ruleId || null,
           })
         });
 
