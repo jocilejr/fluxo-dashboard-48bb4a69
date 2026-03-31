@@ -158,6 +158,7 @@ Deno.serve(async (req) => {
             transactionId,
             abandonedEventId,
             instanceName: instanceMap[type],
+            mediaAttachments,
           })
         });
 
