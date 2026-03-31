@@ -110,9 +110,10 @@ export function useBoletoRecovery() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("message_log")
-        .select("transaction_id, rule_id")
+        .select("transaction_id, rule_id, status")
         .eq("message_type", "boleto")
-        .eq("status", "sent")
+        .in("status", ["sent", "duplicate"])
+        .not("rule_id", "is", null)
         .gte("created_at", `${todayStr}T00:00:00-03:00`)
         .lt("created_at", `${todayStr}T23:59:59-03:00`);
       if (error) throw error;
