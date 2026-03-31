@@ -40,10 +40,15 @@ function formatMessage(template: string, data: Record<string, string>): string {
   return message;
 }
 
+// Max execution time before self-continuing (120s to stay under 150s limit)
+const MAX_EXEC_MS = 120_000;
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  const startTime = Date.now();
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -54,15 +59,22 @@ Deno.serve(async (req) => {
     let specificType: string | null = null;
     let specificTransactionId: string | null = null;
     let specificAbandonedEventId: string | null = null;
+    // Continuation support
+    let continueFrom = 0; // offset for boleto batch
+    let accumulatedStats: RecoveryStats | null = null;
+    let isContinuation = false;
     try {
       const body = await req.json();
       forceRun = body.forceRun || false;
       specificType = body.type || null;
       specificTransactionId = body.transactionId || null;
       specificAbandonedEventId = body.abandonedEventId || null;
+      continueFrom = body._continueFrom || 0;
+      accumulatedStats = body._accumulatedStats || null;
+      isContinuation = body._isContinuation || false;
     } catch { /* no body */ }
 
-    console.log('Starting auto recovery process...', { specificType, specificTransactionId, specificAbandonedEventId });
+    console.log('Starting auto recovery process...', { specificType, specificTransactionId, specificAbandonedEventId, continueFrom, isContinuation });
 
     const { data: settings, error: settingsError } = await supabase
       .from('messaging_api_settings')
@@ -84,13 +96,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Mark status as running
-    await supabase.from('messaging_api_settings').update({
-      last_recovery_status: 'running',
-      last_recovery_started_at: new Date().toISOString(),
-      last_recovery_finished_at: null,
-      last_recovery_error: null,
-    }).eq('id', settings.id);
+    // Mark status as running (only on first invocation)
+    if (!isContinuation) {
+      await supabase.from('messaging_api_settings').update({
+        last_recovery_status: 'running',
+        last_recovery_started_at: new Date().toISOString(),
+        last_recovery_finished_at: null,
+        last_recovery_error: null,
+      }).eq('id', settings.id);
+    }
 
     const isSingleItem = !!specificTransactionId || !!specificAbandonedEventId;
     if (!forceRun && !isSingleItem && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
@@ -105,7 +119,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check boleto send hour — only run boleto batch if current hour matches configured hour
+    // Check boleto send hour
     const boletoSendHour = settings.boleto_send_hour ?? 9;
     const currentBrazilHour = getBrazilDate().getHours();
 
@@ -131,7 +145,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const stats: RecoveryStats = {
+    const stats: RecoveryStats = accumulatedStats || {
       boleto: { sent: 0, failed: 0, skipped: 0 },
       pix_card: { sent: 0, failed: 0, skipped: 0 },
       abandoned: { sent: 0, failed: 0, skipped: 0 }
@@ -148,7 +162,7 @@ Deno.serve(async (req) => {
       abandoned: settings.abandoned_instance_name || null,
     };
 
-    // Fetch manual recovery messages from their respective tables
+    // Fetch manual recovery messages
     const { data: pixCardSettings } = await supabase
       .from('pix_card_recovery_settings')
       .select('message')
@@ -169,10 +183,9 @@ Deno.serve(async (req) => {
 
     // === Pause / Stop control ===
     let _lastControlCheck = 0;
-    const CONTROL_CHECK_INTERVAL_MS = 5000; // Check at most every 5s
+    const CONTROL_CHECK_INTERVAL_MS = 5000;
 
     async function checkControlStatus(): Promise<'running' | 'stopped'> {
-      // Throttle: only actually query DB every 5 seconds
       const now = Date.now();
       if (now - _lastControlCheck < CONTROL_CHECK_INTERVAL_MS) return 'running';
       _lastControlCheck = now;
@@ -189,6 +202,36 @@ Deno.serve(async (req) => {
         console.log('[auto-recovery] Paused, waiting...');
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
+    }
+
+    // Helper: check if we're running out of time
+    function isNearTimeout(): boolean {
+      return (Date.now() - startTime) >= MAX_EXEC_MS;
+    }
+
+    // Helper: self-continue by re-invoking
+    async function selfContinue(offset: number, currentStats: RecoveryStats): Promise<void> {
+      console.log(`[auto-recovery] Near timeout, self-continuing from offset ${offset}...`);
+      // Update stats in DB for live UI
+      await supabase.from('messaging_api_settings').update({
+        last_recovery_stats: currentStats,
+      }).eq('id', settings.id);
+
+      // Fire-and-forget re-invocation
+      fetch(`${supabaseUrl}/functions/v1/auto-recovery`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          forceRun: true,
+          type: specificType,
+          _continueFrom: offset,
+          _accumulatedStats: currentStats,
+          _isContinuation: true,
+        }),
+      }).catch(err => console.error('[auto-recovery] Self-continue invocation error:', err));
     }
 
     async function sendMessage(
@@ -321,10 +364,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ===== BATCH: BOLETO recovery (rewritten) =====
+    // ===== BATCH: BOLETO recovery =====
     const shouldRunBoleto = forceRun || currentBrazilHour === boletoSendHour;
+    let boletoProcessedUpTo = 0; // track offset for continuation
+    let needsContinuation = false;
+
     if ((specificType === null || specificType === 'boleto') && settings.boleto_recovery_enabled && shouldRunBoleto) {
-      console.log('[boleto-recovery] Starting boleto recovery batch...');
+      console.log(`[boleto-recovery] Starting boleto recovery batch (offset: ${continueFrom})...`);
 
       // 1. Load settings
       const { data: boletoSettings } = await supabase
@@ -342,8 +388,30 @@ Deno.serve(async (req) => {
         .neq('rule_type', 'immediate')
         .order('priority', { ascending: true });
 
+      // 3. Load default template from boleto_recovery_templates
+      const { data: defaultTemplate } = await supabase
+        .from('boleto_recovery_templates')
+        .select('*')
+        .eq('is_default', true)
+        .maybeSingle();
+
+      // Fallback: first template if no default
+      let template = defaultTemplate;
+      if (!template) {
+        const { data: firstTemplate } = await supabase
+          .from('boleto_recovery_templates')
+          .select('*')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        template = firstTemplate;
+      }
+
+      const templateBlocks = (template?.blocks as Array<{ type: string; content?: string; enabled?: boolean }>) || [];
+      const hasTemplate = templateBlocks.length > 0;
+
       if (rules && rules.length > 0) {
-        // 3. Load unpaid boletos with phone
+        // 4. Load unpaid boletos with phone
         const { data: boletos } = await supabase
           .from('transactions')
           .select('*')
@@ -352,7 +420,7 @@ Deno.serve(async (req) => {
           .not('customer_phone', 'is', null);
 
         if (boletos && boletos.length > 0) {
-          // 4. Pre-load ALL today's sent boleto logs in one query
+          // 5. Pre-load today's sent boleto logs
           const todayBrazil = getBrazilDate();
           todayBrazil.setHours(0, 0, 0, 0);
           const todayIso = todayBrazil.toISOString();
@@ -364,9 +432,7 @@ Deno.serve(async (req) => {
             .eq('status', 'sent')
             .gte('created_at', todayIso);
 
-          // Build lookup: transaction_id:rule_id → already sent today
           const sentTodayKeys = new Set<string>();
-          // Build lookup: phone last 8 → count of messages today
           const phoneDailyCount = new Map<string, number>();
 
           if (todayLogs) {
@@ -385,7 +451,6 @@ Deno.serve(async (req) => {
           const today = getBrazilDate();
           today.setHours(0, 0, 0, 0);
 
-          // Helper: calculate days since generation in Brazil TZ
           function calcDaysSince(createdAt: string): number {
             const utc = new Date(createdAt);
             const offset = -3 * 60;
@@ -405,13 +470,21 @@ Deno.serve(async (req) => {
             return inBrazil;
           }
 
-          // 5. Process each boleto
+          // 6. Process each boleto (starting from continueFrom offset)
           let userStopped = false;
-          for (const boleto of boletos) {
+          for (let i = continueFrom; i < boletos.length; i++) {
+            const boleto = boletos[i];
+            boletoProcessedUpTo = i + 1;
+
             if (messagesSent >= remainingLimit && !forceRun) break;
             if (userStopped) break;
 
-            // Dedup moved below after rule match
+            // Check timeout — self-continue if near limit
+            if (isNearTimeout()) {
+              console.log(`[boleto-recovery] Near timeout at index ${i}, will self-continue...`);
+              needsContinuation = true;
+              break;
+            }
 
             // Dedup: phone daily limit
             const phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
@@ -445,10 +518,12 @@ Deno.serve(async (req) => {
 
             console.log(`[boleto-recovery] ${boleto.id}: daysSinceGen=${daysSinceGen}, daysUntilDue=${daysUntilDue}, rule=${matchedRule.name}`);
 
-            // Format message using rule template
+            // === Build message and media from TEMPLATE (not rule) ===
             const firstName = boleto.customer_name?.split(' ')[0] || 'Cliente';
             const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(boleto.amount);
-            const message = formatMessage(matchedRule.message, {
+            const metadata = boleto.metadata as Record<string, unknown> | null;
+            const boletoUrl = metadata?.boleto_url as string | undefined;
+            const templateVars: Record<string, string> = {
               nome: boleto.customer_name || 'Cliente',
               primeiro_nome: firstName,
               valor: formattedValue,
@@ -456,20 +531,39 @@ Deno.serve(async (req) => {
               vencimento: dueDate.toLocaleDateString('pt-BR'),
               saudação: getGreeting(),
               codigo_barras: boleto.external_id || '',
-            });
+            };
 
-            // Prepare media attachments
-            const metadata = boleto.metadata as Record<string, unknown> | null;
-            const boletoUrl = metadata?.boleto_url as string | undefined;
+            let message: string;
             const boletoMedia: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
-            const mediaBlocks = (matchedRule.media_blocks as Array<{ type: string; enabled: boolean }>) || [];
 
-            if (boletoUrl) {
-              if (mediaBlocks.find((b) => b.type === 'pdf')?.enabled) {
-                boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
+            if (hasTemplate) {
+              // Use template blocks
+              const textParts: string[] = [];
+              for (const block of templateBlocks) {
+                if (block.type === 'text' && block.content) {
+                  textParts.push(formatMessage(block.content, templateVars));
+                } else if (block.type === 'pdf' && boletoUrl) {
+                  boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
+                } else if (block.type === 'image' && boletoUrl) {
+                  boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
+                }
               }
-              if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
-                boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
+              message = textParts.join('\n\n');
+              if (!message) {
+                // Fallback if template has no text blocks
+                message = formatMessage(matchedRule.message, templateVars);
+              }
+            } else {
+              // Fallback: use rule message + media_blocks (legacy)
+              message = formatMessage(matchedRule.message, templateVars);
+              const mediaBlocks = (matchedRule.media_blocks as Array<{ type: string; enabled: boolean }>) || [];
+              if (boletoUrl) {
+                if (mediaBlocks.find((b) => b.type === 'pdf')?.enabled) {
+                  boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
+                }
+                if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
+                  boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
+                }
               }
             }
 
@@ -483,7 +577,6 @@ Deno.serve(async (req) => {
             const sent = await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined, matchedRule.id);
 
             if (sent) {
-              // Update lookups
               sentTodayKeys.add(dedupKey);
               if (phone8.length === 8) {
                 phoneDailyCount.set(phone8, (phoneDailyCount.get(phone8) || 0) + 1);
@@ -493,6 +586,16 @@ Deno.serve(async (req) => {
         }
       }
     }
+
+    // If we need to continue, fire self-invocation and return
+    if (needsContinuation) {
+      await selfContinue(boletoProcessedUpTo, stats);
+      return new Response(
+        JSON.stringify({ success: true, continuing: true, stats, processedUpTo: boletoProcessedUpTo }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // ===== BATCH: PIX/CARD recovery =====
     if ((specificType === null || specificType === 'pix_card') && settings.pix_card_recovery_enabled && !specificTransactionId) {
       console.log('Processing PIX/Card recovery...');
@@ -514,7 +617,6 @@ Deno.serve(async (req) => {
           if (messagesSent >= remainingLimit && !forceRun) break;
           if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
-          // Deduplicate: max 1 pix/card message per person per day
           const txPhoneNorm = tx.customer_phone!.replace(/\D/g, '');
           const txPhone8 = txPhoneNorm.slice(-8);
           if (txPhone8.length === 8 && pixCardPhonesContacted.has(txPhone8)) {
@@ -569,7 +671,6 @@ Deno.serve(async (req) => {
           if (messagesSent >= remainingLimit && !forceRun) break;
           if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
-          // Deduplicate: max 1 abandoned message per person per day
           const evPhoneNorm = event.customer_phone!.replace(/\D/g, '');
           const evPhone8 = evPhoneNorm.slice(-8);
           if (evPhone8.length === 8 && abandonedPhonesContacted.has(evPhone8)) {
@@ -615,7 +716,6 @@ Deno.serve(async (req) => {
 
     console.log('Auto recovery completed:', stats, wasStopped ? '(stopped by user)' : '');
 
-    // Mark status as completed or stopped
     await supabase.from('messaging_api_settings').update({
       last_recovery_status: wasStopped ? 'stopped' : 'completed',
       last_recovery_finished_at: new Date().toISOString(),
@@ -632,7 +732,6 @@ Deno.serve(async (req) => {
     console.error('Error in auto-recovery:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-    // Try to mark status as error
     try {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
