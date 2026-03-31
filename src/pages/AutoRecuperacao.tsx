@@ -7,13 +7,14 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck, Camera, Smile, Mic, ArrowLeft, MoreVertical, Phone, Video } from "lucide-react";
+import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck, Camera, Smile, Mic, ArrowLeft, MoreVertical, Phone, Video, ScrollText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InstanceSelectorModal } from "@/components/recovery/InstanceSelectorModal";
 import { BoletoRecoveryRulesConfig } from "@/components/dashboard/BoletoRecoveryRulesConfig";
 import { getGreeting } from "@/lib/greeting";
+import { RecoveryLogsTab } from "@/components/dashboard/RecoveryLogsTab";
 
 interface MessagingSettings {
   id?: string;
@@ -473,7 +474,7 @@ const AutoRecuperacao = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="pix_card" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="pix_card" className="gap-1.5">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">PIX / Cartão</span>
@@ -488,9 +489,13 @@ const AutoRecuperacao = () => {
             <FileText className="h-4 w-4" />
             Boleto
           </TabsTrigger>
+          <TabsTrigger value="logs" className="gap-1.5">
+            <ScrollText className="h-4 w-4" />
+            <span className="hidden sm:inline">Logs</span>
+          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-1.5">
             <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Configurações</span>
+            <span className="hidden sm:inline">Config</span>
             <span className="sm:hidden">⚙</span>
           </TabsTrigger>
         </TabsList>
@@ -579,6 +584,10 @@ const AutoRecuperacao = () => {
               </Card>
             }
           />
+        </TabsContent>
+
+        <TabsContent value="logs">
+          <RecoveryLogsTab />
         </TabsContent>
 
         <TabsContent value="settings">
