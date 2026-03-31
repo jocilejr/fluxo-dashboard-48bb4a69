@@ -63,6 +63,7 @@ export function BoletoAutoRecoveryToggle() {
   const delayBetween = settings?.delay_between_messages ?? 5;
   const batchSize = settings?.batch_size ?? 10;
   const batchPause = settings?.batch_pause_seconds ?? 30;
+  const maxPerPersonPerDay = settings?.max_messages_per_person_per_day ?? 1;
 
   if (isLoading) return null;
 
