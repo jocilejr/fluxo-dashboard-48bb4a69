@@ -135,12 +135,17 @@ export function useBoletoRecovery() {
   });
 
   // ── Build lookup set of contacted transaction:rule keys ──
-  const contactedKeys = useMemo(() => {
-    const set = new Set<string>();
+  const { contactedKeys, duplicateKeys } = useMemo(() => {
+    const sent = new Set<string>();
+    const dup = new Set<string>();
     todayLogs?.forEach((l) => {
-      if (l.transaction_id && l.rule_id) set.add(`${l.transaction_id}:${l.rule_id}`);
+      if (l.transaction_id && l.rule_id) {
+        const key = `${l.transaction_id}:${l.rule_id}`;
+        if (l.status === 'duplicate') dup.add(key);
+        else sent.add(key);
+      }
     });
-    return set;
+    return { contactedKeys: sent, duplicateKeys: dup };
   }, [todayLogs]);
 
   // ── Single processing pass ──
