@@ -310,6 +310,61 @@ export function BoletoAutoRecoveryToggle() {
             </div>
           )}
         </div>
+
+        {/* Recovery status bar */}
+        {enabled && recoveryStatus !== 'idle' && (
+          <div className="border-t border-border/30 px-4 py-2 flex items-center gap-2 flex-wrap">
+            {recoveryStatus === 'running' && (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                <span className="text-[11px] font-medium text-primary">Recuperação em andamento...</span>
+                {recoveryStartedAt && (
+                  <span className="text-[10px] text-muted-foreground">Iniciada {formatTimeAgo(recoveryStartedAt)}</span>
+                )}
+              </>
+            )}
+            {recoveryStatus === 'completed' && (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-[11px] font-medium text-emerald-500">Concluída</span>
+                {recoveryFinishedAt && (
+                  <span className="text-[10px] text-muted-foreground">{formatTimeAgo(recoveryFinishedAt)}</span>
+                )}
+                {recoveryStats?.boleto && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Badge variant="outline" className="text-[9px] h-4 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
+                      {recoveryStats.boleto.sent} enviada(s)
+                    </Badge>
+                    {recoveryStats.boleto.skipped > 0 && (
+                      <Badge variant="outline" className="text-[9px] h-4 text-muted-foreground">
+                        {recoveryStats.boleto.skipped} ignorada(s)
+                      </Badge>
+                    )}
+                    {recoveryStats.boleto.failed > 0 && (
+                      <Badge variant="outline" className="text-[9px] h-4 bg-destructive/10 border-destructive/30 text-destructive">
+                        {recoveryStats.boleto.failed} falha(s)
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            {recoveryStatus === 'error' && (
+              <>
+                <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                <span className="text-[11px] font-medium text-destructive">Erro na recuperação</span>
+                {recoveryError && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[200px]" title={recoveryError}>
+                    {recoveryError}
+                  </span>
+                )}
+                {recoveryFinishedAt && (
+                  <span className="text-[10px] text-muted-foreground ml-auto">{formatTimeAgo(recoveryFinishedAt)}</span>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </Card>
 
       {instanceModalOpen && settings && (
