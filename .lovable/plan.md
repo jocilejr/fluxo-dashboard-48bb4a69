@@ -1,60 +1,31 @@
 
 
-## Remover Auto Rec e integrar toggles nas abas de Transações e Recuperação
+## Adicionar ícone de configurações de throttling na recuperação de boleto
 
-### Situação atual
-- Existe uma página separada **Auto Rec.** (`/auto-recuperacao`) com abas PIX/Cartão, Abandonos, Logs e Config
-- A página **Transações** tem abas: Aprovados, Boletos Ger., PIX/Cartão Pend., Abandono/Falha
-- A página **Recuperação** já tem o `BoletoAutoRecoveryToggle`
-- As mensagens automáticas estão em `messaging_api_settings` (tabela centralizada)
-- As mensagens manuais estão em `pix_card_recovery_settings` e `abandoned_recovery_settings`
+### O que será feito
 
-### O que muda
+Adicionar um botão de engrenagem (⚙️) no card `BoletoAutoRecoveryToggle` que abre um **Popover** com configurações de ritmo de envio:
 
-#### 1. Remover a página Auto Rec.
-- Remover rota `/auto-recuperacao` do `App.tsx`
-- Remover import lazy de `AutoRecuperacao`
-- Remover item "Auto Rec." do `AppSidebar.tsx` (navItems)
-- O arquivo `AutoRecuperacao.tsx` pode ser mantido, mas fica órfão
-
-#### 2. Adicionar toggles de auto-recovery nas abas de Transações (admin only)
-Na `TransactionsTable.tsx`, quando o admin está na aba **"Boletos Ger."**, **"PIX/Cartão Pend."** ou **"Abandono/Falha"**, exibir um toggle compacto para ativar/desativar a automação correspondente:
-
-- **Boletos Ger.**: toggle `boleto_recovery_enabled` + seletor de instância `boleto_instance_name`
-- **PIX/Cartão Pend.**: toggle `pix_card_recovery_enabled` + seletor de instância `pix_card_instance_name`
-- **Abandono/Falha**: toggle `abandoned_recovery_enabled` + seletor de instância `abandoned_instance_name`
-
-Criar um componente **`AutoRecoveryToggleBar`** que:
-- Recebe `type` (boleto/pix_card/abandoned)
-- Lê `messaging_api_settings`
-- Exibe switch + instância inline
-- Salva instantaneamente via mutation
-- Visível apenas para admins (`isAdmin` prop)
-
-#### 3. Usar mensagem da transação manual para envio automático
-A automação passa a utilizar as mensagens configuradas nos modais de recuperação manual:
-- **PIX/Cartão**: lê de `pix_card_recovery_settings.message`
-- **Abandonos**: lê de `abandoned_recovery_settings.message`
-- **Boletos**: já usa a régua de cobrança (sem mudança)
-
-Atualizar a edge function `auto-recovery/index.ts`:
-- No fluxo **pix_card**: buscar mensagem de `pix_card_recovery_settings` em vez de `messaging_api_settings.auto_pix_card_message`
-- No fluxo **abandoned**: buscar mensagem de `abandoned_recovery_settings` em vez de `messaging_api_settings.auto_abandoned_message`
-
-#### 4. Recuperação de Boletos
-Já tem o `BoletoAutoRecoveryToggle` — sem mudança.
-
-#### 5. Mover Logs e Config
-As abas "Logs" e "Config" da Auto Rec. ficam acessíveis em **Configurações** ou podem ser adicionadas como sub-seção na página de Configurações (decisão a tomar). Alternativamente, manter os logs acessíveis via a página de Recuperação.
+1. **Delay entre mensagens** — campo numérico (segundos entre cada mensagem). Já existe a coluna `delay_between_messages` em `messaging_api_settings`.
+2. **Pausa em lote** — a cada X mensagens, pausar Y segundos antes de continuar. Requer **2 novas colunas** na tabela `messaging_api_settings`:
+   - `batch_size` (integer, default 10) — quantidade de mensagens antes da pausa
+   - `batch_pause_seconds` (integer, default 30) — duração da pausa em segundos
 
 ### Arquivos modificados
-- `src/App.tsx` — remover rota `/auto-recuperacao`
-- `src/components/AppSidebar.tsx` — remover item "Auto Rec."
-- `src/components/dashboard/TransactionsTable.tsx` — adicionar `AutoRecoveryToggleBar` por aba (admin only)
-- `src/components/dashboard/AutoRecoveryToggleBar.tsx` — novo componente compacto
-- `supabase/functions/auto-recovery/index.ts` — usar mensagens das tabelas manuais para pix_card e abandoned
-- Opcionalmente integrar Logs/Config na página de Configurações ou Recuperação
+
+1. **Migration SQL** — adicionar colunas `batch_size` e `batch_pause_seconds` em `messaging_api_settings`
+
+2. **`src/components/dashboard/BoletoAutoRecoveryToggle.tsx`**
+   - Adicionar ícone `Settings` (lucide) ao lado do horário, visível quando automação ativa
+   - Ao clicar, abre um `Popover` com:
+     - Input "Delay entre mensagens" (segundos) → salva em `delay_between_messages`
+     - Input "A cada X mensagens" → salva em `batch_size`
+     - Input "Pausar por Y segundos" → salva em `batch_pause_seconds`
+   - Salva instantaneamente via mutation existente
+
+3. **`supabase/functions/auto-recovery/index.ts`**
+   - No loop de envio de boletos, após enviar `batch_size` mensagens, adicionar `await sleep(batch_pause_seconds * 1000)` antes de continuar
 
 ### Resultado
-A página Auto Rec. deixa de existir. Os toggles de automação ficam diretamente nas abas de Transações (admin only), e a recuperação de boletos mantém seu toggle na página Recuperação. As mensagens automáticas passam a usar os templates configurados nos modais de recuperação manual.
+O admin controla o ritmo de envio direto no card de automação da Recuperação, evitando bloqueios por envio em massa.
 
