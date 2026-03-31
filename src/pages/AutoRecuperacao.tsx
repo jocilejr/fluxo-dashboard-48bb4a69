@@ -406,6 +406,7 @@ const AutoRecuperacao = () => {
         </CardContent>
       </Card>
 
+      {extraSettings}
       {showBoletoRules && <BoletoRecoveryRulesConfig />}
     </div>
   );
