@@ -360,6 +360,29 @@ Deno.serve(async (req) => {
             }
           }
 
+          // Also pre-load manual contacts from boleto_recovery_contacts today
+          const { data: todayManualContacts } = await supabase
+            .from('boleto_recovery_contacts')
+            .select('transaction_id')
+            .gte('contacted_at', todayBrazil.toISOString());
+
+          // Build a set of transaction_ids already contacted manually today
+          const manualContactedTxIds = new Set<string>();
+          if (todayManualContacts) {
+            for (const mc of todayManualContacts) {
+              manualContactedTxIds.add(mc.transaction_id);
+            }
+            // Map manual contacts to phone counts by looking up the boleto phone
+            for (const boleto of boletos) {
+              if (manualContactedTxIds.has(boleto.id) && boleto.customer_phone) {
+                const phone8 = boleto.customer_phone.replace(/\D/g, '').slice(-8);
+                if (phone8.length === 8) {
+                  phonesContactedTodayCount.set(phone8, (phonesContactedTodayCount.get(phone8) || 0) + 1);
+                }
+              }
+            }
+          }
+
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
 
