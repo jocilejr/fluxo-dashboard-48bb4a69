@@ -177,6 +177,23 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     },
   });
 
+  // Fetch today's sent boleto messages from message_log
+  const todayBrazilStr = format(toZonedTime(new Date(), BRAZIL_TIMEZONE), "yyyy-MM-dd");
+  const { data: todaySentMessages } = useQuery({
+    queryKey: ["boleto-sent-messages-today", todayBrazilStr],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("message_log")
+        .select("transaction_id")
+        .eq("message_type", "boleto")
+        .eq("status", "sent")
+        .gte("created_at", `${todayBrazilStr}T00:00:00-03:00`)
+        .lt("created_at", `${todayBrazilStr}T23:59:59-03:00`);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Update settings mutation
   const updateSettings = useMutation({
     mutationFn: async (expirationDays: number) => {
