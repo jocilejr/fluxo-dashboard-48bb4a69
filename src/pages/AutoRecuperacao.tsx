@@ -474,7 +474,7 @@ const AutoRecuperacao = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="pix_card" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="pix_card" className="gap-1.5">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">PIX / Cartão</span>
@@ -489,9 +489,13 @@ const AutoRecuperacao = () => {
             <FileText className="h-4 w-4" />
             Boleto
           </TabsTrigger>
+          <TabsTrigger value="logs" className="gap-1.5">
+            <ScrollText className="h-4 w-4" />
+            <span className="hidden sm:inline">Logs</span>
+          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-1.5">
             <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Configurações</span>
+            <span className="hidden sm:inline">Config</span>
             <span className="sm:hidden">⚙</span>
           </TabsTrigger>
         </TabsList>
