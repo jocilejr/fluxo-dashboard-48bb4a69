@@ -522,6 +522,11 @@ export default function Lembretes() {
                           <Phone className="h-3 w-3" />
                           {reminder.phone}
                         </span>
+                        {reminder.instance_name && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-normal">
+                            {reminder.instance_name}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <CalendarIcon className="h-3 w-3" />
