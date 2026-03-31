@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck, Wifi, Battery, Signal } from "lucide-react";
+import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck, Camera, Smile, Mic, ArrowLeft, MoreVertical, Phone, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
