@@ -64,6 +64,16 @@ Deno.serve(async (req) => {
 
     console.log('Starting auto recovery process...', { specificType, specificTransactionId, specificAbandonedEventId });
 
+    // Mark status as running
+    if (settings.id) {
+      await supabase.from('messaging_api_settings').update({
+        last_recovery_status: 'running',
+        last_recovery_started_at: new Date().toISOString(),
+        last_recovery_finished_at: null,
+        last_recovery_error: null,
+      }).eq('id', settings.id);
+    }
+
     const { data: settings, error: settingsError } = await supabase
       .from('messaging_api_settings')
       .select('*')
