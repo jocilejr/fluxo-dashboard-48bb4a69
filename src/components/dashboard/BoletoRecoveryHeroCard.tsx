@@ -62,7 +62,7 @@ export function BoletoRecoveryHeroCard({
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 <div>
                   <p className="text-xs text-muted-foreground">Contactados</p>
-                  <p className="font-semibold text-foreground">{contactedToday} / {totalToday}</p>
+                  <p className="font-semibold text-foreground">{contactedToday + duplicatesToday} / {totalToday}</p>
                 </div>
               </div>
               {duplicatesToday > 0 && (

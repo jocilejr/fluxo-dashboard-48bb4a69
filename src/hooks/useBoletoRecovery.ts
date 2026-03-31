@@ -207,7 +207,7 @@ export function useBoletoRecovery() {
   );
 
   const contactedTodayBoletos = useMemo(
-    () => todayBoletos.filter((b) => b.contactedToday),
+    () => todayBoletos.filter((b) => b.contactedToday || b.duplicateToday),
     [todayBoletos]
   );
 

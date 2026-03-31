@@ -389,13 +389,30 @@ Deno.serve(async (req) => {
         .order('priority', { ascending: true });
 
       if (rules && rules.length > 0) {
-        // 4. Load unpaid boletos with phone
-        const { data: boletos } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('type', 'boleto')
-          .in('status', ['gerado', 'pendente'])
-          .not('customer_phone', 'is', null);
+        // 4. Load unpaid boletos with phone (paginated, ordered for stable self-continuation)
+        const allBoletos: any[] = [];
+        let boletoFrom = 0;
+        const boletoPageSize = 1000;
+        let hasMoreBoletos = true;
+        while (hasMoreBoletos) {
+          const { data: boletosPage } = await supabase
+            .from('transactions')
+            .select('*')
+            .eq('type', 'boleto')
+            .in('status', ['gerado', 'pendente'])
+            .not('customer_phone', 'is', null)
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true })
+            .range(boletoFrom, boletoFrom + boletoPageSize - 1);
+          if (boletosPage && boletosPage.length > 0) {
+            allBoletos.push(...boletosPage);
+            boletoFrom += boletoPageSize;
+            hasMoreBoletos = boletosPage.length === boletoPageSize;
+          } else {
+            hasMoreBoletos = false;
+          }
+        }
+        const boletos = allBoletos;
 
         if (boletos && boletos.length > 0) {
           // 5. Pre-load today's sent boleto logs
@@ -405,9 +422,9 @@ Deno.serve(async (req) => {
 
           const { data: todayLogs } = await supabase
             .from('message_log')
-            .select('transaction_id, rule_id, phone')
+            .select('transaction_id, rule_id, phone, status')
             .eq('message_type', 'boleto')
-            .eq('status', 'sent')
+            .in('status', ['sent', 'duplicate'])
             .not('rule_id', 'is', null)
             .gte('created_at', todayIso);
 
