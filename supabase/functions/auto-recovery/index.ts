@@ -395,6 +395,7 @@ Deno.serve(async (req) => {
 
           // Normalize phone for direct API calls
           let normalizedPhone = tx.customer_phone.replace(/\D/g, '');
+          if (normalizedPhone.startsWith('0')) normalizedPhone = normalizedPhone.slice(1);
           if (!normalizedPhone.startsWith('55')) {
             normalizedPhone = '55' + normalizedPhone;
           }
