@@ -1,31 +1,39 @@
 
 
-## Usar mensagens da Auto Rec em todos os webhooks
+## Unificar Auto Rec de Boleto na página de Recuperação
 
-### Problema
-- **`webhook-receiver`** (PIX/Cartão): lê mensagem de `pix_card_recovery_settings` — tabela antiga
-- **`webhook-abandoned`** (Abandonos): lê mensagem de `abandoned_recovery_settings` — tabela antiga, e usa `evolution_api_settings` para configurações em vez de `messaging_api_settings`
-- **`auto-recovery`** (Boleto): já usa `messaging_api_settings` — correto
+### Situação atual
+- A página **Recuperação** (`/recuperacao`) tem a fila manual de boletos + régua de cobrança
+- A página **Auto Rec.** (`/auto-recuperacao`) tem uma aba "Boleto" separada com: toggle de ativação, seletor de instância, horário de envio e a mesma régua de cobrança duplicada
+- O usuário precisa navegar entre duas páginas para configurar algo que deveria estar junto
 
-As mensagens configuradas na **Auto Rec.** (`messaging_api_settings`) não são usadas pelos webhooks.
+### O que muda
 
-### Alterações
+#### 1. Página Recuperação (`src/pages/Recuperacao.tsx`)
+Adicionar no topo (acima do `BoletoRecoveryHeroCard`) um card compacto de **automação** com:
+- **Switch** para ativar/desativar `boleto_recovery_enabled` (salva direto em `messaging_api_settings`)
+- **Seletor de instância** inline (mesmo chip compacto usado na Auto Rec)
+- **Horário de envio** (input numérico `boleto_send_hour`)
+- Quando ativo, exibe indicador verde "Automação ativa — disparo diário às Xh"
+- Quando inativo, exibe texto cinza "Automação desativada"
 
-#### 1. `supabase/functions/webhook-receiver/index.ts`
-- **Remover** busca em `pix_card_recovery_settings` (linhas 381-391)
-- **Usar** `messagingSettings.auto_pix_card_message` (já carregado na linha 317-321)
-- Se campo vazio → skip com log
+Tudo salva instantaneamente em `messaging_api_settings`, sem botão de salvar separado.
 
-#### 2. `supabase/functions/webhook-abandoned/index.ts`
-- **Trocar** busca de configurações de `evolution_api_settings` → `messaging_api_settings`
-- Usar campos: `is_active`, `abandoned_recovery_enabled`, `working_hours_enabled/start/end`, `daily_limit`
-- **Trocar** busca de mensagem de `abandoned_recovery_settings` → usar `messagingSettings.auto_abandoned_message`
-- **Trocar** envio via `evolution-send-message` → `send-external-message` (mesmo padrão do webhook-receiver)
-- Usar `message_log` em vez de `evolution_message_log` para checagem de duplicatas e limites diários
+#### 2. Página Auto Rec. (`src/pages/AutoRecuperacao.tsx`)
+- **Remover** a aba "Boleto" das tabs (de 5 abas para 4)
+- Ajustar o `grid-cols` de 5 para 4
+- Remover todo o `TabsContent value="boleto"`
 
-#### 3. Nenhuma tabela antiga removida
-- `pix_card_recovery_settings` e `abandoned_recovery_settings` continuam existindo para a recuperação **manual** na tela de Transações
+#### 3. Componente novo: `BoletoAutoRecoveryToggle`
+Componente compacto (`src/components/dashboard/BoletoAutoRecoveryToggle.tsx`) que:
+- Lê `messaging_api_settings` (query `messaging-api-settings`)
+- Exibe switch + instância + horário em uma linha
+- Salva via mutation diretamente
+- Usa o `InstanceSelectorModal` existente
+
+### Nenhuma alteração no backend
+A edge function `auto-recovery` já usa `messaging_api_settings` e a régua de cobrança. Apenas a UI está sendo reorganizada.
 
 ### Resultado
-Todas as mensagens automáticas (PIX/Cartão, Abandono, Boleto) passam a usar exclusivamente as configurações e mensagens da **Auto Rec.** (`messaging_api_settings`).
+A página Recuperação passa a ser o ponto único para gerenciar boletos — tanto a fila manual quanto a automação. A Auto Rec. fica focada em PIX/Cartão e Abandonos.
 
