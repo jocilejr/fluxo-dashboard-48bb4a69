@@ -206,7 +206,7 @@ export function useBoletoRecovery() {
         contactedToday,
       };
     });
-  }, [unpaidBoletos, settings, rules, contactedKeys, defaultTemplate]);
+  }, [unpaidBoletos, settings, rules, contactedKeys]);
 
   // ── Derived lists ──
   const todayBoletos = useMemo(
