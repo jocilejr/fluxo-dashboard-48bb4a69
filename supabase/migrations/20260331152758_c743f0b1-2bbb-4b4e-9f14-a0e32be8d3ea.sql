@@ -1,0 +1,1 @@
+ALTER TABLE public.message_log ADD COLUMN IF NOT EXISTS rule_id uuid;

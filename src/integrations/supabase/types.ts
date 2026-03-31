@@ -1164,6 +1164,7 @@ export type Database = {
           message: string
           message_type: string
           phone: string
+          rule_id: string | null
           sent_at: string | null
           status: string
           transaction_id: string | null
@@ -1178,6 +1179,7 @@ export type Database = {
           message: string
           message_type: string
           phone: string
+          rule_id?: string | null
           sent_at?: string | null
           status?: string
           transaction_id?: string | null
@@ -1192,6 +1194,7 @@ export type Database = {
           message?: string
           message_type?: string
           phone?: string
+          rule_id?: string | null
           sent_at?: string | null
           status?: string
           transaction_id?: string | null
