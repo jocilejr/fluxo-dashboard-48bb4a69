@@ -280,12 +280,15 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
           }
 
           if (ruleMatches) {
-            // Check if already contacted today for this rule
-            const contactedToday = boletoContacts.some(
+            // Check if already contacted today via boleto_recovery_contacts OR message_log
+            const contactedViaContacts = boletoContacts.some(
               (c) => c.rule_id === rule.id && isTodayInBrazil(new Date(c.contacted_at))
             );
+            const contactedViaMessageLog = todaySentMessages?.some(
+              (m) => m.transaction_id === boleto.id
+            );
 
-            if (!contactedToday) {
+            if (!contactedViaContacts && !contactedViaMessageLog) {
               applicableRule = rule;
               shouldContactToday = true;
               break;
