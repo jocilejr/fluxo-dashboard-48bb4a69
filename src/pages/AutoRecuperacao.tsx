@@ -313,7 +313,7 @@ const RecoveryTabContent = ({
     </Card>
 
     {extraSettings}
-    {showBoletoRules && <BoletoRecoveryRulesConfig />}
+    
   </div>
 );
 
