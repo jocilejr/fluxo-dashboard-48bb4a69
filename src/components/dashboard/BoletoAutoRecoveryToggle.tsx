@@ -30,6 +30,7 @@ interface MessagingSettings {
 export function BoletoAutoRecoveryToggle() {
   const queryClient = useQueryClient();
   const [instanceModalOpen, setInstanceModalOpen] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["messaging-api-settings"],
