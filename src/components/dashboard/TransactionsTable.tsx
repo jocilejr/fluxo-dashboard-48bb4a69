@@ -682,199 +682,205 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                 </td>
               </tr>
             ) : (
-              filteredTransactions.slice(0, visibleCount).map((transaction, index) => (
-                <tr 
-                  key={transaction.id} 
-                  className={cn(
-                    "group hover:bg-secondary/40 transition-all duration-200 animate-fade-in",
-                    transaction.type === "boleto" && transaction.status === "gerado" && "cursor-pointer hover:bg-primary/5"
-                  )}
-                  style={{ animationDelay: `${index * 30}ms` }}
-                  onClick={() => handleBoletoClick(transaction)}
-                >
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={cn("font-medium text-xs", typeStyles[transaction.type])}>
-                        {typeLabels[transaction.type]}
-                      </Badge>
-                      {transaction.type === "boleto" && transaction.status === "gerado" && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <BoletoRecoveryIcon transaction={transaction} />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Clique para recuperação</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium truncate max-w-[200px]">
-                        {transaction.customer_name || '-'}
-                      </span>
-                      {transaction.customer_email && (
-                        <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {transaction.customer_email}
+              filteredTransactions.slice(0, visibleCount).map((transaction, index) => {
+                const displayPhone = transaction.type === "boleto" && transaction.status === "gerado"
+                  ? ((transaction as Transaction & { normalized_phone?: string | null }).normalized_phone || transaction.customer_phone)
+                  : transaction.customer_phone;
+
+                return (
+                  <tr 
+                    key={transaction.id} 
+                    className={cn(
+                      "group hover:bg-secondary/40 transition-all duration-200 animate-fade-in",
+                      transaction.type === "boleto" && transaction.status === "gerado" && "cursor-pointer hover:bg-primary/5"
+                    )}
+                    style={{ animationDelay: `${index * 30}ms` }}
+                    onClick={() => handleBoletoClick(transaction)}
+                  >
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={cn("font-medium text-xs", typeStyles[transaction.type])}>
+                          {typeLabels[transaction.type]}
+                        </Badge>
+                        {transaction.type === "boleto" && transaction.status === "gerado" && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <BoletoRecoveryIcon transaction={transaction} />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Clique para recuperação</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium truncate max-w-[200px]">
+                          {transaction.customer_name || '-'}
                         </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4 hidden xl:table-cell">
-                    <span className="text-sm text-muted-foreground">
-                      {transaction.customer_phone || '-'}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex flex-col cursor-help">
-                            {/* Para boletos pagos, mostrar data do pagamento; senão, data de criação */}
-                            {transaction.type === "boleto" && transaction.status === "pago" && transaction.paid_at ? (
-                              <>
-                                <span className="text-sm font-medium">{formatRelativeTime(transaction.paid_at)}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(transaction.paid_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-sm font-medium">{formatRelativeTime(transaction.created_at)}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(transaction.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {transaction.type === "boleto" ? (
-                            <div className="space-y-1">
-                              <p><span className="text-muted-foreground">Gerado:</span> {formatDate(transaction.created_at)}</p>
-                              {transaction.paid_at && (
-                                <p><span className="text-muted-foreground">Pago:</span> {formatDate(transaction.paid_at)}</p>
+                        {transaction.customer_email && (
+                          <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                            {transaction.customer_email}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 hidden xl:table-cell">
+                      <span className="text-sm text-muted-foreground">
+                        {displayPhone || '-'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex flex-col cursor-help">
+                              {/* Para boletos pagos, mostrar data do pagamento; senão, data de criação */}
+                              {transaction.type === "boleto" && transaction.status === "pago" && transaction.paid_at ? (
+                                <>
+                                  <span className="text-sm font-medium">{formatRelativeTime(transaction.paid_at)}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(transaction.paid_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-sm font-medium">{formatRelativeTime(transaction.created_at)}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(transaction.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </>
                               )}
                             </div>
-                          ) : (
-                            <p>{formatDate(transaction.created_at)}</p>
-                          )}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <span className="text-sm font-bold">{formatCurrency(Number(transaction.amount))}</span>
-                  </td>
-                  <td className="py-3.5 px-4 text-center">
-                    {(() => {
-                      const recoveryLog = recoveryLogs[transaction.id];
-                      return (
-                        <RecoveryStatusIndicator 
-                          status={recoveryLog?.status || null}
-                          errorMessage={recoveryLog?.error_message}
-                          sentAt={recoveryLog?.sent_at}
-                          isLoading={recoveryLogsLoading}
-                        />
-                      );
-                    })()}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                      {transaction.type === 'boleto' && transaction.metadata?.boleto_url && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(transaction.metadata!.boleto_url, '_blank');
-                                }}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Baixar boleto</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                      {(transaction.type === 'pix' || transaction.type === 'cartao') && transaction.status === 'pendente' && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span>
-                                <PixCardQuickRecovery transaction={transaction} />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Recuperação rápida</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                      {isMobile && transaction.status !== 'pago' && transaction.customer_phone && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openWhatsAppBusiness(transaction.customer_phone, transaction.customer_name, Number(transaction.amount));
-                          }}
-                        >
-                          <MessageCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <AlertDialog>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <AlertDialogTrigger asChild>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {transaction.type === "boleto" ? (
+                              <div className="space-y-1">
+                                <p><span className="text-muted-foreground">Gerado:</span> {formatDate(transaction.created_at)}</p>
+                                {transaction.paid_at && (
+                                  <p><span className="text-muted-foreground">Pago:</span> {formatDate(transaction.paid_at)}</p>
+                                )}
+                              </div>
+                            ) : (
+                              <p>{formatDate(transaction.created_at)}</p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <span className="text-sm font-bold">{formatCurrency(Number(transaction.amount))}</span>
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      {(() => {
+                        const recoveryLog = recoveryLogs[transaction.id];
+                        return (
+                          <RecoveryStatusIndicator 
+                            status={recoveryLog?.status || null}
+                            errorMessage={recoveryLog?.error_message}
+                            sentAt={recoveryLog?.sent_at}
+                            isLoading={recoveryLogsLoading}
+                          />
+                        );
+                      })()}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        {transaction.type === 'boleto' && transaction.metadata?.boleto_url && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(transaction.metadata!.boleto_url, '_blank');
+                                  }}
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Download className="h-4 w-4" />
                                 </Button>
-                              </AlertDialogTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Remover</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remover transação?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Tem certeza que deseja remover esta transação? Esta ação não pode ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(transaction.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Remover
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Baixar boleto</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {(transaction.type === 'pix' || transaction.type === 'cartao') && transaction.status === 'pendente' && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span>
+                                  <PixCardQuickRecovery transaction={transaction} />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Recuperação rápida</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {isMobile && transaction.status !== 'pago' && transaction.customer_phone && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openWhatsAppBusiness(transaction.customer_phone, transaction.customer_name, Number(transaction.amount));
+                            }}
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <AlertDialog>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Remover</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remover transação?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja remover esta transação? Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(transaction.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Remover
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
