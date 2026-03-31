@@ -341,13 +341,14 @@ Deno.serve(async (req) => {
 
         const { data: newReminder, error: insertError } = await supabase
           .from('reminders')
-          .insert({
+           .insert({
             external_id: String(externalId),
             title,
             description: description || null,
             phone,
             due_date: dueDate || new Date().toISOString(),
             completed: completed || false,
+            instance_name: instanceName,
           })
           .select('id')
           .single();
