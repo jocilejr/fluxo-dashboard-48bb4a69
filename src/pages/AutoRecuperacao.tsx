@@ -531,6 +531,9 @@ const AutoRecuperacao = () => {
             message={settings.auto_boleto_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_boleto_message: v })}
             showBoletoRules
+            apiConfigured={apiConfigured}
+            onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
+            onRemoveInstance={removeInstance}
             extraSettings={
               <Card className="border-border/40">
                 <div className="flex items-center justify-between px-4 py-3">
