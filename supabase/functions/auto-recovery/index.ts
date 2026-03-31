@@ -498,20 +498,11 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            // Calculate timing
-            const daysSinceGen = calcDaysSince(boleto.created_at);
-            const dueDate = calcDueDate(boleto.created_at);
-            const daysUntilDue = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-            // Find matching rule
-            let matchedRule: typeof rules[0] | null = null;
-            for (const rule of rules) {
-              if (rule.rule_type === 'days_after_generation' && daysSinceGen === rule.days) { matchedRule = rule; break; }
-              if (rule.rule_type === 'days_before_due' && daysUntilDue === rule.days) { matchedRule = rule; break; }
-              if (rule.rule_type === 'days_after_due' && daysUntilDue === -rule.days) { matchedRule = rule; break; }
-            }
-
-            if (!matchedRule) continue;
+            // Use already-computed values
+            const daysSinceGen = daysSinceGenEarly;
+            const dueDate = dueDateEarly;
+            const daysUntilDue = daysUntilDueEarly;
+            const matchedRule = earlyMatchedRule;
 
             // Dedup: already sent today for this transaction + rule combo
             const dedupKey = `${boleto.id}:${matchedRule.id}`;
