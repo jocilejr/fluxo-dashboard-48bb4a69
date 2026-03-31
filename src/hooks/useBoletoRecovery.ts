@@ -384,7 +384,7 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     return {
       todayCount: totalMatchingToday,
       todayValue: totalValue,
-      contactedToday,
+      contactedToday: contactedTodayCount,
       remainingToContact,
       pendingCount: pendingBoletos.length,
       overdueCount: overdueBoletos.length,
