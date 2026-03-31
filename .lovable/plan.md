@@ -1,51 +1,72 @@
 
-## Diagnóstico direto (por que parece “não implementado”)
 
-Você tem razão em cobrar: o comportamento ficou incompleto.
+## Problema
 
-Nas atualizações anteriores foram feitas duas coisas diferentes:
-1. **UI de template**: o seletor foi removido da barra errada e mantido no modal correto (`Transações > Boleto Ger. > Config`).
-2. **Envio imediato de boleto**: foi implementado no fluxo do `external-messaging-webhook`, **mas não no `webhook-receiver` principal** (que é justamente o endpoint exibido em Transações).
+Números que começam com `0` (ex: `018988110401`) ficam com DDD inválido após normalização. Solução simples: se o número começa com `0`, remove o primeiro `0`.
 
-Resultado: se o boleto entra por `webhook-receiver`, o imediato não dispara.
+## Plano
 
----
+### 1. Migração SQL — atualizar `normalize_phone`
 
-## Plano de correção (implementação)
+Alterar a função para, após remover não-dígitos, remover um `0` inicial se existir. Depois fazer backfill nas 3 tabelas.
 
-1. **Adicionar gatilho de boleto imediato no `webhook-receiver`**
-   - Arquivo: `supabase/functions/webhook-receiver/index.ts`
-   - Após criar transação nova de boleto (status gerado/pendente), disparar `auto-recovery` com:
-   - `{ type: 'boleto', transactionId: data.id }`
-   - Em background (sem bloquear resposta do webhook).
+```sql
+CREATE OR REPLACE FUNCTION public.normalize_phone(phone text)
+ RETURNS text
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path = public
+AS $function$
+DECLARE
+  digits text;
+BEGIN
+  digits := regexp_replace(phone, '[^0-9]', '', 'g');
+  -- Remove leading zero if present
+  IF left(digits, 1) = '0' THEN
+    digits := substring(digits from 2);
+  END IF;
+  RETURN digits;
+END;
+$function$;
 
-2. **Aplicar a mesma lógica no roteador `main`**
-   - Arquivo: `supabase/functions/main/index.ts` (função `handleWebhookReceiver`)
-   - Replicar o mesmo trigger para evitar diferença entre endpoints (`/webhook-receiver` e `/main/webhook-receiver`).
+-- Backfill
+UPDATE customers SET normalized_phone = normalize_phone(display_phone) WHERE display_phone IS NOT NULL;
+UPDATE transactions SET normalized_phone = normalize_phone(customer_phone) WHERE customer_phone IS NOT NULL;
+UPDATE abandoned_events SET normalized_phone = normalize_phone(customer_phone) WHERE customer_phone IS NOT NULL;
+```
 
-3. **Respeitar o toggle de Boletos Gerados no envio imediato**
-   - Arquivo: `supabase/functions/auto-recovery/index.ts`
-   - No bloco `specificType === 'boleto'`, validar `settings.boleto_recovery_enabled`.
-   - Se estiver desligado, retornar `skipped` sem enviar.
+### 2. Frontend — `src/lib/phoneNormalization.ts`
 
-4. **Manter separação dos dois fluxos (sem regressão)**
-   - **Imediato de Transações**: envia ao criar boleto.
-   - **Follow-up da Recuperação**: continua preso à hora configurada (`boleto_send_hour`) no batch diário.
-   - Não misturar os dois gatilhos.
+Em `normalizePhoneForMatching` e `generatePhoneVariations`, após `replace(/\D/g, '')`, adicionar:
+```ts
+if (digits.startsWith('0')) digits = digits.slice(1);
+```
 
-5. **Validação final**
-   - Testar criação de boleto novo pelos dois webhooks.
-   - Confirmar registro em `message_log` com `message_type = 'boleto_immediate'`.
-   - Confirmar uso do template padrão de `boleto_recovery_templates`.
-   - Confirmar que falha de envio retorna erro de envio (sem validar existência de contato no cliente).
+Remover a lógica existente nas linhas 20-23 que já tentava fazer algo parecido (mas só funcionava com `55` na frente).
 
----
+### 3. Edge functions — todos os pontos de normalização
 
-## Detalhes técnicos
+Nos arquivos que fazem `phone.replace(/\D/g, '')`, adicionar a mesma linha logo depois:
+- `webhook-receiver/index.ts` (linha 34)
+- `send-external-message/index.ts` (linha 88)
+- `webhook-abandoned/index.ts` (linha 30)
+- `auto-recovery/index.ts` (linhas 397, 726, 851, 905)
+- `delivery-access/index.ts` (linha 29)
+- `external-messaging-webhook/index.ts` (linhas 75, 119, 255, 454, 580, 624)
+- `validate-external-number/index.ts` (linha 51)
+- `sync-external-data/index.ts` (linha 121)
 
-- Arquivos-alvo:
-  - `supabase/functions/webhook-receiver/index.ts`
-  - `supabase/functions/main/index.ts`
-  - `supabase/functions/auto-recovery/index.ts`
-- Não requer mudança de schema/migração.
-- Não altera posição do template no front (continua no modal correto de Transações).
+Padrão simples em cada ponto:
+```ts
+let digits = phone.replace(/\D/g, '');
+if (digits.startsWith('0')) digits = digits.slice(1);
+```
+
+### Arquivos alterados
+
+| Arquivo | Mudança |
+|---------|---------|
+| Nova migração SQL | `normalize_phone` remove `0` inicial + backfill |
+| `src/lib/phoneNormalization.ts` | Adiciona remoção de `0` inicial nas 2 funções |
+| 8+ edge functions | Adiciona `if (startsWith('0')) slice(1)` após cada normalização |
+
