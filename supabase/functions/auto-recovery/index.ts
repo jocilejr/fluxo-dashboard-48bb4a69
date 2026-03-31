@@ -40,6 +40,45 @@ function formatMessage(template: string, data: Record<string, string>): string {
   return message;
 }
 
+async function convertPdfToImageUrl(pdfUrl: string, supabaseClient: ReturnType<typeof createClient>): Promise<string | null> {
+  try {
+    console.log('[PDF→IMG] Fetching PDF:', pdfUrl);
+    const res = await fetch(pdfUrl);
+    if (!res.ok) {
+      console.error('[PDF→IMG] Failed to fetch PDF:', res.status);
+      return null;
+    }
+    const buffer = new Uint8Array(await res.arrayBuffer());
+    console.log('[PDF→IMG] PDF size:', buffer.byteLength, 'bytes');
+
+    // Dynamic import of mupdf WASM library
+    const mupdf = await import("npm:mupdf");
+    const doc = mupdf.Document.openDocument(buffer, "application/pdf");
+    const page = doc.loadPage(0);
+    const pixmap = page.toPixmap(mupdf.Matrix.scale(2, 2), mupdf.ColorSpace.DeviceRGB, false, true);
+    const pngBytes = pixmap.asPNG();
+    console.log('[PDF→IMG] Rendered image size:', pngBytes.byteLength, 'bytes');
+
+    // Upload to Supabase Storage
+    const fileName = `boleto-images/${crypto.randomUUID()}.png`;
+    const { error: uploadError } = await supabaseClient.storage
+      .from('member-files')
+      .upload(fileName, pngBytes, { contentType: 'image/png', upsert: false });
+
+    if (uploadError) {
+      console.error('[PDF→IMG] Storage upload error:', uploadError);
+      return null;
+    }
+
+    const { data: urlData } = supabaseClient.storage.from('member-files').getPublicUrl(fileName);
+    console.log('[PDF→IMG] Success:', urlData.publicUrl);
+    return urlData.publicUrl;
+  } catch (err) {
+    console.error('[PDF→IMG] Conversion failed:', err);
+    return null;
+  }
+}
+
 // Max execution time before self-continuing (120s to stay under 150s limit)
 const MAX_EXEC_MS = 120_000;
 
