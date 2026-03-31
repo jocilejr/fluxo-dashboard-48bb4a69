@@ -253,7 +253,8 @@ Deno.serve(async (req) => {
     }
 
     // ===== BATCH: BOLETO recovery =====
-    if ((specificType === null || specificType === 'boleto') && settings.boleto_recovery_enabled) {
+    const shouldRunBoleto = forceRun || currentBrazilHour === boletoSendHour;
+    if ((specificType === null || specificType === 'boleto') && settings.boleto_recovery_enabled && shouldRunBoleto) {
       console.log('Processing boleto recovery...');
       
       const { data: boletoSettings } = await supabase
