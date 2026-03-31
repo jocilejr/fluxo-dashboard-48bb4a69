@@ -378,15 +378,10 @@ async function sendInstantPixCardRecovery(
       return;
     }
 
-    // Get recovery message template
-    const { data: recoverySettings, error: recoveryError } = await supabase
-      .from('pix_card_recovery_settings')
-      .select('message')
-      .limit(1)
-      .maybeSingle();
-
-    if (recoveryError || !recoverySettings?.message) {
-      console.log('[InstantRecovery] No recovery message configured');
+    // Use Auto Rec message from messaging_api_settings
+    const recoveryMessage = messagingSettings.auto_pix_card_message;
+    if (!recoveryMessage || recoveryMessage.trim() === '') {
+      console.log('[InstantRecovery] No auto_pix_card_message configured in Auto Rec');
       return;
     }
 
