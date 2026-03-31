@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction } from "./useTransactions";
 import { useMemo, useEffect, useState } from "react";
-import { addDays, differenceInDays, isBefore, startOfDay, isSameDay } from "date-fns";
+import { addDays, differenceInDays, isBefore, startOfDay, isSameDay, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { getGreeting } from "@/lib/greeting";
 
@@ -84,6 +84,7 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
         { event: '*', schema: 'public', table: 'message_log' },
         () => {
           queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+          queryClient.invalidateQueries({ queryKey: ["boleto-sent-messages-today"] });
           queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
         }
       )
@@ -177,6 +178,23 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     },
   });
 
+  // Fetch today's sent boleto messages from message_log
+  const todayBrazilStr = format(toZonedTime(new Date(), BRAZIL_TIMEZONE), "yyyy-MM-dd");
+  const { data: todaySentMessages } = useQuery({
+    queryKey: ["boleto-sent-messages-today", todayBrazilStr],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("message_log")
+        .select("transaction_id")
+        .eq("message_type", "boleto")
+        .eq("status", "sent")
+        .gte("created_at", `${todayBrazilStr}T00:00:00-03:00`)
+        .lt("created_at", `${todayBrazilStr}T23:59:59-03:00`);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Update settings mutation
   const updateSettings = useMutation({
     mutationFn: async (expirationDays: number) => {
@@ -263,12 +281,15 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
           }
 
           if (ruleMatches) {
-            // Check if already contacted today for this rule
-            const contactedToday = boletoContacts.some(
+            // Check if already contacted today via boleto_recovery_contacts OR message_log
+            const contactedViaContacts = boletoContacts.some(
               (c) => c.rule_id === rule.id && isTodayInBrazil(new Date(c.contacted_at))
             );
+            const contactedViaMessageLog = todaySentMessages?.some(
+              (m) => m.transaction_id === boleto.id
+            );
 
-            if (!contactedToday) {
+            if (!contactedViaContacts && !contactedViaMessageLog) {
               applicableRule = rule;
               shouldContactToday = true;
               break;
@@ -295,7 +316,7 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
         shouldContactToday,
       };
     });
-  }, [transactions, settings, rules, contacts]);
+  }, [transactions, settings, rules, contacts, todaySentMessages]);
 
   // Filter boletos that match any rule today (for total count including contacted)
   const boletosMatchingRulesToday = useMemo(() => {
@@ -351,10 +372,12 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     const totalMatchingToday = boletosMatchingRulesToday.length;
     const totalValue = boletosMatchingRulesToday.reduce((sum, b) => sum + Number(b.amount), 0);
     
-    // Already contacted today
-    const contactedToday = boletosMatchingRulesToday.filter((b) => 
-      b.contacts.some((c) => isTodayInBrazil(new Date(c.contacted_at)))
-    ).length;
+    // Already contacted today (via boleto_recovery_contacts OR message_log)
+    const contactedTodayCount = boletosMatchingRulesToday.filter((b) => {
+      const viaContacts = b.contacts.some((c) => isTodayInBrazil(new Date(c.contacted_at)));
+      const viaMessageLog = todaySentMessages?.some((m) => m.transaction_id === b.id);
+      return viaContacts || viaMessageLog;
+    }).length;
     
     // Remaining to contact
     const remainingToContact = todayBoletos.length;
@@ -362,13 +385,13 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     return {
       todayCount: totalMatchingToday,
       todayValue: totalValue,
-      contactedToday,
+      contactedToday: contactedTodayCount,
       remainingToContact,
       pendingCount: pendingBoletos.length,
       overdueCount: overdueBoletos.length,
       totalCount: processedBoletos.length,
     };
-  }, [boletosMatchingRulesToday, todayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
+  }, [boletosMatchingRulesToday, todayBoletos, pendingBoletos, overdueBoletos, processedBoletos, todaySentMessages]);
 
   return {
     settings,
