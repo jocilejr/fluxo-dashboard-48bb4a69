@@ -75,38 +75,36 @@ async function sendInstantAbandonedRecovery(
   try {
     console.log('[InstantRecovery] Checking if should send abandoned recovery...');
     
-    // Check if phone exists
     if (!event.customer_phone) {
       console.log('[InstantRecovery] No customer phone, skipping');
       return;
     }
 
-    // Get Evolution settings
-    const { data: evolutionSettings, error: settingsError } = await supabase
-      .from('evolution_api_settings')
+    // Get messaging API settings (Auto Rec)
+    const { data: messagingSettings, error: settingsError } = await supabase
+      .from('messaging_api_settings')
       .select('*')
       .limit(1)
       .maybeSingle();
 
-    if (settingsError || !evolutionSettings) {
-      console.log('[InstantRecovery] No Evolution settings found');
+    if (settingsError || !messagingSettings) {
+      console.log('[InstantRecovery] No messaging settings found');
       return;
     }
 
-    // Check if active and abandoned recovery is enabled
-    if (!evolutionSettings.is_active) {
-      console.log('[InstantRecovery] Evolution API not active');
+    if (!messagingSettings.is_active) {
+      console.log('[InstantRecovery] Messaging API not active');
       return;
     }
 
-    if (!evolutionSettings.abandoned_recovery_enabled) {
+    if (!messagingSettings.abandoned_recovery_enabled) {
       console.log('[InstantRecovery] Abandoned recovery not enabled');
       return;
     }
 
     // Check working hours only if enabled
-    if (evolutionSettings.working_hours_enabled) {
-      if (!isWithinWorkingHours(evolutionSettings.working_hours_start, evolutionSettings.working_hours_end)) {
+    if (messagingSettings.working_hours_enabled) {
+      if (!isWithinWorkingHours(messagingSettings.working_hours_start, messagingSettings.working_hours_end)) {
         console.log('[InstantRecovery] Outside working hours');
         return;
       }
@@ -117,7 +115,7 @@ async function sendInstantAbandonedRecovery(
     todayStart.setHours(0, 0, 0, 0);
     
     const { data: todayMessages, error: countError } = await supabase
-      .from('evolution_message_log')
+      .from('message_log')
       .select('id')
       .gte('created_at', todayStart.toISOString())
       .eq('status', 'sent');
@@ -128,14 +126,14 @@ async function sendInstantAbandonedRecovery(
     }
 
     const sentToday = todayMessages?.length || 0;
-    if (sentToday >= evolutionSettings.daily_limit) {
-      console.log(`[InstantRecovery] Daily limit reached (${sentToday}/${evolutionSettings.daily_limit})`);
+    if (sentToday >= messagingSettings.daily_limit) {
+      console.log(`[InstantRecovery] Daily limit reached (${sentToday}/${messagingSettings.daily_limit})`);
       return;
     }
 
     // Check if already sent for this event
     const { data: existingLog } = await supabase
-      .from('evolution_message_log')
+      .from('message_log')
       .select('id')
       .eq('abandoned_event_id', event.id)
       .eq('message_type', 'abandoned')
@@ -147,15 +145,10 @@ async function sendInstantAbandonedRecovery(
       return;
     }
 
-    // Get recovery message template
-    const { data: recoverySettings, error: recoveryError } = await supabase
-      .from('abandoned_recovery_settings')
-      .select('message')
-      .limit(1)
-      .maybeSingle();
-
-    if (recoveryError || !recoverySettings?.message) {
-      console.log('[InstantRecovery] No recovery message configured');
+    // Use Auto Rec message
+    const recoveryMessage = messagingSettings.auto_abandoned_message;
+    if (!recoveryMessage || recoveryMessage.trim() === '') {
+      console.log('[InstantRecovery] No auto_abandoned_message configured in Auto Rec');
       return;
     }
 
@@ -165,7 +158,7 @@ async function sendInstantAbandonedRecovery(
       ? `R$ ${Number(event.amount).toFixed(2).replace('.', ',')}` 
       : 'R$ 0,00';
     
-    const message = formatMessage(recoverySettings.message, {
+    const message = formatMessage(recoveryMessage, {
       nome: event.customer_name || 'Cliente',
       primeiro_nome: firstName,
       valor: formattedValue,
@@ -175,22 +168,31 @@ async function sendInstantAbandonedRecovery(
 
     console.log(`[InstantRecovery] Sending abandoned recovery message to ${event.customer_phone}`);
 
-    // Send via evolution-send-message
-    const { data: sendResult, error: sendError } = await supabase.functions.invoke('evolution-send-message', {
-      body: {
+    // Send via send-external-message (same pattern as webhook-receiver)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
         phone: event.customer_phone,
         message: message,
         messageType: 'abandoned',
         abandonedEventId: event.id,
-      },
+      }),
     });
 
-    if (sendError) {
-      console.error('[InstantRecovery] Error sending message:', sendError);
-      return;
-    }
+    const sendResult = await response.json();
 
-    console.log('[InstantRecovery] Abandoned recovery message sent successfully!', sendResult);
+    if (sendResult.success) {
+      console.log('[InstantRecovery] Abandoned recovery message sent successfully!', sendResult);
+    } else {
+      console.error('[InstantRecovery] Error sending message:', sendResult);
+    }
   } catch (error) {
     console.error('[InstantRecovery] Unexpected error:', error);
   }
@@ -199,7 +201,6 @@ async function sendInstantAbandonedRecovery(
 // ========== MAIN HANDLER ==========
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -259,7 +260,6 @@ Deno.serve(async (req) => {
     // ===== INSTANT RECOVERY FOR ABANDONED =====
     console.log('[webhook-abandoned] Triggering instant abandoned recovery...');
     
-    // Run recovery in background (don't await to not delay webhook response)
     sendInstantAbandonedRecovery(supabase, {
       id: data.id,
       customer_name: payload.customer_name,
