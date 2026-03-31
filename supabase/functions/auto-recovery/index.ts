@@ -463,6 +463,12 @@ Deno.serve(async (req) => {
               }
             }
 
+            // Check pause/stop before sending
+            if (!isSingleItem) {
+              const cs = await checkControlStatus();
+              if (cs === 'stopped') { userStopped = true; break; }
+            }
+
             // Send with ruleId
             const sent = await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined, matchedRule.id);
 
