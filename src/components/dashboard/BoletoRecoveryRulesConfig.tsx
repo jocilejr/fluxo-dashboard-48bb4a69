@@ -9,9 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, Loader2, GripVertical, Calendar, MessageSquare, Settings } from "lucide-react";
+import { Plus, Trash2, Loader2, GripVertical, Calendar, MessageSquare, Settings, FileText, Image } from "lucide-react";
+
+interface MediaBlock {
+  type: "pdf" | "image";
+  enabled: boolean;
+}
 
 interface RecoveryRule {
   id: string;
@@ -21,6 +25,7 @@ interface RecoveryRule {
   message: string;
   is_active: boolean;
   priority: number;
+  media_blocks: MediaBlock[];
 }
 
 interface BoletoSettings {
@@ -44,13 +49,32 @@ const VARIABLE_HINTS = [
   { var: "{codigo_barras}", desc: "Código de barras" },
 ];
 
+const DEFAULT_MEDIA_BLOCKS: MediaBlock[] = [
+  { type: "pdf", enabled: false },
+  { type: "image", enabled: false },
+];
+
+function getMediaBlocks(rule: Partial<RecoveryRule>): MediaBlock[] {
+  if (!rule.media_blocks || !Array.isArray(rule.media_blocks) || rule.media_blocks.length === 0) {
+    return [...DEFAULT_MEDIA_BLOCKS];
+  }
+  return rule.media_blocks;
+}
+
+function isMediaEnabled(blocks: MediaBlock[], type: "pdf" | "image"): boolean {
+  return blocks.find((b) => b.type === type)?.enabled ?? false;
+}
+
+function toggleMedia(blocks: MediaBlock[], type: "pdf" | "image"): MediaBlock[] {
+  return blocks.map((b) => (b.type === type ? { ...b, enabled: !b.enabled } : b));
+}
+
 export function BoletoRecoveryRulesConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingRule, setEditingRule] = useState<Partial<RecoveryRule> | null>(null);
   const [expirationDays, setExpirationDays] = useState("");
 
-  // Fetch settings
   const { data: settings, isLoading: loadingSettings } = useQuery({
     queryKey: ["boleto-settings"],
     queryFn: async () => {
@@ -64,7 +88,6 @@ export function BoletoRecoveryRulesConfig() {
     },
   });
 
-  // Fetch rules
   const { data: rules, isLoading: loadingRules } = useQuery({
     queryKey: ["boleto-recovery-rules-all"],
     queryFn: async () => {
@@ -73,11 +96,13 @@ export function BoletoRecoveryRulesConfig() {
         .select("*")
         .order("priority", { ascending: true });
       if (error) throw error;
-      return data as RecoveryRule[];
+      return (data as unknown as RecoveryRule[]).map((r) => ({
+        ...r,
+        media_blocks: getMediaBlocks(r),
+      }));
     },
   });
 
-  // Update settings
   const updateSettings = useMutation({
     mutationFn: async (days: number) => {
       if (!settings?.id) {
@@ -97,9 +122,10 @@ export function BoletoRecoveryRulesConfig() {
     },
   });
 
-  // Create/Update rule
   const saveRule = useMutation({
     mutationFn: async (rule: Partial<RecoveryRule>) => {
+      const blocks = getMediaBlocks(rule);
+      const mediaBlocksJson = JSON.parse(JSON.stringify(blocks));
       if (rule.id) {
         const { error } = await supabase
           .from("boleto_recovery_rules")
@@ -109,6 +135,7 @@ export function BoletoRecoveryRulesConfig() {
             days: rule.days,
             message: rule.message,
             is_active: rule.is_active,
+            media_blocks: mediaBlocksJson,
           })
           .eq("id", rule.id);
         if (error) throw error;
@@ -121,6 +148,7 @@ export function BoletoRecoveryRulesConfig() {
           message: rule.message,
           is_active: rule.is_active ?? true,
           priority: maxPriority + 1,
+          media_blocks: mediaBlocksJson,
         });
         if (error) throw error;
       }
@@ -136,7 +164,6 @@ export function BoletoRecoveryRulesConfig() {
     },
   });
 
-  // Toggle rule active
   const toggleRule = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       const { error } = await supabase.from("boleto_recovery_rules").update({ is_active }).eq("id", id);
@@ -148,7 +175,6 @@ export function BoletoRecoveryRulesConfig() {
     },
   });
 
-  // Delete rule
   const deleteRule = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("boleto_recovery_rules").delete().eq("id", id);
@@ -171,6 +197,7 @@ export function BoletoRecoveryRulesConfig() {
       days: 1,
       message: "{saudação}, {primeiro_nome}! ",
       is_active: true,
+      media_blocks: [...DEFAULT_MEDIA_BLOCKS],
     });
   };
 
@@ -303,6 +330,39 @@ export function BoletoRecoveryRulesConfig() {
                     rows={3}
                   />
                 </div>
+
+                {/* Media blocks toggles */}
+                <div className="space-y-2">
+                  <Label className="text-sm">Anexos de mídia</Label>
+                  <p className="text-xs text-muted-foreground">Escolha quais arquivos enviar junto com a mensagem (quando disponíveis no boleto)</p>
+                  <div className="flex flex-wrap gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditingRule({ ...editingRule, media_blocks: toggleMedia(getMediaBlocks(editingRule), "pdf") })}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                        isMediaEnabled(getMediaBlocks(editingRule), "pdf")
+                          ? "border-amber-500/50 bg-amber-500/10 text-amber-400"
+                          : "border-border/50 bg-secondary/20 text-muted-foreground"
+                      }`}
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span className="text-sm font-medium">PDF do boleto</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingRule({ ...editingRule, media_blocks: toggleMedia(getMediaBlocks(editingRule), "image") })}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                        isMediaEnabled(getMediaBlocks(editingRule), "image")
+                          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                          : "border-border/50 bg-secondary/20 text-muted-foreground"
+                      }`}
+                    >
+                      <Image className="h-4 w-4" />
+                      <span className="text-sm font-medium">Imagem do boleto</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" onClick={() => setEditingRule(null)}>
                     Cancelar
@@ -327,49 +387,70 @@ export function BoletoRecoveryRulesConfig() {
           {/* Rules List */}
           <div className="space-y-2">
             {rules && rules.length > 0 ? (
-              rules.map((rule) => (
-                <div
-                  key={rule.id}
-                  className={`flex items-center gap-2 sm:gap-3 p-3 border rounded-lg transition-opacity ${
-                    !rule.is_active ? "opacity-50" : ""
-                  }`}
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab hidden sm:block shrink-0" />
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium truncate">{rule.name}</span>
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {rule.rule_type === 'immediate' 
-                          ? 'Imediatamente' 
-                          : `${rule.days} ${RULE_TYPE_LABELS[rule.rule_type]?.split(" ").slice(1).join(" ")}`}
-                      </Badge>
+              rules.map((rule) => {
+                const hasPdf = isMediaEnabled(rule.media_blocks, "pdf");
+                const hasImage = isMediaEnabled(rule.media_blocks, "image");
+                return (
+                  <div
+                    key={rule.id}
+                    className={`flex items-center gap-2 sm:gap-3 p-3 border rounded-lg transition-opacity ${
+                      !rule.is_active ? "opacity-50" : ""
+                    }`}
+                  >
+                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab hidden sm:block shrink-0" />
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">{rule.name}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {rule.rule_type === 'immediate'
+                            ? 'Imediatamente'
+                            : `${rule.days} ${RULE_TYPE_LABELS[rule.rule_type]?.split(" ").slice(1).join(" ")}`}
+                        </Badge>
+                        {/* Media badges */}
+                        <Badge variant="secondary" className="text-[10px] shrink-0 gap-1">
+                          <MessageSquare className="h-2.5 w-2.5" />
+                          TXT
+                        </Badge>
+                        {hasPdf && (
+                          <Badge className="text-[10px] shrink-0 gap-1 bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30">
+                            <FileText className="h-2.5 w-2.5" />
+                            PDF
+                          </Badge>
+                        )}
+                        {hasImage && (
+                          <Badge className="text-[10px] shrink-0 gap-1 bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30">
+                            <Image className="h-2.5 w-2.5" />
+                            IMG
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-1">{rule.message}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate mt-1">{rule.message}</p>
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                      <Switch
+                        checked={rule.is_active}
+                        onCheckedChange={(checked) => toggleRule.mutate({ id: rule.id, is_active: checked })}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setEditingRule(rule)}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hidden sm:flex"
+                        onClick={() => deleteRule.mutate(rule.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                    <Switch
-                      checked={rule.is_active}
-                      onCheckedChange={(checked) => toggleRule.mutate({ id: rule.id, is_active: checked })}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setEditingRule(rule)}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 hidden sm:flex"
-                      onClick={() => deleteRule.mutate(rule.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">
                 Nenhuma regra configurada

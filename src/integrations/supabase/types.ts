@@ -155,6 +155,7 @@ export type Database = {
           days: number
           id: string
           is_active: boolean
+          media_blocks: Json
           message: string
           name: string
           priority: number
@@ -166,6 +167,7 @@ export type Database = {
           days: number
           id?: string
           is_active?: boolean
+          media_blocks?: Json
           message: string
           name: string
           priority?: number
@@ -177,6 +179,7 @@ export type Database = {
           days?: number
           id?: string
           is_active?: boolean
+          media_blocks?: Json
           message?: string
           name?: string
           priority?: number
@@ -1221,7 +1224,6 @@ export type Database = {
           boleto_instance_name: string | null
           boleto_recovery_enabled: boolean
           boleto_send_hour: number
-          boleto_send_pdf: boolean
           created_at: string
           cron_enabled: boolean
           cron_interval_minutes: number
@@ -1248,7 +1250,6 @@ export type Database = {
           boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
           boleto_send_hour?: number
-          boleto_send_pdf?: boolean
           created_at?: string
           cron_enabled?: boolean
           cron_interval_minutes?: number
@@ -1275,7 +1276,6 @@ export type Database = {
           boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
           boleto_send_hour?: number
-          boleto_send_pdf?: boolean
           created_at?: string
           cron_enabled?: boolean
           cron_interval_minutes?: number
