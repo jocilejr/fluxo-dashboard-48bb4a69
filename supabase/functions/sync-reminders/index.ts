@@ -124,6 +124,7 @@ Deno.serve(async (req) => {
             due_date: new Date(dueDate).toISOString(),
             completed: reminder.completed ?? false,
             external_id: externalId || undefined,
+            instance_name: instanceName || undefined,
           })
           .eq("id", existing.id);
         skipped++;
@@ -137,6 +138,7 @@ Deno.serve(async (req) => {
             due_date: new Date(dueDate).toISOString(),
             completed: reminder.completed ?? false,
             external_id: externalId || null,
+            instance_name: instanceName,
           });
 
         if (error) {
