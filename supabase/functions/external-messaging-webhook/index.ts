@@ -254,7 +254,8 @@ Deno.serve(async (req) => {
     if (event === 'sync_abandoned_event') {
       const { customer_name, customer_email, customer_phone, product_name, amount, event_type: evtType, metadata } = payload;
 
-      const normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
+      let normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
+      if (normPhone?.startsWith('0')) normPhone = normPhone.slice(1);
 
       const { data: newEvent, error: insertError } = await supabase
         .from('abandoned_events')
