@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Circle, X, Clock, Zap, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Circle, X, Clock, Zap, Settings, Play, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ interface MessagingSettings {
 export function BoletoAutoRecoveryToggle() {
   const queryClient = useQueryClient();
   const [instanceModalOpen, setInstanceModalOpen] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["messaging-api-settings"],
@@ -65,6 +67,26 @@ export function BoletoAutoRecoveryToggle() {
   const batchSize = settings?.batch_size ?? 10;
   const batchPause = settings?.batch_pause_seconds ?? 30;
   const maxPerPersonPerDay = settings?.max_messages_per_person_per_day ?? 1;
+
+  const handleManualRun = async () => {
+    setIsRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("auto-recovery", {
+        body: { forceRun: true, type: "boleto" },
+      });
+      if (error) throw error;
+      const sent = data?.stats?.boleto?.sent ?? 0;
+      const skipped = data?.stats?.boleto?.skipped ?? 0;
+      toast.success(`Recuperação concluída: ${sent} enviada(s), ${skipped} ignorada(s)`);
+      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error("Erro ao executar recuperação manual");
+    } finally {
+      setIsRunning(false);
+    }
+  };
 
   if (isLoading) return null;
 
@@ -237,6 +259,26 @@ export function BoletoAutoRecoveryToggle() {
                     <p className="text-[10px] text-muted-foreground">
                       Após enviar {batchSize} msgs, aguarda {batchPause}s. Máx. {maxPerPersonPerDay} msg(s)/pessoa/dia.
                     </p>
+
+                    <div className="pt-2 border-t border-border/40">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full gap-2 text-xs"
+                        disabled={isRunning || !apiConfigured}
+                        onClick={handleManualRun}
+                      >
+                        {isRunning ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5" />
+                        )}
+                        {isRunning ? "Enviando..." : "Iniciar recuperação agora"}
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
+                        Dispara a régua de cobrança imediatamente
+                      </p>
+                    </div>
                   </div>
                 </PopoverContent>
               </Popover>
