@@ -46,6 +46,7 @@ export default function Lembretes() {
   const [filter, setFilter] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedReminder, setSelectedReminder] = useState<any>(null);
   const [newReminder, setNewReminder] = useState({
     phone: "",
     title: "",
