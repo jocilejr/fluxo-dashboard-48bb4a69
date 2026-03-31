@@ -528,7 +528,7 @@ const AutoRecuperacao = () => {
             badgeLabel="Tempo Real"
             badgeIcon={Radio}
             enabled={settings.abandoned_recovery_enabled}
-            onToggle={(v) => setSettings({ ...settings, abandoned_recovery_enabled: v })}
+            onToggle={(v) => { const updated = { ...settings, abandoned_recovery_enabled: v }; setSettings(updated); saveMutation.mutate(updated); }}
             instanceName={settings.abandoned_instance_name}
             message={settings.auto_abandoned_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_abandoned_message: v })}
