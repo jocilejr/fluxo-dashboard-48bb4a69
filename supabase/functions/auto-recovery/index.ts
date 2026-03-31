@@ -399,11 +399,7 @@ Deno.serve(async (req) => {
           let userStopped = false;
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
-            // Check stop signal
-            if (!isSingleItem) {
-              const cs = await checkControlStatus();
-              if (cs === 'stopped') { userStopped = true; break; }
-            }
+            if (userStopped) break;
 
             // Dedup moved below after rule match
 
