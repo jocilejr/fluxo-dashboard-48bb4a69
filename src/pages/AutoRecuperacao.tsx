@@ -251,6 +251,7 @@ const AutoRecuperacao = () => {
         auto_pix_card_message: newSettings.auto_pix_card_message,
         auto_abandoned_message: newSettings.auto_abandoned_message,
         auto_boleto_message: newSettings.auto_boleto_message,
+        boleto_send_hour: newSettings.boleto_send_hour,
       };
 
       if (newSettings.id) {
