@@ -157,6 +157,25 @@ Deno.serve(async (req) => {
       boleto: settings.auto_boleto_message || '{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!',
     };
 
+    // === Pause / Stop control ===
+    // Returns 'running' | 'paused' | 'stopped'
+    // If paused, polls every 3s until resumed or stopped
+    async function checkControlStatus(): Promise<'running' | 'stopped'> {
+      while (true) {
+        const { data: current } = await supabase
+          .from('messaging_api_settings')
+          .select('last_recovery_status')
+          .eq('id', settings.id)
+          .single();
+        const status = current?.last_recovery_status;
+        if (status === 'stopped') return 'stopped';
+        if (status !== 'paused') return 'running';
+        // paused — wait 3s then check again
+        console.log('[auto-recovery] Paused, waiting...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+
     async function sendMessage(
       phone: string,
       message: string,
@@ -167,6 +186,15 @@ Deno.serve(async (req) => {
       ruleId?: string
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
+
+      // Check pause/stop before each message (skip for single-item sends)
+      if (!isSingleItem) {
+        const controlStatus = await checkControlStatus();
+        if (controlStatus === 'stopped') {
+          console.log('[auto-recovery] Stopped by user');
+          return false;
+        }
+      }
 
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
@@ -372,8 +400,14 @@ Deno.serve(async (req) => {
           }
 
           // 5. Process each boleto
+          let userStopped = false;
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
+            // Check stop signal
+            if (!isSingleItem) {
+              const cs = await checkControlStatus();
+              if (cs === 'stopped') { userStopped = true; break; }
+            }
 
             // Dedup moved below after rule match
 
@@ -470,6 +504,7 @@ Deno.serve(async (req) => {
         const pixCardPhonesContacted = new Set<string>();
         for (const tx of transactions) {
           if (messagesSent >= remainingLimit && !forceRun) break;
+          if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
           // Deduplicate: max 1 pix/card message per person per day
           const txPhoneNorm = tx.customer_phone!.replace(/\D/g, '');
@@ -524,6 +559,7 @@ Deno.serve(async (req) => {
         const abandonedPhonesContacted = new Set<string>();
         for (const event of events) {
           if (messagesSent >= remainingLimit && !forceRun) break;
+          if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
           // Deduplicate: max 1 abandoned message per person per day
           const evPhoneNorm = event.customer_phone!.replace(/\D/g, '');
@@ -561,14 +597,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log('Auto recovery completed:', stats);
+    // Check if user stopped mid-process
+    const { data: finalCheck } = await supabase
+      .from('messaging_api_settings')
+      .select('last_recovery_status')
+      .eq('id', settings.id)
+      .single();
+    const wasStopped = finalCheck?.last_recovery_status === 'stopped';
 
-    // Mark status as completed
+    console.log('Auto recovery completed:', stats, wasStopped ? '(stopped by user)' : '');
+
+    // Mark status as completed or stopped
     await supabase.from('messaging_api_settings').update({
-      last_recovery_status: 'completed',
+      last_recovery_status: wasStopped ? 'stopped' : 'completed',
       last_recovery_finished_at: new Date().toISOString(),
       last_recovery_stats: stats,
-      last_recovery_error: null,
+      last_recovery_error: wasStopped ? 'Parado pelo usuário' : null,
     }).eq('id', settings.id);
 
     return new Response(
