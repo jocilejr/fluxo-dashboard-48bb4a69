@@ -450,8 +450,17 @@ Deno.serve(async (req) => {
         .not('customer_phone', 'is', null);
 
       if (transactions) {
+        const pixCardPhonesContacted = new Set<string>();
         for (const tx of transactions) {
           if (messagesSent >= remainingLimit && !forceRun) break;
+
+          // Deduplicate: max 1 pix/card message per person per day
+          const txPhoneNorm = tx.customer_phone!.replace(/\D/g, '');
+          const txPhone8 = txPhoneNorm.slice(-8);
+          if (txPhone8.length === 8 && pixCardPhonesContacted.has(txPhone8)) {
+            stats.pix_card.skipped++;
+            continue;
+          }
 
           const { count: alreadyContacted } = await supabase
             .from('message_log')
@@ -476,6 +485,7 @@ Deno.serve(async (req) => {
           });
 
           await sendMessage(tx.customer_phone!, message, 'pix_card', tx.id);
+          if (txPhone8.length === 8) pixCardPhonesContacted.add(txPhone8);
         }
       }
     }
