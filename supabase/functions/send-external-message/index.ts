@@ -208,6 +208,17 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Infer phone validation from send result
+    try {
+      await supabase.from('phone_validations').upsert({
+        normalized_phone: normalizedPhone,
+        exists_on_whatsapp: sendResponse.ok,
+        validated_at: new Date().toISOString(),
+      }, { onConflict: 'normalized_phone' });
+    } catch (pvErr) {
+      console.error('Error upserting phone_validations:', pvErr);
+    }
+
     if (logEntryId) {
       const attemptedAt = new Date().toISOString();
       const externalMessageId = sendData.id == null ? null : String(sendData.id);
