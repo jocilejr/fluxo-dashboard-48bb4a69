@@ -474,6 +474,7 @@ function BoletoDetailDialog({ boleto, onClose, onMarkContacted }: BoletoDetailDi
       toast({ title: "Deletado", description: "Boleto removido do sistema" });
       
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
       await queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
       
       setDeleteDialogOpen(false);
