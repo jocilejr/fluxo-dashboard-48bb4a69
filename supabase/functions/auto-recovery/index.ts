@@ -375,11 +375,7 @@ Deno.serve(async (req) => {
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
 
-            // Dedup: already sent today for this transaction
-            if (sentTodayTxIds.has(boleto.id)) {
-              stats.boleto.skipped++;
-              continue;
-            }
+            // Dedup moved below after rule match
 
             // Dedup: phone daily limit
             const phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
