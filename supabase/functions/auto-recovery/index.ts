@@ -441,8 +441,10 @@ Deno.serve(async (req) => {
 
                 await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
 
-                // Mark this phone as contacted today
-                if (boletophone8.length === 8) phonesContactedToday.add(boletophone8);
+                // Increment contact count for this phone today
+                if (boletophone8.length === 8) {
+                  phonesContactedTodayCount.set(boletophone8, (phonesContactedTodayCount.get(boletophone8) || 0) + 1);
+                }
 
                 await supabase.from('boleto_recovery_contacts').insert({
                   transaction_id: boleto.id,
