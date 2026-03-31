@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface RecoveryStats {
-  boleto: { sent: number; failed: number; skipped: number };
+  boleto: { sent: number; failed: number; skipped: number; duplicates: number };
   pix_card: { sent: number; failed: number; skipped: number };
   abandoned: { sent: number; failed: number; skipped: number };
 }
