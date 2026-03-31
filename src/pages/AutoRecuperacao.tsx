@@ -37,6 +37,7 @@ interface MessagingSettings {
   auto_pix_card_message: string;
   auto_abandoned_message: string;
   auto_boleto_message: string;
+  boleto_send_hour: number;
 }
 
 const defaultSettings: MessagingSettings = {
