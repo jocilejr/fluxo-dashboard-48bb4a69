@@ -396,41 +396,8 @@ async function sendInstantPixCardRecovery(
       saudação: getGreeting(),
     });
 
-    // Validate phone number before sending
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-    console.log(`[InstantRecovery] Validating phone number: ${transaction.customer_phone}`);
-    try {
-      const validateResponse = await fetch(`${supabaseUrl}/functions/v1/validate-external-number`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseServiceKey}`
-        },
-        body: JSON.stringify({ phone: transaction.customer_phone }),
-      });
-      const validateResult = await validateResponse.json();
-      
-      if (validateResult.exists === false) {
-        console.log(`[InstantRecovery] Phone ${transaction.customer_phone} is INVALID, skipping recovery`);
-        // Log as failed with clear error
-        await supabase
-          .from('message_log')
-          .insert({
-            phone: transaction.customer_phone?.replace(/\D/g, '') || '',
-            message: message,
-            message_type: 'pix_card',
-            transaction_id: transaction.id,
-            status: 'failed',
-            error_message: 'Número inválido - não existe no WhatsApp',
-            sent_at: new Date().toISOString(),
-          });
-        return;
-      }
-    } catch (valErr) {
-      console.error('[InstantRecovery] Phone validation error (proceeding with send):', valErr);
-    }
 
     console.log(`[InstantRecovery] Sending recovery message to ${transaction.customer_phone}`);
     

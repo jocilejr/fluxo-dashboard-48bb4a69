@@ -167,39 +167,6 @@ Deno.serve(async (req) => {
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
 
-      // Validate phone number before sending
-      try {
-        const validateResponse = await fetch(`${supabaseUrl}/functions/v1/validate-external-number`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseServiceKey}`
-          },
-          body: JSON.stringify({ phone }),
-        });
-        const validateResult = await validateResponse.json();
-        
-        if (validateResult.exists === false) {
-          console.log(`[auto-recovery] Phone ${phone} is INVALID, skipping`);
-          await supabase
-            .from('message_log')
-            .insert({
-              phone: phone.replace(/\D/g, ''),
-              message,
-              message_type: type,
-              transaction_id: transactionId || null,
-              abandoned_event_id: abandonedEventId || null,
-              status: 'failed',
-              error_message: 'Número inválido - não existe no WhatsApp',
-              sent_at: new Date().toISOString(),
-            });
-          stats[type].failed++;
-          return false;
-        }
-      } catch (valErr) {
-        console.error('[auto-recovery] Phone validation error (proceeding):', valErr);
-      }
-
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
           method: 'POST',
