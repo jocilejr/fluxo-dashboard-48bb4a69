@@ -1,30 +1,50 @@
 
 
-## Unificar contagem de "Contactados" entre manual e automático
+## Remover validação prévia de telefone — enviar direto e inferir existência pelo resultado
 
-### Problema atual
-- A recuperação **manual** registra contatos em `boleto_recovery_contacts` mas NÃO em `message_log`
-- A recuperação **automática** verifica apenas `message_log` para deduplicação
-- Resultado: se 30 boletos foram contactados manualmente, a auto-recovery ignora isso e tenta enviar para todos de novo
+### Problema
+A validação prévia via `validate-external-number` usa um endpoint incorreto e bloqueia envios para números válidos. O usuário quer uma abordagem mais simples: enviar a mensagem diretamente e, se falhar, marcar como inexistente.
 
 ### O que será feito
 
-#### 1. Edge function `auto-recovery/index.ts` — considerar contatos manuais
-Na seção de boleto recovery, além de pré-carregar `message_log`, também pré-carregar `boleto_recovery_contacts` de hoje e unificar no `phonesContactedTodayCount`:
+#### 1. `supabase/functions/auto-recovery/index.ts`
+Remover o bloco de validação prévia (linhas ~170-201) da função `sendMessage`. Manter apenas o envio via `send-external-message`. Após o envio, se o resultado indicar falha com erro de número inválido, salvar na tabela `phone_validations` com `exists_on_whatsapp = false`. Se sucesso, salvar com `exists_on_whatsapp = true`.
 
+#### 2. `supabase/functions/webhook-receiver/index.ts`
+Remover o bloco de validação prévia (linhas ~399-433) da recuperação instantânea PIX/Card. Após o envio, se falhar, registrar `phone_validations` como inexistente. Se sucesso, registrar como existente.
+
+#### 3. `supabase/functions/webhook-abandoned/index.ts`
+Remover o bloco de validação prévia (linhas ~169-202) da recuperação de abandonos. Mesma lógica: inferir existência pelo resultado do envio.
+
+#### 4. `supabase/functions/send-external-message/index.ts`
+Adicionar lógica após o resultado do envio: se a API externa retornar sucesso, fazer upsert em `phone_validations` com `exists_on_whatsapp = true`. Se retornar erro (especialmente 404 ou erro de número), upsert com `exists_on_whatsapp = false`. Isso centraliza a inferência em um único lugar.
+
+#### 5. Limpeza de cache antigo
+- Migration SQL: `DELETE FROM phone_validations WHERE exists_on_whatsapp = false` para limpar resultados incorretos anteriores
+- `src/lib/localCache.ts`: adicionar flag de versão `phone_validation_cache_v2` para forçar limpeza do localStorage na próxima sessão
+
+### Detalhes técnicos
+
+**Em `send-external-message/index.ts`**, após o resultado do envio:
+```typescript
+// Após sendResponse.ok ou !sendResponse.ok
+await supabase.from('phone_validations').upsert({
+  normalized_phone: normalizedPhone,
+  exists_on_whatsapp: sendResponse.ok,
+  validated_at: new Date().toISOString(),
+}, { onConflict: 'normalized_phone' });
 ```
-// Além de message_log, também verificar boleto_recovery_contacts de hoje
-SELECT transaction_id FROM boleto_recovery_contacts WHERE contacted_at >= hoje
-```
 
-Para cada transaction contactada manualmente hoje, buscar o telefone da transação e incrementar o contador de telefones. Também no check por `transaction_id` individual (linha ~393), verificar `boleto_recovery_contacts` além de `message_log`.
-
-#### 2. Frontend — já funciona corretamente
-O `useBoletoRecovery.ts` já conta "contactedToday" verificando `boleto_recovery_contacts` com `isTodayInBrazil`, que inclui tanto manual (`whatsapp`) quanto automático (`whatsapp_auto`). E o `shouldContactToday` já verifica se existe contato hoje por regra — ambos os métodos. Nenhuma mudança necessária no frontend.
+**Nas 3 edge functions de recovery**: simplesmente remover os blocos `validate-external-number` e deixar o `send-external-message` cuidar da validação implícita.
 
 ### Arquivos modificados
-- `supabase/functions/auto-recovery/index.ts` — pré-carregar `boleto_recovery_contacts` de hoje e unificar com `message_log` na deduplicação
+- `supabase/functions/auto-recovery/index.ts` — remover validação prévia
+- `supabase/functions/webhook-receiver/index.ts` — remover validação prévia
+- `supabase/functions/webhook-abandoned/index.ts` — remover validação prévia
+- `supabase/functions/send-external-message/index.ts` — adicionar upsert em phone_validations
+- Migration SQL — limpar validações falsas
+- `src/lib/localCache.ts` — invalidar cache local antigo
 
 ### Resultado
-Se 30 boletos foram contactados manualmente, a auto-recovery reconhece esses contatos e processa apenas os restantes. O contador "Contactados" no frontend já reflete ambos os métodos.
+Mensagens são enviadas diretamente sem etapa de validação. Se o envio funcionar, o número é marcado como existente. Se falhar, é marcado como inexistente. Elimina falsos negativos e simplifica o fluxo.
 
