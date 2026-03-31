@@ -384,7 +384,6 @@ const AutoRecuperacao = () => {
         auto_abandoned_message: newSettings.auto_abandoned_message,
         auto_boleto_message: newSettings.auto_boleto_message,
         boleto_send_hour: newSettings.boleto_send_hour,
-        boleto_send_pdf: newSettings.boleto_send_pdf,
       };
 
       if (newSettings.id) {
