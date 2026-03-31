@@ -37,42 +37,6 @@ export function BoletoAutoRecoveryToggle() {
   const [instanceModalOpen, setInstanceModalOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
-  // Fetch boleto recovery templates
-  const { data: templates } = useQuery({
-    queryKey: ["boleto-recovery-templates-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("boleto_recovery_templates")
-        .select("id, name, is_default")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const defaultTemplate = templates?.find((t) => t.is_default);
-  const selectedTemplateId = defaultTemplate?.id || "";
-
-  const setDefaultTemplate = async (templateId: string) => {
-    try {
-      // Remove default from all
-      await supabase
-        .from("boleto_recovery_templates")
-        .update({ is_default: false })
-        .neq("id", templateId);
-      // Set new default
-      const { error } = await supabase
-        .from("boleto_recovery_templates")
-        .update({ is_default: true })
-        .eq("id", templateId);
-      if (error) throw error;
-      toast.success("Template de boleto atualizado!");
-      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-templates-list"] });
-    } catch {
-      toast.error("Erro ao selecionar template");
-    }
-  };
-
   const { data: settings, isLoading } = useQuery({
     queryKey: ["messaging-api-settings"],
     queryFn: async () => {
