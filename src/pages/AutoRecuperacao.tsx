@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InstanceSelectorModal } from "@/components/recovery/InstanceSelectorModal";
 import { BoletoRecoveryRulesConfig } from "@/components/dashboard/BoletoRecoveryRulesConfig";
 import { getGreeting } from "@/lib/greeting";
+import { RecoveryLogsTab } from "@/components/dashboard/RecoveryLogsTab";
 
 interface MessagingSettings {
   id?: string;
