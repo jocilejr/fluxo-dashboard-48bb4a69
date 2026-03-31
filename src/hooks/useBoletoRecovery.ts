@@ -153,7 +153,7 @@ export function useBoletoRecovery() {
       const dueDate = addDays(createdDay, expirationDays);
       const daysUntilDue = differenceInDays(dueDate, today);
       const isOverdue = isBefore(dueDate, today);
-      const contactedToday = contactedTxIds.has(boleto.id);
+      const contactedToday = applicableRule ? contactedKeys.has(`${boleto.id}:${applicableRule?.id}`) : false;
 
       // Find matching rule
       let applicableRule: RecoveryRule | null = null;
