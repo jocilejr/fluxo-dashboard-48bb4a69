@@ -279,6 +279,8 @@ export function BoletoAutoRecoveryToggle() {
                         Dispara a régua de cobrança imediatamente
                       </p>
                     </div>
+                  </div>
+                </PopoverContent>
               </Popover>
             </div>
           )}
