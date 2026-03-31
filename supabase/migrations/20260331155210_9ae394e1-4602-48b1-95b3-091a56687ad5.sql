@@ -1,0 +1,1 @@
+UPDATE public.messaging_api_settings SET last_recovery_status = 'completed', last_recovery_finished_at = now(), last_recovery_error = NULL WHERE last_recovery_status = 'running';

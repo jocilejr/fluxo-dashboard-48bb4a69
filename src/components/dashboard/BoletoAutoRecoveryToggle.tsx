@@ -314,15 +314,40 @@ export function BoletoAutoRecoveryToggle() {
         {/* Recovery status bar */}
         {enabled && recoveryStatus !== 'idle' && (
           <div className="border-t border-border/30 px-4 py-2 flex items-center gap-2 flex-wrap">
-            {recoveryStatus === 'running' && (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                <span className="text-[11px] font-medium text-primary">Recuperação em andamento...</span>
-                {recoveryStartedAt && (
-                  <span className="text-[10px] text-muted-foreground">Iniciada {formatTimeAgo(recoveryStartedAt)}</span>
-                )}
-              </>
-            )}
+            {recoveryStatus === 'running' && (() => {
+              const startedMs = recoveryStartedAt ? Date.now() - new Date(recoveryStartedAt).getTime() : 0;
+              const isStale = startedMs > 10 * 60 * 1000; // 10 min timeout
+              if (isStale) {
+                return (
+                  <>
+                    <PauseCircle className="h-3.5 w-3.5 text-yellow-500" />
+                    <span className="text-[11px] font-medium text-yellow-500">Recuperação travou</span>
+                    <span className="text-[10px] text-muted-foreground">Iniciada {formatTimeAgo(recoveryStartedAt)}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto h-6 text-[10px] text-yellow-500 hover:text-yellow-400"
+                      onClick={() => updateMutation.mutate({
+                        last_recovery_status: 'error',
+                        last_recovery_finished_at: new Date().toISOString(),
+                        last_recovery_error: 'Timeout — recuperação travou e foi resetada manualmente',
+                      })}
+                    >
+                      Resetar
+                    </Button>
+                  </>
+                );
+              }
+              return (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  <span className="text-[11px] font-medium text-primary">Recuperação em andamento...</span>
+                  {recoveryStartedAt && (
+                    <span className="text-[10px] text-muted-foreground">Iniciada {formatTimeAgo(recoveryStartedAt)}</span>
+                  )}
+                </>
+              );
+            })()}
             {recoveryStatus === 'completed' && (
               <>
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
