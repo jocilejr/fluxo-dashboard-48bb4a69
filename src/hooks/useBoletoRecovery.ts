@@ -102,14 +102,14 @@ export function useBoletoRecovery() {
     },
   });
 
-  // ── Query 3: today's sent logs (source of truth) ──
+  // ── Query 3: today's sent logs with rule_id (source of truth) ──
   const todayStr = format(getTodayBrazil(), "yyyy-MM-dd");
   const { data: todayLogs } = useQuery({
     queryKey: ["boleto-today-logs", todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("message_log")
-        .select("transaction_id")
+        .select("transaction_id, rule_id")
         .eq("message_type", "boleto")
         .eq("status", "sent")
         .gte("created_at", `${todayStr}T00:00:00-03:00`)
