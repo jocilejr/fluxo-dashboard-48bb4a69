@@ -192,16 +192,7 @@ export function useBoletoRecovery() {
 
       let formattedMessage: string | null = null;
       if (applicableRule) {
-        // Use template blocks if available, otherwise fallback to rule message
-        const templateBlocks = (defaultTemplate?.blocks as Array<{ type: string; content?: string }>) || [];
-        const textBlocks = templateBlocks.filter(b => b.type === 'text' && b.content);
-        if (textBlocks.length > 0) {
-          formattedMessage = textBlocks
-            .map(b => formatRecoveryMessage(b.content!, boleto, dueDate))
-            .join('\n\n');
-        } else {
-          formattedMessage = formatRecoveryMessage(applicableRule.message, boleto, dueDate);
-        }
+        formattedMessage = formatRecoveryMessage(applicableRule.message, boleto, dueDate);
       }
 
       return {
