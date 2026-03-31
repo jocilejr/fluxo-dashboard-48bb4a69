@@ -88,6 +88,7 @@ export function BoletoRecoveryDashboard() {
         totalToday={stats.totalToday}
         todayValue={stats.todayValue}
         contactedToday={stats.contactedToday}
+        duplicatesToday={stats.duplicatesToday}
         pendingToday={stats.pendingToday}
         onStartRecovery={() => setQueueOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
