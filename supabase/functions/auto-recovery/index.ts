@@ -388,28 +388,6 @@ Deno.serve(async (req) => {
         .neq('rule_type', 'immediate')
         .order('priority', { ascending: true });
 
-      // 3. Load default template from boleto_recovery_templates
-      const { data: defaultTemplate } = await supabase
-        .from('boleto_recovery_templates')
-        .select('*')
-        .eq('is_default', true)
-        .maybeSingle();
-
-      // Fallback: first template if no default
-      let template = defaultTemplate;
-      if (!template) {
-        const { data: firstTemplate } = await supabase
-          .from('boleto_recovery_templates')
-          .select('*')
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        template = firstTemplate;
-      }
-
-      const templateBlocks = (template?.blocks as Array<{ type: string; content?: string; enabled?: boolean }>) || [];
-      const hasTemplate = templateBlocks.length > 0;
-
       if (rules && rules.length > 0) {
         // 4. Load unpaid boletos with phone
         const { data: boletos } = await supabase
@@ -518,7 +496,7 @@ Deno.serve(async (req) => {
 
             console.log(`[boleto-recovery] ${boleto.id}: daysSinceGen=${daysSinceGen}, daysUntilDue=${daysUntilDue}, rule=${matchedRule.name}`);
 
-            // === Build message and media from TEMPLATE (not rule) ===
+            // === Build message and media from RULE ===
             const firstName = boleto.customer_name?.split(' ')[0] || 'Cliente';
             const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(boleto.amount);
             const metadata = boleto.metadata as Record<string, unknown> | null;
@@ -533,37 +511,15 @@ Deno.serve(async (req) => {
               codigo_barras: boleto.external_id || '',
             };
 
-            let message: string;
+            const message = formatMessage(matchedRule.message, templateVars);
             const boletoMedia: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
-
-            if (hasTemplate) {
-              // Use template blocks
-              const textParts: string[] = [];
-              for (const block of templateBlocks) {
-                if (block.type === 'text' && block.content) {
-                  textParts.push(formatMessage(block.content, templateVars));
-                } else if (block.type === 'pdf' && boletoUrl) {
-                  boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
-                } else if (block.type === 'image' && boletoUrl) {
-                  boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
-                }
+            const mediaBlocks = (matchedRule.media_blocks as Array<{ type: string; enabled: boolean }>) || [];
+            if (boletoUrl) {
+              if (mediaBlocks.find((b) => b.type === 'pdf')?.enabled) {
+                boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
               }
-              message = textParts.join('\n\n');
-              if (!message) {
-                // Fallback if template has no text blocks
-                message = formatMessage(matchedRule.message, templateVars);
-              }
-            } else {
-              // Fallback: use rule message + media_blocks (legacy)
-              message = formatMessage(matchedRule.message, templateVars);
-              const mediaBlocks = (matchedRule.media_blocks as Array<{ type: string; enabled: boolean }>) || [];
-              if (boletoUrl) {
-                if (mediaBlocks.find((b) => b.type === 'pdf')?.enabled) {
-                  boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
-                }
-                if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
-                  boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
-                }
+              if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
+                boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
               }
             }
 
