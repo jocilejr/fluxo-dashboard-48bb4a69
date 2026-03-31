@@ -183,7 +183,7 @@ export function useBoletoRecovery() {
         contactedToday,
       };
     });
-  }, [unpaidBoletos, settings, rules, contactedTxIds]);
+  }, [unpaidBoletos, settings, rules, contactedKeys]);
 
   // ── Derived lists ──
   const todayBoletos = useMemo(
