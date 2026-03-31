@@ -96,8 +96,9 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = settings.server_url.replace(/\/$/, '');
-    const headers = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       'Authorization': `Bearer ${settings.api_key}`,
     };
 
@@ -115,7 +116,31 @@ Deno.serve(async (req) => {
       body: JSON.stringify(sendPayload),
     });
 
-    const sendData = await sendResponse.json();
+    let sendData: Record<string, unknown>;
+    try {
+      sendData = await sendResponse.json();
+    } catch (_parseError) {
+      const errorText = await sendResponse.text();
+      console.error('Failed to parse JSON response from external API:', errorText.substring(0, 500));
+
+      // Update log to failed so it never stays stuck in "pending"
+      if (logEntry) {
+        await supabase
+          .from('message_log')
+          .update({
+            status: 'failed',
+            error_message: `API retornou resposta inválida (HTTP ${sendResponse.status}): ${errorText.substring(0, 200)}`,
+            sent_at: new Date().toISOString(),
+            external_response: { raw: errorText.substring(0, 500), status: sendResponse.status } as unknown as Record<string, unknown>,
+          })
+          .eq('id', logEntry.id);
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, error: 'API externa retornou resposta não-JSON' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     console.log('Send message API response:', JSON.stringify(sendData));
 
     // Update log with response
