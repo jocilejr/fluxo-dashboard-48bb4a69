@@ -124,7 +124,7 @@ export function BoletoRecoveryRulesConfig() {
 
   const saveRule = useMutation({
     mutationFn: async (rule: Partial<RecoveryRule>) => {
-      const mediaBlocks = getMediaBlocks(rule);
+      const mediaBlocksJson = JSON.parse(JSON.stringify(mediaBlocks));
       if (rule.id) {
         const { error } = await supabase
           .from("boleto_recovery_rules")
@@ -134,7 +134,7 @@ export function BoletoRecoveryRulesConfig() {
             days: rule.days,
             message: rule.message,
             is_active: rule.is_active,
-            media_blocks: mediaBlocks as unknown as Record<string, unknown>[],
+            media_blocks: mediaBlocksJson,
           })
           .eq("id", rule.id);
         if (error) throw error;
@@ -147,7 +147,7 @@ export function BoletoRecoveryRulesConfig() {
           message: rule.message,
           is_active: rule.is_active ?? true,
           priority: maxPriority + 1,
-          media_blocks: mediaBlocks as unknown as Record<string, unknown>[],
+          media_blocks: mediaBlocksJson,
         });
         if (error) throw error;
       }
