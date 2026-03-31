@@ -92,6 +92,10 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check boleto send hour — only run boleto batch if current hour matches configured hour
+    const boletoSendHour = settings.boleto_send_hour ?? 9;
+    const currentBrazilHour = getBrazilDate().getHours();
+
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     
