@@ -163,7 +163,8 @@ Deno.serve(async (req) => {
       type: 'boleto' | 'pix_card' | 'abandoned',
       transactionId?: string,
       abandonedEventId?: string,
-      mediaAttachments?: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }>
+      mediaAttachments?: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }>,
+      ruleId?: string
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
 
@@ -182,6 +183,7 @@ Deno.serve(async (req) => {
             abandonedEventId,
             instanceName: instanceMap[type],
             mediaAttachments,
+            ruleId: ruleId || null,
           })
         });
 
@@ -323,19 +325,21 @@ Deno.serve(async (req) => {
 
           const { data: todayLogs } = await supabase
             .from('message_log')
-            .select('transaction_id, phone')
+            .select('transaction_id, rule_id, phone')
             .eq('message_type', 'boleto')
             .eq('status', 'sent')
             .gte('created_at', todayIso);
 
-          // Build lookup: transaction_id → already sent today
-          const sentTodayTxIds = new Set<string>();
+          // Build lookup: transaction_id:rule_id → already sent today
+          const sentTodayKeys = new Set<string>();
           // Build lookup: phone last 8 → count of messages today
           const phoneDailyCount = new Map<string, number>();
 
           if (todayLogs) {
             for (const log of todayLogs) {
-              if (log.transaction_id) sentTodayTxIds.add(log.transaction_id);
+              if (log.transaction_id && log.rule_id) {
+                sentTodayKeys.add(`${log.transaction_id}:${log.rule_id}`);
+              }
               const last8 = log.phone.replace(/\D/g, '').slice(-8);
               if (last8.length === 8) {
                 phoneDailyCount.set(last8, (phoneDailyCount.get(last8) || 0) + 1);
@@ -371,11 +375,7 @@ Deno.serve(async (req) => {
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
 
-            // Dedup: already sent today for this transaction
-            if (sentTodayTxIds.has(boleto.id)) {
-              stats.boleto.skipped++;
-              continue;
-            }
+            // Dedup moved below after rule match
 
             // Dedup: phone daily limit
             const phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
@@ -399,6 +399,13 @@ Deno.serve(async (req) => {
             }
 
             if (!matchedRule) continue;
+
+            // Dedup: already sent today for this transaction + rule combo
+            const dedupKey = `${boleto.id}:${matchedRule.id}`;
+            if (sentTodayKeys.has(dedupKey)) {
+              stats.boleto.skipped++;
+              continue;
+            }
 
             console.log(`[boleto-recovery] ${boleto.id}: daysSinceGen=${daysSinceGen}, daysUntilDue=${daysUntilDue}, rule=${matchedRule.name}`);
 
@@ -430,12 +437,12 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Send
-            const sent = await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
+            // Send with ruleId
+            const sent = await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined, matchedRule.id);
 
             if (sent) {
               // Update lookups
-              sentTodayTxIds.add(boleto.id);
+              sentTodayKeys.add(dedupKey);
               if (phone8.length === 8) {
                 phoneDailyCount.set(phone8, (phoneDailyCount.get(phone8) || 0) + 1);
               }

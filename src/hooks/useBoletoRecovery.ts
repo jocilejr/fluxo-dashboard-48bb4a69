@@ -102,14 +102,14 @@ export function useBoletoRecovery() {
     },
   });
 
-  // ── Query 3: today's sent logs (source of truth) ──
+  // ── Query 3: today's sent logs with rule_id (source of truth) ──
   const todayStr = format(getTodayBrazil(), "yyyy-MM-dd");
   const { data: todayLogs } = useQuery({
     queryKey: ["boleto-today-logs", todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("message_log")
-        .select("transaction_id")
+        .select("transaction_id, rule_id")
         .eq("message_type", "boleto")
         .eq("status", "sent")
         .gte("created_at", `${todayStr}T00:00:00-03:00`)
@@ -132,10 +132,12 @@ export function useBoletoRecovery() {
     },
   });
 
-  // ── Build lookup set of contacted transaction IDs ──
-  const contactedTxIds = useMemo(() => {
+  // ── Build lookup set of contacted transaction:rule keys ──
+  const contactedKeys = useMemo(() => {
     const set = new Set<string>();
-    todayLogs?.forEach((l) => { if (l.transaction_id) set.add(l.transaction_id); });
+    todayLogs?.forEach((l) => {
+      if (l.transaction_id && l.rule_id) set.add(`${l.transaction_id}:${l.rule_id}`);
+    });
     return set;
   }, [todayLogs]);
 
@@ -151,7 +153,6 @@ export function useBoletoRecovery() {
       const dueDate = addDays(createdDay, expirationDays);
       const daysUntilDue = differenceInDays(dueDate, today);
       const isOverdue = isBefore(dueDate, today);
-      const contactedToday = contactedTxIds.has(boleto.id);
 
       // Find matching rule
       let applicableRule: RecoveryRule | null = null;
@@ -164,6 +165,8 @@ export function useBoletoRecovery() {
           if (matches) { applicableRule = rule; break; }
         }
       }
+
+      const contactedToday = applicableRule ? contactedKeys.has(`${boleto.id}:${applicableRule.id}`) : false;
 
       let formattedMessage: string | null = null;
       if (applicableRule) {
@@ -181,7 +184,7 @@ export function useBoletoRecovery() {
         contactedToday,
       };
     });
-  }, [unpaidBoletos, settings, rules, contactedTxIds]);
+  }, [unpaidBoletos, settings, rules, contactedKeys]);
 
   // ── Derived lists ──
   const todayBoletos = useMemo(
@@ -226,16 +229,37 @@ export function useBoletoRecovery() {
     };
   }, [todayBoletos, contactedTodayBoletos, pendingTodayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
 
-  // ── Manual contact mutation ──
+  // ── Manual contact mutation (writes to both boleto_recovery_contacts AND message_log) ──
   const addContact = useMutation({
     mutationFn: async ({ transactionId, ruleId, notes }: { transactionId: string; ruleId?: string; notes?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
+      if (!ruleId) throw new Error("Rule ID is required for boleto contact");
+
+      // Get transaction details for the message_log entry
+      const boleto = processedBoletos.find(b => b.id === transactionId);
+      const phone = boleto?.customer_phone?.replace(/\D/g, '') || '';
+
+      // Write to message_log (source of truth)
+      const { error: logError } = await supabase
+        .from("message_log")
+        .insert({
+          phone: phone.startsWith('55') ? phone : `55${phone}`,
+          message: boleto?.formattedMessage || 'Contato manual',
+          message_type: 'boleto',
+          status: 'sent',
+          transaction_id: transactionId,
+          rule_id: ruleId,
+          sent_at: new Date().toISOString(),
+        });
+      if (logError) throw logError;
+
+      // Also write to boleto_recovery_contacts for historical tracking
       const { error } = await supabase
         .from("boleto_recovery_contacts")
         .insert({
           transaction_id: transactionId,
-          rule_id: ruleId || null,
+          rule_id: ruleId,
           user_id: user.id,
           notes: notes || null,
         });

@@ -21,6 +21,7 @@ interface SendMessageRequest {
   amount?: number;
   instanceName?: string;
   mediaAttachments?: MediaAttachment[];
+  ruleId?: string;
 }
 
 function getErrorMessage(value: unknown, fallback: string): string {
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { phone, message, transactionId, abandonedEventId, messageType, instanceName, mediaAttachments }: SendMessageRequest = await req.json();
+    const { phone, message, transactionId, abandonedEventId, messageType, instanceName, mediaAttachments, ruleId }: SendMessageRequest = await req.json();
 
     console.log(`Sending message to ${phone} via API externa`);
 
@@ -96,6 +97,7 @@ Deno.serve(async (req) => {
         message_type: messageType,
         transaction_id: transactionId || null,
         abandoned_event_id: abandonedEventId || null,
+        rule_id: ruleId || null,
         status: 'pending'
       })
       .select('id')
