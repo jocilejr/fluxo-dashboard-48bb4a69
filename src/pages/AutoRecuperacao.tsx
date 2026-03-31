@@ -548,7 +548,7 @@ const AutoRecuperacao = () => {
             badgeLabel={`Diário ${settings.boleto_send_hour}h`}
             badgeIcon={Clock}
             enabled={settings.boleto_recovery_enabled}
-            onToggle={(v) => setSettings({ ...settings, boleto_recovery_enabled: v })}
+            onToggle={(v) => { const updated = { ...settings, boleto_recovery_enabled: v }; setSettings(updated); saveMutation.mutate(updated); }}
             instanceName={settings.boleto_instance_name}
             message={settings.auto_boleto_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_boleto_message: v })}
