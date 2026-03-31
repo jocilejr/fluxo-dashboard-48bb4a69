@@ -120,6 +120,11 @@ Deno.serve(async (req) => {
 
     const remainingLimit = settings.daily_limit - (todayCount || 0);
     if (remainingLimit <= 0 && !forceRun && !isSingleItem) {
+      await supabase.from('messaging_api_settings').update({
+        last_recovery_status: 'completed',
+        last_recovery_finished_at: new Date().toISOString(),
+        last_recovery_error: 'Limite diário atingido',
+      }).eq('id', settings.id);
       return new Response(
         JSON.stringify({ success: true, message: 'Limite diário atingido', limitReached: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
