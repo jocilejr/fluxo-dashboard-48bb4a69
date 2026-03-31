@@ -229,16 +229,37 @@ export function useBoletoRecovery() {
     };
   }, [todayBoletos, contactedTodayBoletos, pendingTodayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
 
-  // ── Manual contact mutation ──
+  // ── Manual contact mutation (writes to both boleto_recovery_contacts AND message_log) ──
   const addContact = useMutation({
     mutationFn: async ({ transactionId, ruleId, notes }: { transactionId: string; ruleId?: string; notes?: string }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
+      if (!ruleId) throw new Error("Rule ID is required for boleto contact");
+
+      // Get transaction details for the message_log entry
+      const boleto = processedBoletos.find(b => b.id === transactionId);
+      const phone = boleto?.customer_phone?.replace(/\D/g, '') || '';
+
+      // Write to message_log (source of truth)
+      const { error: logError } = await supabase
+        .from("message_log")
+        .insert({
+          phone: phone.startsWith('55') ? phone : `55${phone}`,
+          message: boleto?.formattedMessage || 'Contato manual',
+          message_type: 'boleto',
+          status: 'sent',
+          transaction_id: transactionId,
+          rule_id: ruleId,
+          sent_at: new Date().toISOString(),
+        });
+      if (logError) throw logError;
+
+      // Also write to boleto_recovery_contacts for historical tracking
       const { error } = await supabase
         .from("boleto_recovery_contacts")
         .insert({
           transaction_id: transactionId,
-          rule_id: ruleId || null,
+          rule_id: ruleId,
           user_id: user.id,
           notes: notes || null,
         });
