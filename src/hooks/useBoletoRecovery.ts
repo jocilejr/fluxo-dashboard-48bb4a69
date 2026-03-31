@@ -132,6 +132,28 @@ export function useBoletoRecovery() {
     },
   });
 
+  // ── Query 5: default template ──
+  const { data: defaultTemplate } = useQuery({
+    queryKey: ["boleto-default-template"],
+    queryFn: async () => {
+      // Try default first
+      const { data: def } = await supabase
+        .from("boleto_recovery_templates")
+        .select("*")
+        .eq("is_default", true)
+        .maybeSingle();
+      if (def) return def;
+      // Fallback to first
+      const { data: first } = await supabase
+        .from("boleto_recovery_templates")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      return first;
+    },
+  });
+
   // ── Build lookup set of contacted transaction:rule keys ──
   const contactedKeys = useMemo(() => {
     const set = new Set<string>();
@@ -170,7 +192,16 @@ export function useBoletoRecovery() {
 
       let formattedMessage: string | null = null;
       if (applicableRule) {
-        formattedMessage = formatRecoveryMessage(applicableRule.message, boleto, dueDate);
+        // Use template blocks if available, otherwise fallback to rule message
+        const templateBlocks = (defaultTemplate?.blocks as Array<{ type: string; content?: string }>) || [];
+        const textBlocks = templateBlocks.filter(b => b.type === 'text' && b.content);
+        if (textBlocks.length > 0) {
+          formattedMessage = textBlocks
+            .map(b => formatRecoveryMessage(b.content!, boleto, dueDate))
+            .join('\n\n');
+        } else {
+          formattedMessage = formatRecoveryMessage(applicableRule.message, boleto, dueDate);
+        }
       }
 
       return {
@@ -184,7 +215,7 @@ export function useBoletoRecovery() {
         contactedToday,
       };
     });
-  }, [unpaidBoletos, settings, rules, contactedKeys]);
+  }, [unpaidBoletos, settings, rules, contactedKeys, defaultTemplate]);
 
   // ── Derived lists ──
   const todayBoletos = useMemo(
