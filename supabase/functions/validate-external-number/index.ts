@@ -61,11 +61,15 @@ Deno.serve(async (req) => {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Authorization': `Bearer ${settings.api_key}`,
       },
     });
 
     console.log(`External API response status: ${response.status}`);
+
+    // Read body as text first to avoid stream consumption issues
+    const responseText = await response.text();
 
     if (response.status === 404) {
       // Contact not found — number doesn't exist in the platform
@@ -80,8 +84,7 @@ Deno.serve(async (req) => {
     }
 
     if (!response.ok) {
-      const responseText = await response.text();
-      console.error(`External API error: ${responseText}`);
+      console.error(`External API error (HTTP ${response.status}): ${responseText.substring(0, 500)}`);
       return new Response(
         JSON.stringify({ error: 'Erro ao validar número', exists: null }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -90,11 +93,12 @@ Deno.serve(async (req) => {
 
     let result;
     try {
-      result = await response.json();
+      result = JSON.parse(responseText);
     } catch {
+      console.error('External API returned non-JSON response:', responseText.substring(0, 500));
       return new Response(
-        JSON.stringify({ error: 'Resposta inválida da API externa', exists: null }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Resposta inválida da API externa', exists: null, details: responseText.substring(0, 200) }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
