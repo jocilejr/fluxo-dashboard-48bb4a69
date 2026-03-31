@@ -724,7 +724,8 @@ Deno.serve(async (req) => {
             }
 
             // Dedup: phone daily limit
-            const phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
+            let phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
+            if (phoneNorm.startsWith('0')) phoneNorm = phoneNorm.slice(1);
             const phone8 = phoneNorm.slice(-8);
 
             // Check rule match FIRST so we can log duplicate with rule_id
