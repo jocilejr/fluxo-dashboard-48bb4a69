@@ -68,6 +68,39 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     });
   }, []);
 
+  // Realtime subscriptions for live updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('boleto-recovery-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'boleto_recovery_contacts' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'message_log' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+          queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   // Dedicated query: fetch all unpaid boletos directly from database
   const { data: unpaidBoletos, isLoading: isLoadingBoletos } = useQuery({
     queryKey: ["unpaid-boletos"],
