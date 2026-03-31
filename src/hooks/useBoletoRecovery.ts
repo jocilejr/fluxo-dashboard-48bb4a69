@@ -132,10 +132,12 @@ export function useBoletoRecovery() {
     },
   });
 
-  // ── Build lookup set of contacted transaction IDs ──
-  const contactedTxIds = useMemo(() => {
+  // ── Build lookup set of contacted transaction:rule keys ──
+  const contactedKeys = useMemo(() => {
     const set = new Set<string>();
-    todayLogs?.forEach((l) => { if (l.transaction_id) set.add(l.transaction_id); });
+    todayLogs?.forEach((l) => {
+      if (l.transaction_id && l.rule_id) set.add(`${l.transaction_id}:${l.rule_id}`);
+    });
     return set;
   }, [todayLogs]);
 
