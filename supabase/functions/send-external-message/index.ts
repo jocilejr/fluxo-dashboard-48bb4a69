@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': `Bearer ${settings.api_key}`,
+      'X-API-Key': settings.api_key,
     };
 
     const sendPayload = {
