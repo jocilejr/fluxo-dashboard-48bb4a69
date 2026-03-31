@@ -45,6 +45,7 @@ import { RecoveryStatusIndicator } from "./RecoveryStatusIndicator";
 import { PhoneValidationIndicator } from "./PhoneValidationIndicator";
 import { useTransactionRecoveryLogs } from "@/hooks/useTransactionRecoveryLogs";
 import { usePhoneValidation } from "@/hooks/usePhoneValidation";
+import { AutoRecoveryToggleBar } from "./AutoRecoveryToggleBar";
 
 interface TransactionsTableProps {
   transactions: Transaction[];
