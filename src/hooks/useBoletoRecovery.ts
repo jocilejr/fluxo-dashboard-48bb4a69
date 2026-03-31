@@ -38,6 +38,7 @@ export interface BoletoWithRecovery extends Transaction {
   applicableRule: RecoveryRule | null;
   formattedMessage: string | null;
   contactedToday: boolean;
+  duplicateToday: boolean;
 }
 
 export function useBoletoRecovery() {
@@ -109,9 +110,10 @@ export function useBoletoRecovery() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("message_log")
-        .select("transaction_id, rule_id")
+        .select("transaction_id, rule_id, status")
         .eq("message_type", "boleto")
-        .eq("status", "sent")
+        .in("status", ["sent", "duplicate"])
+        .not("rule_id", "is", null)
         .gte("created_at", `${todayStr}T00:00:00-03:00`)
         .lt("created_at", `${todayStr}T23:59:59-03:00`);
       if (error) throw error;
@@ -133,12 +135,17 @@ export function useBoletoRecovery() {
   });
 
   // ── Build lookup set of contacted transaction:rule keys ──
-  const contactedKeys = useMemo(() => {
-    const set = new Set<string>();
+  const { contactedKeys, duplicateKeys } = useMemo(() => {
+    const sent = new Set<string>();
+    const dup = new Set<string>();
     todayLogs?.forEach((l) => {
-      if (l.transaction_id && l.rule_id) set.add(`${l.transaction_id}:${l.rule_id}`);
+      if (l.transaction_id && l.rule_id) {
+        const key = `${l.transaction_id}:${l.rule_id}`;
+        if (l.status === 'duplicate') dup.add(key);
+        else sent.add(key);
+      }
     });
-    return set;
+    return { contactedKeys: sent, duplicateKeys: dup };
   }, [todayLogs]);
 
   // ── Single processing pass ──
@@ -167,6 +174,7 @@ export function useBoletoRecovery() {
       }
 
       const contactedToday = applicableRule ? contactedKeys.has(`${boleto.id}:${applicableRule.id}`) : false;
+      const duplicateToday = applicableRule ? duplicateKeys.has(`${boleto.id}:${applicableRule.id}`) : false;
 
       let formattedMessage: string | null = null;
       if (applicableRule) {
@@ -182,9 +190,10 @@ export function useBoletoRecovery() {
         applicableRule,
         formattedMessage,
         contactedToday,
+        duplicateToday,
       };
     });
-  }, [unpaidBoletos, settings, rules, contactedKeys]);
+  }, [unpaidBoletos, settings, rules, contactedKeys, duplicateKeys]);
 
   // ── Derived lists ──
   const todayBoletos = useMemo(
@@ -193,12 +202,17 @@ export function useBoletoRecovery() {
   );
 
   const pendingTodayBoletos = useMemo(
-    () => todayBoletos.filter((b) => !b.contactedToday),
+    () => todayBoletos.filter((b) => !b.contactedToday && !b.duplicateToday),
     [todayBoletos]
   );
 
   const contactedTodayBoletos = useMemo(
     () => todayBoletos.filter((b) => b.contactedToday),
+    [todayBoletos]
+  );
+
+  const duplicateTodayBoletos = useMemo(
+    () => todayBoletos.filter((b) => b.duplicateToday),
     [todayBoletos]
   );
 
@@ -216,18 +230,20 @@ export function useBoletoRecovery() {
   const stats = useMemo(() => {
     const totalToday = todayBoletos.length;
     const contacted = contactedTodayBoletos.length;
+    const duplicates = duplicateTodayBoletos.length;
     const pending = pendingTodayBoletos.length;
     const totalValue = todayBoletos.reduce((sum, b) => sum + Number(b.amount), 0);
     return {
       totalToday,
       contactedToday: contacted,
+      duplicatesToday: duplicates,
       pendingToday: pending,
       todayValue: totalValue,
       pendingCount: pendingBoletos.length,
       overdueCount: overdueBoletos.length,
       totalCount: processedBoletos.length,
     };
-  }, [todayBoletos, contactedTodayBoletos, pendingTodayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
+  }, [todayBoletos, contactedTodayBoletos, duplicateTodayBoletos, pendingTodayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
 
   // ── Manual contact mutation (writes to both boleto_recovery_contacts AND message_log) ──
   const addContact = useMutation({
@@ -291,6 +307,7 @@ export function useBoletoRecovery() {
     todayBoletos,
     pendingTodayBoletos,
     contactedTodayBoletos,
+    duplicateTodayBoletos,
     pendingBoletos,
     overdueBoletos,
     stats,

@@ -27,7 +27,7 @@ interface MessagingSettings {
   last_recovery_status: string;
   last_recovery_started_at: string | null;
   last_recovery_finished_at: string | null;
-  last_recovery_stats: { boleto?: { sent: number; failed: number; skipped: number }; pix_card?: { sent: number; failed: number; skipped: number }; abandoned?: { sent: number; failed: number; skipped: number } } | null;
+  last_recovery_stats: { boleto?: { sent: number; failed: number; skipped: number; duplicates?: number }; pix_card?: { sent: number; failed: number; skipped: number }; abandoned?: { sent: number; failed: number; skipped: number } } | null;
   last_recovery_error: string | null;
   [key: string]: unknown;
 }
@@ -117,7 +117,11 @@ export function BoletoAutoRecoveryToggle() {
       if (error) throw error;
       const sent = data?.stats?.boleto?.sent ?? 0;
       const skipped = data?.stats?.boleto?.skipped ?? 0;
-      toast.success(`Recuperação concluída: ${sent} enviada(s), ${skipped} ignorada(s)`);
+      const duplicates = data?.stats?.boleto?.duplicates ?? 0;
+      const parts = [`${sent} enviada(s)`];
+      if (duplicates > 0) parts.push(`${duplicates} duplicada(s)`);
+      if (skipped > 0) parts.push(`${skipped} ignorada(s)`);
+      toast.success(`Recuperação concluída: ${parts.join(', ')}`);
       queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
       queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
     } catch (err: unknown) {
@@ -424,10 +428,15 @@ export function BoletoAutoRecoveryToggle() {
                   <span className="text-[10px] text-muted-foreground">{formatTimeAgo(recoveryFinishedAt)}</span>
                 )}
                 {recoveryStats?.boleto && (
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex items-center gap-2 ml-auto flex-wrap">
                     <Badge variant="outline" className="text-[9px] h-4 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
                       {recoveryStats.boleto.sent} enviada(s)
                     </Badge>
+                    {(recoveryStats.boleto.duplicates ?? 0) > 0 && (
+                      <Badge variant="outline" className="text-[9px] h-4 bg-yellow-500/10 border-yellow-500/30 text-yellow-500">
+                        {recoveryStats.boleto.duplicates} duplicada(s)
+                      </Badge>
+                    )}
                   </div>
                 )}
               </>
@@ -440,10 +449,15 @@ export function BoletoAutoRecoveryToggle() {
                   <span className="text-[10px] text-muted-foreground">{formatTimeAgo(recoveryFinishedAt)}</span>
                 )}
                 {recoveryStats?.boleto && (
-                  <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex items-center gap-2 ml-auto flex-wrap">
                     <Badge variant="outline" className="text-[9px] h-4 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
                       {recoveryStats.boleto.sent} enviada(s)
                     </Badge>
+                    {(recoveryStats.boleto.duplicates ?? 0) > 0 && (
+                      <Badge variant="outline" className="text-[9px] h-4 bg-yellow-500/10 border-yellow-500/30 text-yellow-500">
+                        {recoveryStats.boleto.duplicates} duplicada(s)
+                      </Badge>
+                    )}
                     {recoveryStats.boleto.skipped > 0 && (
                       <Badge variant="outline" className="text-[9px] h-4 text-muted-foreground">
                         {recoveryStats.boleto.skipped} ignorada(s)

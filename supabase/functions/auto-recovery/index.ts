@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface RecoveryStats {
-  boleto: { sent: number; failed: number; skipped: number };
+  boleto: { sent: number; failed: number; skipped: number; duplicates: number };
   pix_card: { sent: number; failed: number; skipped: number };
   abandoned: { sent: number; failed: number; skipped: number };
 }
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     }
 
     const stats: RecoveryStats = accumulatedStats || {
-      boleto: { sent: 0, failed: 0, skipped: 0 },
+      boleto: { sent: 0, failed: 0, skipped: 0, duplicates: 0 },
       pix_card: { sent: 0, failed: 0, skipped: 0 },
       abandoned: { sent: 0, failed: 0, skipped: 0 }
     };
@@ -468,25 +468,41 @@ Deno.serve(async (req) => {
             // Dedup: phone daily limit
             const phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
             const phone8 = phoneNorm.slice(-8);
+
+            // Check rule match FIRST so we can log duplicate with rule_id
+            const daysSinceGenEarly = calcDaysSince(boleto.created_at);
+            const dueDateEarly = calcDueDate(boleto.created_at);
+            const daysUntilDueEarly = Math.round((dueDateEarly.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            let earlyMatchedRule: typeof rules[0] | null = null;
+            for (const rule of rules) {
+              if (rule.rule_type === 'days_after_generation' && daysSinceGenEarly === rule.days) { earlyMatchedRule = rule; break; }
+              if (rule.rule_type === 'days_before_due' && daysUntilDueEarly === rule.days) { earlyMatchedRule = rule; break; }
+              if (rule.rule_type === 'days_after_due' && daysUntilDueEarly === -rule.days) { earlyMatchedRule = rule; break; }
+            }
+
+            if (!earlyMatchedRule) continue;
+
             if (phone8.length === 8 && (phoneDailyCount.get(phone8) || 0) >= maxPerPersonPerDay) {
-              stats.boleto.skipped++;
+              // Register as duplicate in message_log
+              const normalizedPhone = phoneNorm.startsWith('55') ? phoneNorm : `55${phoneNorm}`;
+              await supabase.from('message_log').insert({
+                phone: normalizedPhone,
+                message: 'Duplicado - telefone já contactado hoje',
+                message_type: 'boleto',
+                status: 'duplicate',
+                transaction_id: boleto.id,
+                rule_id: earlyMatchedRule.id,
+                sent_at: new Date().toISOString(),
+              });
+              stats.boleto.duplicates++;
               continue;
             }
 
-            // Calculate timing
-            const daysSinceGen = calcDaysSince(boleto.created_at);
-            const dueDate = calcDueDate(boleto.created_at);
-            const daysUntilDue = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-            // Find matching rule
-            let matchedRule: typeof rules[0] | null = null;
-            for (const rule of rules) {
-              if (rule.rule_type === 'days_after_generation' && daysSinceGen === rule.days) { matchedRule = rule; break; }
-              if (rule.rule_type === 'days_before_due' && daysUntilDue === rule.days) { matchedRule = rule; break; }
-              if (rule.rule_type === 'days_after_due' && daysUntilDue === -rule.days) { matchedRule = rule; break; }
-            }
-
-            if (!matchedRule) continue;
+            // Use already-computed values
+            const daysSinceGen = daysSinceGenEarly;
+            const dueDate = dueDateEarly;
+            const daysUntilDue = daysUntilDueEarly;
+            const matchedRule = earlyMatchedRule;
 
             // Dedup: already sent today for this transaction + rule combo
             const dedupKey = `${boleto.id}:${matchedRule.id}`;

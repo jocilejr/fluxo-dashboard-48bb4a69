@@ -88,6 +88,7 @@ export function BoletoRecoveryDashboard() {
         totalToday={stats.totalToday}
         todayValue={stats.todayValue}
         contactedToday={stats.contactedToday}
+        duplicatesToday={stats.duplicatesToday}
         pendingToday={stats.pendingToday}
         onStartRecovery={() => setQueueOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -282,7 +283,12 @@ function BoletoList({ boletos, emptyMessage, emptyIcon, onSelect, onMarkContacte
                         Enviado
                       </Badge>
                     )}
-                    {showContactedBadge && !boleto.contactedToday && boleto.applicableRule && (
+                    {showContactedBadge && boleto.duplicateToday && !boleto.contactedToday && (
+                      <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-xs gap-1">
+                        Duplicado
+                      </Badge>
+                    )}
+                    {showContactedBadge && !boleto.contactedToday && !boleto.duplicateToday && boleto.applicableRule && (
                       <Badge variant="secondary" className="text-xs gap-1">
                         <Clock className="h-3 w-3" />
                         Pendente
