@@ -315,6 +315,7 @@ const AutoRecuperacao = () => {
     message,
     onMessageChange,
     showBoletoRules,
+    extraSettings,
   }: {
     type: 'boleto' | 'pix_card' | 'abandoned';
     title: string;
