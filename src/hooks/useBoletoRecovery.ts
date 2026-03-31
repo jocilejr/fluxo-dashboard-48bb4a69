@@ -38,6 +38,7 @@ export interface BoletoWithRecovery extends Transaction {
   applicableRule: RecoveryRule | null;
   formattedMessage: string | null;
   contactedToday: boolean;
+  duplicateToday: boolean;
 }
 
 export function useBoletoRecovery() {
