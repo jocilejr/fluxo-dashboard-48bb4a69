@@ -508,7 +508,7 @@ const AutoRecuperacao = () => {
             badgeLabel="Tempo Real"
             badgeIcon={Radio}
             enabled={settings.pix_card_recovery_enabled}
-            onToggle={(v) => setSettings({ ...settings, pix_card_recovery_enabled: v })}
+            onToggle={(v) => { const updated = { ...settings, pix_card_recovery_enabled: v }; setSettings(updated); saveMutation.mutate(updated); }}
             instanceName={settings.pix_card_instance_name}
             message={settings.auto_pix_card_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_pix_card_message: v })}
@@ -528,7 +528,7 @@ const AutoRecuperacao = () => {
             badgeLabel="Tempo Real"
             badgeIcon={Radio}
             enabled={settings.abandoned_recovery_enabled}
-            onToggle={(v) => setSettings({ ...settings, abandoned_recovery_enabled: v })}
+            onToggle={(v) => { const updated = { ...settings, abandoned_recovery_enabled: v }; setSettings(updated); saveMutation.mutate(updated); }}
             instanceName={settings.abandoned_instance_name}
             message={settings.auto_abandoned_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_abandoned_message: v })}
@@ -548,7 +548,7 @@ const AutoRecuperacao = () => {
             badgeLabel={`Diário ${settings.boleto_send_hour}h`}
             badgeIcon={Clock}
             enabled={settings.boleto_recovery_enabled}
-            onToggle={(v) => setSettings({ ...settings, boleto_recovery_enabled: v })}
+            onToggle={(v) => { const updated = { ...settings, boleto_recovery_enabled: v }; setSettings(updated); saveMutation.mutate(updated); }}
             instanceName={settings.boleto_instance_name}
             message={settings.auto_boleto_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_boleto_message: v })}
