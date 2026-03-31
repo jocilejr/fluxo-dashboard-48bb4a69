@@ -1,50 +1,40 @@
 
 
-## Remover validação prévia de telefone — enviar direto e inferir existência pelo resultado
+## Corrigir contagem de "Contactados" e divergencia de regras entre backend e frontend
 
-### Problema
-A validação prévia via `validate-external-number` usa um endpoint incorreto e bloqueia envios para números válidos. O usuário quer uma abordagem mais simples: enviar a mensagem diretamente e, se falhar, marcar como inexistente.
+### Problemas identificados
 
-### O que será feito
+**Problema 1: Calculo de datas divergente entre backend e frontend**
+O backend (`auto-recovery/index.ts`) calcula `daysSinceCreation` usando o `createdAt` em UTC puro contra `today` em horario de Brasilia, sem converter o `createdAt` para o fuso de Brasilia. O frontend (`useBoletoRecovery.ts`) converte corretamente usando `toZonedTime`. Isso faz com que boletos possam casar com regras diferentes no backend vs frontend. O backend envia 9 mensagens usando a regra correta dele, mas o frontend so mostra 2 como "contactados" porque sua logica de `boletosMatchingRulesToday` retorna um conjunto diferente.
 
-#### 1. `supabase/functions/auto-recovery/index.ts`
-Remover o bloco de validação prévia (linhas ~170-201) da função `sendMessage`. Manter apenas o envio via `send-external-message`. Após o envio, se o resultado indicar falha com erro de número inválido, salvar na tabela `phone_validations` com `exists_on_whatsapp = false`. Se sucesso, salvar com `exists_on_whatsapp = true`.
+**Problema 2: "Contactados" so conta `boleto_recovery_contacts`, ignora `message_log`**
+O stat `contactedToday` (linha 355-357 do hook) verifica apenas se existe um registro em `boleto_recovery_contacts` para hoje. Se por algum motivo o insert falhar ou a regra nao casar no frontend, a contagem fica errada. Deveria tambem considerar `message_log` com `status=sent` e `message_type=boleto` de hoje.
 
-#### 2. `supabase/functions/webhook-receiver/index.ts`
-Remover o bloco de validação prévia (linhas ~399-433) da recuperação instantânea PIX/Card. Após o envio, se falhar, registrar `phone_validations` como inexistente. Se sucesso, registrar como existente.
+**Problema 3: Timeout do envio (travou)**
+Com `batch_pause_seconds = 60` apos cada 10 mensagens, mais `delay_between_messages` entre cada uma, a edge function pode ultrapassar o timeout. 9 mensagens com delays + pausa = facilmente 2+ minutos.
 
-#### 3. `supabase/functions/webhook-abandoned/index.ts`
-Remover o bloco de validação prévia (linhas ~169-202) da recuperação de abandonos. Mesma lógica: inferir existência pelo resultado do envio.
+### O que sera feito
 
-#### 4. `supabase/functions/send-external-message/index.ts`
-Adicionar lógica após o resultado do envio: se a API externa retornar sucesso, fazer upsert em `phone_validations` com `exists_on_whatsapp = true`. Se retornar erro (especialmente 404 ou erro de número), upsert com `exists_on_whatsapp = false`. Isso centraliza a inferência em um único lugar.
+#### 1. `supabase/functions/auto-recovery/index.ts` -- Alinhar calculo de datas
+Corrigir o bloco de calculo de `daysSinceCreation` e `daysUntilDue` (linhas 373-381) para converter `createdAt` ao fuso de Brasilia antes de calcular, usando o mesmo padrao do frontend:
+- Converter `createdAt` para horario de Brasilia
+- Zerar horas para pegar inicio do dia
+- Calcular `dueDate` a partir desse inicio
+- Usar `Math.round` ao inves de `Math.floor` para evitar erros de arredondamento
 
-#### 5. Limpeza de cache antigo
-- Migration SQL: `DELETE FROM phone_validations WHERE exists_on_whatsapp = false` para limpar resultados incorretos anteriores
-- `src/lib/localCache.ts`: adicionar flag de versão `phone_validation_cache_v2` para forçar limpeza do localStorage na próxima sessão
+#### 2. `src/hooks/useBoletoRecovery.ts` -- Incluir `message_log` na contagem de contactados
+- Adicionar uma query para buscar registros de `message_log` de hoje com `message_type=boleto` e `status=sent`
+- Na contagem de `contactedToday`, considerar um boleto como contactado se:
+  - Existe em `boleto_recovery_contacts` hoje, OU
+  - Existe em `message_log` hoje com `status=sent` e `transaction_id` correspondente
+- Tambem considerar `message_log` no `shouldContactToday` para nao marcar como pendente algo ja enviado
 
-### Detalhes técnicos
-
-**Em `send-external-message/index.ts`**, após o resultado do envio:
-```typescript
-// Após sendResponse.ok ou !sendResponse.ok
-await supabase.from('phone_validations').upsert({
-  normalized_phone: normalizedPhone,
-  exists_on_whatsapp: sendResponse.ok,
-  validated_at: new Date().toISOString(),
-}, { onConflict: 'normalized_phone' });
-```
-
-**Nas 3 edge functions de recovery**: simplesmente remover os blocos `validate-external-number` e deixar o `send-external-message` cuidar da validação implícita.
+#### 3. `supabase/functions/auto-recovery/index.ts` -- Evitar travamento
+- Usar `batch_pause_seconds` como valor real (sem multiplicar por fatores extras)
+- Adicionar log antes e depois da pausa para diagnostico
+- Verificar se `sendMessage` retornou `false` (falha) e nao contar como enviado
 
 ### Arquivos modificados
-- `supabase/functions/auto-recovery/index.ts` — remover validação prévia
-- `supabase/functions/webhook-receiver/index.ts` — remover validação prévia
-- `supabase/functions/webhook-abandoned/index.ts` — remover validação prévia
-- `supabase/functions/send-external-message/index.ts` — adicionar upsert em phone_validations
-- Migration SQL — limpar validações falsas
-- `src/lib/localCache.ts` — invalidar cache local antigo
-
-### Resultado
-Mensagens são enviadas diretamente sem etapa de validação. Se o envio funcionar, o número é marcado como existente. Se falhar, é marcado como inexistente. Elimina falsos negativos e simplifica o fluxo.
+- `supabase/functions/auto-recovery/index.ts` -- calculo de datas alinhado com frontend
+- `src/hooks/useBoletoRecovery.ts` -- incluir message_log na contagem de contactados e no shouldContactToday
 
