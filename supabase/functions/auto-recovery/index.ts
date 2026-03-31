@@ -139,7 +139,8 @@ Deno.serve(async (req) => {
       message: string,
       type: 'boleto' | 'pix_card' | 'abandoned',
       transactionId?: string,
-      abandonedEventId?: string
+      abandonedEventId?: string,
+      mediaAttachments?: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }>
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
 
