@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction } from "./useTransactions";
 import { useMemo, useEffect, useState } from "react";
-import { addDays, differenceInDays, isBefore, startOfDay, isSameDay } from "date-fns";
+import { addDays, differenceInDays, isBefore, startOfDay, isSameDay, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { getGreeting } from "@/lib/greeting";
 

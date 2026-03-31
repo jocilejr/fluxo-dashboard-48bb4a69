@@ -370,15 +370,25 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            const createdAt = new Date(boleto.created_at);
-            const dueDate = new Date(createdAt);
+            // Convert createdAt to Brazil timezone before calculating (aligned with frontend)
+            const createdAtUtc = new Date(boleto.created_at);
+            const createdAtBrazil = getBrazilDate();
+            // Adjust createdAt to Brazil time
+            const createdAtOffset = -3 * 60;
+            const createdAtUtcOffset = createdAtUtc.getTimezoneOffset();
+            const createdAtInBrazil = new Date(createdAtUtc.getTime() + (createdAtOffset - createdAtUtcOffset) * 60 * 1000);
+            createdAtInBrazil.setHours(0, 0, 0, 0);
+            
+            const dueDate = new Date(createdAtInBrazil);
             dueDate.setDate(dueDate.getDate() + expirationDays);
             
             const today = getBrazilDate();
             today.setHours(0, 0, 0, 0);
             
-            const daysSinceCreation = Math.floor((today.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-            const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            const daysSinceCreation = Math.round((today.getTime() - createdAtInBrazil.getTime()) / (1000 * 60 * 60 * 24));
+            const daysUntilDue = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            
+            console.log(`[boleto-recovery] ${boleto.id}: created=${boleto.created_at}, daysSinceCreation=${daysSinceCreation}, daysUntilDue=${daysUntilDue}`);
 
             for (const rule of rules) {
               let shouldSend = false;
