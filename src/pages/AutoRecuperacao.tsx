@@ -327,6 +327,7 @@ const AutoRecuperacao = () => {
     message: string;
     onMessageChange: (v: string) => void;
     showBoletoRules?: boolean;
+    extraSettings?: React.ReactNode;
   }) => (
     <div className="space-y-4">
       <Card className="border-border/40">
