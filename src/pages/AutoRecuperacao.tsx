@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck } from "lucide-react";
+import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck, Wifi, Battery, Signal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -79,8 +79,8 @@ const EXAMPLE_VALUES: Record<string, string> = {
   "{vencimento}": "05/04/2026",
 };
 
-// Simple WhatsApp bubble preview — no phone frame
-const WhatsAppBubblePreview = ({ message }: { message: string }) => {
+// Mobile WhatsApp mockup preview in a separate box
+const WhatsAppMobilePreview = ({ message }: { message: string }) => {
   const rendered = useMemo(() => {
     let text = message || "Sua mensagem aparecerá aqui...";
     Object.entries(EXAMPLE_VALUES).forEach(([key, value]) => {
@@ -93,42 +93,79 @@ const WhatsAppBubblePreview = ({ message }: { message: string }) => {
   const time = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
 
   return (
-    <div className="h-full min-h-[200px] rounded-lg overflow-hidden" style={{ backgroundColor: "#0b141a" }}>
-      {/* Date chip */}
-      <div className="flex justify-center pt-4 pb-3">
-        <span className="text-[10px] px-3 py-0.5 rounded-md" style={{ backgroundColor: "#182229", color: "#8696a0" }}>
-          HOJE
-        </span>
-      </div>
+    <div className="flex justify-center">
+      {/* Phone frame */}
+      <div className="w-[260px] rounded-[2rem] border-[3px] shadow-xl overflow-hidden" style={{ borderColor: "#2a2a2e", backgroundColor: "#111b21" }}>
+        {/* Status bar */}
+        <div className="flex items-center justify-between px-5 pt-2 pb-1" style={{ backgroundColor: "#1f2c33" }}>
+          <span className="text-[10px] font-medium" style={{ color: "#aebac1" }}>{time}</span>
+          <div className="flex items-center gap-1">
+            <Signal className="h-2.5 w-2.5" style={{ color: "#aebac1" }} />
+            <Wifi className="h-2.5 w-2.5" style={{ color: "#aebac1" }} />
+            <Battery className="h-2.5 w-2.5" style={{ color: "#aebac1" }} />
+          </div>
+        </div>
 
-      {/* Chat area */}
-      <div className="px-3 pb-4 space-y-2">
-        {/* Incoming message */}
-        <div className="max-w-[85%] mr-auto">
-          <div className="rounded-lg rounded-tl-none px-2.5 py-1.5" style={{ backgroundColor: "#202c33" }}>
-            <p className="text-[12px] leading-relaxed" style={{ color: "#e9edef" }}>
-              Olá, gostaria de mais informações
-            </p>
-            <div className="flex justify-end mt-0.5">
-              <span className="text-[9px]" style={{ color: "#8696a0" }}>
-                {`${(now.getHours() - 1 + 24) % 24}`.padStart(2, "0")}:{now.getMinutes().toString().padStart(2, "0")}
-              </span>
+        {/* WhatsApp header */}
+        <div className="flex items-center gap-2 px-3 py-2" style={{ backgroundColor: "#1f2c33", borderBottom: "1px solid #2a3942" }}>
+          <span style={{ color: "#aebac1" }} className="text-sm">←</span>
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0" style={{ backgroundColor: "#6b7b8d", color: "#e9edef" }}>
+            J
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-medium truncate" style={{ color: "#e9edef" }}>João Silva</p>
+            <p className="text-[9px]" style={{ color: "#8696a0" }}>online</p>
+          </div>
+        </div>
+
+        {/* Chat area */}
+        <div className="min-h-[280px] px-2.5 py-3 flex flex-col justify-end" style={{ backgroundColor: "#0b141a" }}>
+          {/* Date chip */}
+          <div className="flex justify-center mb-2.5">
+            <span className="text-[9px] px-2.5 py-0.5 rounded-md" style={{ backgroundColor: "#182229", color: "#8696a0" }}>
+              HOJE
+            </span>
+          </div>
+
+          {/* Incoming message */}
+          <div className="max-w-[82%] mr-auto mb-1.5">
+            <div className="rounded-lg rounded-tl-none px-2 py-1.5" style={{ backgroundColor: "#202c33" }}>
+              <p className="text-[11px] leading-relaxed" style={{ color: "#e9edef" }}>
+                Olá, gostaria de mais informações
+              </p>
+              <div className="flex justify-end mt-0.5">
+                <span className="text-[8px]" style={{ color: "#8696a0" }}>
+                  {`${(now.getHours() - 1 + 24) % 24}`.padStart(2, "0")}:{now.getMinutes().toString().padStart(2, "0")}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Sent message */}
+          <div className="max-w-[82%] ml-auto">
+            <div className="rounded-lg rounded-tr-none px-2 py-1.5" style={{ backgroundColor: "#005c4b" }}>
+              <p className="text-[11px] whitespace-pre-wrap leading-relaxed break-words" style={{ color: "#e9edef" }}>
+                {rendered}
+              </p>
+              <div className="flex items-center justify-end gap-1 mt-0.5">
+                <span className="text-[8px]" style={{ color: "rgba(255,255,255,0.5)" }}>{time}</span>
+                <CheckCheck className="h-2.5 w-2.5" style={{ color: "#53bdeb" }} />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Sent message (auto recovery) */}
-        <div className="max-w-[85%] ml-auto">
-          <div className="rounded-lg rounded-tr-none px-2.5 py-1.5" style={{ backgroundColor: "#005c4b" }}>
-            <p className="text-[12px] whitespace-pre-wrap leading-relaxed break-words" style={{ color: "#e9edef" }}>
-              {rendered}
-            </p>
-            <div className="flex items-center justify-end gap-1 mt-0.5">
-              <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.5)" }}>{time}</span>
-              <CheckCheck className="h-3 w-3" style={{ color: "#53bdeb" }} />
-            </div>
+        {/* Input bar */}
+        <div className="flex items-center gap-1.5 px-2 py-1.5" style={{ backgroundColor: "#1f2c33", borderTop: "1px solid #2a3942" }}>
+          <span className="text-sm" style={{ color: "#8696a0" }}>😊</span>
+          <div className="flex-1 rounded-full px-2.5 py-1" style={{ backgroundColor: "#2a3942" }}>
+            <span className="text-[10px]" style={{ color: "#8696a0" }}>Mensagem</span>
           </div>
+          <span className="text-sm" style={{ color: "#8696a0" }}>🎤</span>
         </div>
+
+        {/* Home indicator */}
+        <div className="h-1 rounded-full w-20 mx-auto my-1.5 opacity-30" style={{ backgroundColor: "#e9edef" }} />
       </div>
     </div>
   );
@@ -346,7 +383,7 @@ const AutoRecuperacao = () => {
             {/* Right: WhatsApp bubble preview */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Preview</Label>
-              <WhatsAppBubblePreview message={message} />
+              <WhatsAppMobilePreview message={message} />
             </div>
           </div>
         </CardContent>
