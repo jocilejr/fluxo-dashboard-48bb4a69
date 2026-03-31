@@ -159,6 +159,7 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
         .from("boleto_recovery_rules")
         .select("*")
         .eq("is_active", true)
+        .neq("rule_type", "immediate")
         .order("priority", { ascending: true });
       if (error) throw error;
       return data as RecoveryRule[];

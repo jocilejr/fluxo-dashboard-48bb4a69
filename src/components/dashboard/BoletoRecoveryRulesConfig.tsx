@@ -20,7 +20,7 @@ interface MediaBlock {
 interface RecoveryRule {
   id: string;
   name: string;
-  rule_type: "immediate" | "days_after_generation" | "days_before_due" | "days_after_due";
+  rule_type: "days_after_generation" | "days_before_due" | "days_after_due";
   days: number;
   message: string;
   is_active: boolean;
