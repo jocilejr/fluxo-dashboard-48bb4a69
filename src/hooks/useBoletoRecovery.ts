@@ -371,10 +371,12 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     const totalMatchingToday = boletosMatchingRulesToday.length;
     const totalValue = boletosMatchingRulesToday.reduce((sum, b) => sum + Number(b.amount), 0);
     
-    // Already contacted today
-    const contactedToday = boletosMatchingRulesToday.filter((b) => 
-      b.contacts.some((c) => isTodayInBrazil(new Date(c.contacted_at)))
-    ).length;
+    // Already contacted today (via boleto_recovery_contacts OR message_log)
+    const contactedTodayCount = boletosMatchingRulesToday.filter((b) => {
+      const viaContacts = b.contacts.some((c) => isTodayInBrazil(new Date(c.contacted_at)));
+      const viaMessageLog = todaySentMessages?.some((m) => m.transaction_id === b.id);
+      return viaContacts || viaMessageLog;
+    }).length;
     
     // Remaining to contact
     const remainingToContact = todayBoletos.length;
