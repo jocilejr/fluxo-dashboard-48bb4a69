@@ -1221,6 +1221,8 @@ export type Database = {
           auto_abandoned_message: string
           auto_boleto_message: string
           auto_pix_card_message: string
+          batch_pause_seconds: number
+          batch_size: number
           boleto_instance_name: string | null
           boleto_recovery_enabled: boolean
           boleto_send_hour: number
@@ -1247,6 +1249,8 @@ export type Database = {
           auto_abandoned_message?: string
           auto_boleto_message?: string
           auto_pix_card_message?: string
+          batch_pause_seconds?: number
+          batch_size?: number
           boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
           boleto_send_hour?: number
@@ -1273,6 +1277,8 @@ export type Database = {
           auto_abandoned_message?: string
           auto_boleto_message?: string
           auto_pix_card_message?: string
+          batch_pause_seconds?: number
+          batch_size?: number
           boleto_instance_name?: string | null
           boleto_recovery_enabled?: boolean
           boleto_send_hour?: number
