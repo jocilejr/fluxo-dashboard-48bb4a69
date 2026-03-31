@@ -307,6 +307,7 @@ export function useBoletoRecovery() {
     todayBoletos,
     pendingTodayBoletos,
     contactedTodayBoletos,
+    duplicateTodayBoletos,
     pendingBoletos,
     overdueBoletos,
     stats,
