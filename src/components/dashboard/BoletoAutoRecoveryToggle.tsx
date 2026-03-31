@@ -316,7 +316,7 @@ export function BoletoAutoRecoveryToggle() {
           <div className="border-t border-border/30 px-4 py-2 flex items-center gap-2 flex-wrap">
             {recoveryStatus === 'running' && (() => {
               const startedMs = recoveryStartedAt ? Date.now() - new Date(recoveryStartedAt).getTime() : 0;
-              const isStale = startedMs > 10 * 60 * 1000; // 10 min timeout
+              const isStale = startedMs > 10 * 60 * 1000;
               if (isStale) {
                 return (
                   <>
@@ -345,9 +345,78 @@ export function BoletoAutoRecoveryToggle() {
                   {recoveryStartedAt && (
                     <span className="text-[10px] text-muted-foreground">Iniciada {formatTimeAgo(recoveryStartedAt)}</span>
                   )}
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[10px] gap-1 text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10"
+                      onClick={() => updateMutation.mutate({ last_recovery_status: 'paused' })}
+                      disabled={updateMutation.isPending}
+                    >
+                      <Pause className="h-3 w-3" />
+                      Pausar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[10px] gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => updateMutation.mutate({ last_recovery_status: 'stopped' })}
+                      disabled={updateMutation.isPending}
+                    >
+                      <Square className="h-3 w-3" />
+                      Parar
+                    </Button>
+                  </div>
                 </>
               );
             })()}
+            {recoveryStatus === 'paused' && (
+              <>
+                <PauseCircle className="h-3.5 w-3.5 text-yellow-500" />
+                <span className="text-[11px] font-medium text-yellow-500">Recuperação pausada</span>
+                {recoveryStartedAt && (
+                  <span className="text-[10px] text-muted-foreground">Iniciada {formatTimeAgo(recoveryStartedAt)}</span>
+                )}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[10px] gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                    onClick={() => updateMutation.mutate({ last_recovery_status: 'running' })}
+                    disabled={updateMutation.isPending}
+                  >
+                    <Play className="h-3 w-3" />
+                    Continuar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-[10px] gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => updateMutation.mutate({ last_recovery_status: 'stopped' })}
+                    disabled={updateMutation.isPending}
+                  >
+                    <Square className="h-3 w-3" />
+                    Parar
+                  </Button>
+                </div>
+              </>
+            )}
+            {recoveryStatus === 'stopped' && (
+              <>
+                <Square className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-medium text-muted-foreground">Parada pelo usuário</span>
+                {recoveryFinishedAt && (
+                  <span className="text-[10px] text-muted-foreground">{formatTimeAgo(recoveryFinishedAt)}</span>
+                )}
+                {recoveryStats?.boleto && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Badge variant="outline" className="text-[9px] h-4 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
+                      {recoveryStats.boleto.sent} enviada(s)
+                    </Badge>
+                  </div>
+                )}
+              </>
+            )}
             {recoveryStatus === 'completed' && (
               <>
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
