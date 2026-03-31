@@ -1,0 +1,2 @@
+ALTER TABLE public.boleto_recovery_rules DROP CONSTRAINT boleto_recovery_rules_rule_type_check;
+ALTER TABLE public.boleto_recovery_rules ADD CONSTRAINT boleto_recovery_rules_rule_type_check CHECK (rule_type IN ('immediate', 'days_after_generation', 'days_before_due', 'days_after_due'));
