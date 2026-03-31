@@ -124,7 +124,8 @@ export function BoletoRecoveryRulesConfig() {
 
   const saveRule = useMutation({
     mutationFn: async (rule: Partial<RecoveryRule>) => {
-      const mediaBlocksJson = JSON.parse(JSON.stringify(mediaBlocks));
+      const blocks = getMediaBlocks(rule);
+      const mediaBlocksJson = JSON.parse(JSON.stringify(blocks));
       if (rule.id) {
         const { error } = await supabase
           .from("boleto_recovery_rules")
