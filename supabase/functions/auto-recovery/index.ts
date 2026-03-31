@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     }
 
     const stats: RecoveryStats = accumulatedStats || {
-      boleto: { sent: 0, failed: 0, skipped: 0 },
+      boleto: { sent: 0, failed: 0, skipped: 0, duplicates: 0 },
       pix_card: { sent: 0, failed: 0, skipped: 0 },
       abandoned: { sent: 0, failed: 0, skipped: 0 }
     };
