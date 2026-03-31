@@ -302,6 +302,7 @@ Deno.serve(async (req) => {
         .from('boleto_recovery_rules')
         .select('*')
         .eq('is_active', true)
+        .neq('rule_type', 'immediate')
         .order('priority', { ascending: true });
 
       if (rules && rules.length > 0) {

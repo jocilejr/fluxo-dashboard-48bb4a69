@@ -20,7 +20,7 @@ interface MediaBlock {
 interface RecoveryRule {
   id: string;
   name: string;
-  rule_type: "immediate" | "days_after_generation" | "days_before_due" | "days_after_due";
+  rule_type: "days_after_generation" | "days_before_due" | "days_after_due";
   days: number;
   message: string;
   is_active: boolean;
@@ -34,7 +34,6 @@ interface BoletoSettings {
 }
 
 const RULE_TYPE_LABELS: Record<string, string> = {
-  immediate: "Imediatamente",
   days_after_generation: "Dias após geração",
   days_before_due: "Dias antes do vencimento",
   days_after_due: "Dias após vencimento",
@@ -286,20 +285,19 @@ export function BoletoRecoveryRulesConfig() {
                       <Label>Tipo</Label>
                       <Select
                         value={editingRule.rule_type}
-                        onValueChange={(v) => setEditingRule({ ...editingRule, rule_type: v as any, ...(v === 'immediate' ? { days: 0 } : {}) })}
+                        onValueChange={(v) => setEditingRule({ ...editingRule, rule_type: v as any })}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="immediate">Imediatamente ao gerar</SelectItem>
                           <SelectItem value="days_after_generation">Dias após geração</SelectItem>
                           <SelectItem value="days_before_due">Dias antes do vencimento</SelectItem>
                           <SelectItem value="days_after_due">Dias após vencimento</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    {editingRule.rule_type !== 'immediate' && (
+                    {(
                       <div className="space-y-2 w-20">
                         <Label>Dias</Label>
                         <Input
@@ -409,9 +407,7 @@ export function BoletoRecoveryRulesConfig() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium truncate">{rule.name}</span>
                         <Badge variant="outline" className="text-xs shrink-0">
-                          {rule.rule_type === 'immediate'
-                            ? 'Imediatamente'
-                            : `${rule.days} ${RULE_TYPE_LABELS[rule.rule_type]?.split(" ").slice(1).join(" ")}`}
+                          {`${rule.days} ${RULE_TYPE_LABELS[rule.rule_type]?.split(" ").slice(1).join(" ")}`}
                         </Badge>
                         {/* Media badges */}
                         <Badge variant="secondary" className="text-[10px] shrink-0 gap-1">
