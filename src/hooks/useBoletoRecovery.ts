@@ -193,7 +193,7 @@ export function useBoletoRecovery() {
         duplicateToday,
       };
     });
-  }, [unpaidBoletos, settings, rules, contactedKeys]);
+  }, [unpaidBoletos, settings, rules, contactedKeys, duplicateKeys]);
 
   // ── Derived lists ──
   const todayBoletos = useMemo(
