@@ -289,6 +289,7 @@ Deno.serve(async (req) => {
       const phone = payload.phone || payload.phone_number || payload.remote_jid;
       const dueDate = payload.due_date || payload.dueDate;
       const { title, description, completed } = payload;
+      const instanceName = payload.instance_name || payload.instanceName || null;
 
       console.log('Reminder webhook received:', { externalId, phone, title, completed });
 
