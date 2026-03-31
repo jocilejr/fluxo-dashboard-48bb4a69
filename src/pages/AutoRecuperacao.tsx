@@ -364,7 +364,7 @@ const AutoRecuperacao = () => {
 
         {/* Two-column: editor + preview */}
         <CardContent className="p-4">
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-[1fr,320px] gap-4">
             {/* Left: editor */}
             <div className="space-y-3">
               <div className="space-y-1.5">
@@ -373,7 +373,7 @@ const AutoRecuperacao = () => {
                   value={message}
                   onChange={(e) => onMessageChange(e.target.value)}
                   placeholder="Digite a mensagem..."
-                  className="min-h-[160px] text-sm bg-secondary/20 border-border/30 resize-none"
+                  className="min-h-[200px] text-sm bg-secondary/20 border-border/30 resize-none"
                 />
               </div>
               <div className="space-y-1">
@@ -393,10 +393,10 @@ const AutoRecuperacao = () => {
               </div>
             </div>
 
-            {/* Right: WhatsApp bubble preview */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Preview</Label>
-              <WhatsAppMobilePreview message={message} />
+            {/* Right: WhatsApp panel preview */}
+            <div className="flex flex-col">
+              <Label className="text-xs font-medium text-muted-foreground mb-1.5">Preview</Label>
+              <WhatsAppPanelPreview message={message} />
             </div>
           </div>
         </CardContent>
