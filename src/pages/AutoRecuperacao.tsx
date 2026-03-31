@@ -512,6 +512,9 @@ const AutoRecuperacao = () => {
             instanceName={settings.abandoned_instance_name}
             message={settings.auto_abandoned_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_abandoned_message: v })}
+            apiConfigured={apiConfigured}
+            onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
+            onRemoveInstance={removeInstance}
           />
         </TabsContent>
 
