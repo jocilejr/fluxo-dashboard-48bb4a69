@@ -181,6 +181,7 @@ export function BoletoRecoveryQueue({
       
       // Invalidate queries to refresh the list
       await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      await queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
       await queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
       
       setDeleteDialogOpen(false);
