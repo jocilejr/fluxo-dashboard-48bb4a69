@@ -84,6 +84,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Mark status as running
+    await supabase.from('messaging_api_settings').update({
+      last_recovery_status: 'running',
+      last_recovery_started_at: new Date().toISOString(),
+      last_recovery_finished_at: null,
+      last_recovery_error: null,
+    }).eq('id', settings.id);
+
     const isSingleItem = !!specificTransactionId || !!specificAbandonedEventId;
     if (!forceRun && !isSingleItem && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
       return new Response(
