@@ -361,10 +361,11 @@ Deno.serve(async (req) => {
           // Build media attachments
           const mediaAttachments: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
           for (const block of mediaBlocks) {
-            if (block.type === 'pdf' && boletoUrl) {
-              mediaAttachments.push({ media_url: boletoUrl, type: 'document', caption: 'Boleto' });
-            } else if (block.type === 'image' && boletoUrl) {
-              mediaAttachments.push({ media_url: boletoUrl, type: 'image', caption: 'Boleto' });
+            if ((block.type === 'pdf' || block.type === 'image') && boletoUrl) {
+              // Always send PDF files as 'document' type - WhatsApp can't render PDFs as images
+              const isPdfUrl = boletoUrl.toLowerCase().endsWith('.pdf');
+              const mediaType = isPdfUrl ? 'document' : (block.type === 'pdf' ? 'document' : 'image');
+              mediaAttachments.push({ media_url: boletoUrl, type: mediaType, caption: 'Boleto' });
             }
           }
 
