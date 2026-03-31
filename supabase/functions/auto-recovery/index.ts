@@ -338,8 +338,9 @@ Deno.serve(async (req) => {
           .not('customer_phone', 'is', null);
 
         if (boletos) {
-          // Track phones already contacted today to send max 1 message per person per day
-          const phonesContactedToday = new Set<string>();
+          const maxPerPersonPerDay = settings.max_messages_per_person_per_day ?? 1;
+          // Track how many messages each phone received today
+          const phonesContactedTodayCount = new Map<string, number>();
 
           // Pre-load phones that already received a boleto message today
           const todayBrazil = getBrazilDate();
@@ -353,7 +354,9 @@ Deno.serve(async (req) => {
           if (todayLogs) {
             for (const log of todayLogs) {
               const last8 = log.phone.replace(/\D/g, '').slice(-8);
-              if (last8.length === 8) phonesContactedToday.add(last8);
+              if (last8.length === 8) {
+                phonesContactedTodayCount.set(last8, (phonesContactedTodayCount.get(last8) || 0) + 1);
+              }
             }
           }
 
