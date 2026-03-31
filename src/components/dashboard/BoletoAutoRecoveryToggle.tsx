@@ -76,6 +76,22 @@ export function BoletoAutoRecoveryToggle() {
   const batchSize = settings?.batch_size ?? 10;
   const batchPause = settings?.batch_pause_seconds ?? 30;
   const maxPerPersonPerDay = settings?.max_messages_per_person_per_day ?? 1;
+  const recoveryStatus = settings?.last_recovery_status ?? 'idle';
+  const recoveryStartedAt = settings?.last_recovery_started_at;
+  const recoveryFinishedAt = settings?.last_recovery_finished_at;
+  const recoveryStats = settings?.last_recovery_stats;
+  const recoveryError = settings?.last_recovery_error;
+
+  const formatTimeAgo = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'agora';
+    if (mins < 60) return `${mins}min atrás`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h atrás`;
+    return `${Math.floor(hours / 24)}d atrás`;
+  };
 
   const handleManualRun = async () => {
     setIsRunning(true);
