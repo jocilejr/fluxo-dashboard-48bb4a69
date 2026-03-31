@@ -72,7 +72,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      const normPhone = phone.replace(/\D/g, '');
+      let normPhone = phone.replace(/\D/g, '');
+      if (normPhone.startsWith('0')) normPhone = normPhone.slice(1);
       const phoneLast8 = normPhone.slice(-8);
 
       const { data: existing } = await supabase
