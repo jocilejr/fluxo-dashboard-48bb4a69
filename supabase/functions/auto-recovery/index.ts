@@ -365,7 +365,8 @@ Deno.serve(async (req) => {
     }
 
     // ===== BATCH: BOLETO recovery =====
-    const shouldRunBoleto = forceRun || currentBrazilHour === boletoSendHour;
+    // Always run boleto recovery when auto-recovery is triggered (manually or via cron)
+    const shouldRunBoleto = true;
     let boletoProcessedUpTo = 0; // track offset for continuation
     let needsContinuation = false;
 
