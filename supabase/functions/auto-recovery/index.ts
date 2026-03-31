@@ -559,6 +559,7 @@ Deno.serve(async (req) => {
         const abandonedPhonesContacted = new Set<string>();
         for (const event of events) {
           if (messagesSent >= remainingLimit && !forceRun) break;
+          if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
           // Deduplicate: max 1 abandoned message per person per day
           const evPhoneNorm = event.customer_phone!.replace(/\D/g, '');
