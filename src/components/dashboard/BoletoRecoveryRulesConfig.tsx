@@ -267,15 +267,6 @@ export function BoletoRecoveryRulesConfig() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Variable hints */}
-          <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg overflow-x-auto">
-            <span className="text-xs text-muted-foreground mr-2 shrink-0">Variáveis:</span>
-            {VARIABLE_HINTS.map((v) => (
-              <Badge key={v.var} variant="secondary" className="text-xs font-mono shrink-0">
-                {v.var}
-              </Badge>
-            ))}
-          </div>
 
           {/* Editing Form */}
           {editingRule && (
