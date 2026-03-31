@@ -117,7 +117,11 @@ export function BoletoAutoRecoveryToggle() {
       if (error) throw error;
       const sent = data?.stats?.boleto?.sent ?? 0;
       const skipped = data?.stats?.boleto?.skipped ?? 0;
-      toast.success(`Recuperação concluída: ${sent} enviada(s), ${skipped} ignorada(s)`);
+      const duplicates = data?.stats?.boleto?.duplicates ?? 0;
+      const parts = [`${sent} enviada(s)`];
+      if (duplicates > 0) parts.push(`${duplicates} duplicada(s)`);
+      if (skipped > 0) parts.push(`${skipped} ignorada(s)`);
+      toast.success(`Recuperação concluída: ${parts.join(', ')}`);
       queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
       queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
     } catch (err: unknown) {
