@@ -202,12 +202,17 @@ export function useBoletoRecovery() {
   );
 
   const pendingTodayBoletos = useMemo(
-    () => todayBoletos.filter((b) => !b.contactedToday),
+    () => todayBoletos.filter((b) => !b.contactedToday && !b.duplicateToday),
     [todayBoletos]
   );
 
   const contactedTodayBoletos = useMemo(
     () => todayBoletos.filter((b) => b.contactedToday),
+    [todayBoletos]
+  );
+
+  const duplicateTodayBoletos = useMemo(
+    () => todayBoletos.filter((b) => b.duplicateToday),
     [todayBoletos]
   );
 
