@@ -22,6 +22,7 @@ interface MessagingSettings {
   delay_between_messages: number;
   batch_size: number;
   batch_pause_seconds: number;
+  max_messages_per_person_per_day: number;
   [key: string]: unknown;
 }
 
