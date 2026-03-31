@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
         message_type: messageType,
         transaction_id: transactionId || null,
         abandoned_event_id: abandonedEventId || null,
+        rule_id: ruleId || null,
         status: 'pending'
       })
       .select('id')
