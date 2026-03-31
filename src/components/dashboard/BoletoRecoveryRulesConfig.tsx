@@ -298,7 +298,7 @@ export function BoletoRecoveryRulesConfig() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {editingRule.rule_type !== 'immediate' && (
+                    {(
                       <div className="space-y-2 w-20">
                         <Label>Dias</Label>
                         <Input
