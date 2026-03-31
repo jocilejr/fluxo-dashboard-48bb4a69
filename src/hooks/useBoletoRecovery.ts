@@ -190,6 +190,7 @@ export function useBoletoRecovery() {
         applicableRule,
         formattedMessage,
         contactedToday,
+        duplicateToday,
       };
     });
   }, [unpaidBoletos, settings, rules, contactedKeys]);
