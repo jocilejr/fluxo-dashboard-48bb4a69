@@ -522,6 +522,11 @@ export default function Lembretes() {
                           <Phone className="h-3 w-3" />
                           {reminder.phone}
                         </span>
+                        {reminder.instance_name && (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-normal">
+                            {reminder.instance_name}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <CalendarIcon className="h-3 w-3" />
@@ -623,6 +628,17 @@ function ReminderDetail({ reminder, onToggle, onDelete }: { reminder: any; onTog
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
               </Button>
             </div>
+            {reminder.instance_name && (
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 rounded-md bg-primary/10">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Instância</p>
+                  <p className="font-medium text-sm">{reminder.instance_name}</p>
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`text-xs ${statusColor}`}>
                 {statusLabel}

@@ -289,6 +289,7 @@ Deno.serve(async (req) => {
       const phone = payload.phone || payload.phone_number || payload.remote_jid;
       const dueDate = payload.due_date || payload.dueDate;
       const { title, description, completed } = payload;
+      const instanceName = payload.instance_name || payload.instanceName || null;
 
       console.log('Reminder webhook received:', { externalId, phone, title, completed });
 
@@ -314,6 +315,7 @@ Deno.serve(async (req) => {
         if (phone) updateFields.phone = phone;
         if (dueDate) updateFields.due_date = dueDate;
         if (completed !== undefined) updateFields.completed = completed;
+        if (instanceName) updateFields.instance_name = instanceName;
 
         const { error } = await supabase.from('reminders').update(updateFields).eq('id', existing.id);
         if (error) {
@@ -339,13 +341,14 @@ Deno.serve(async (req) => {
 
         const { data: newReminder, error: insertError } = await supabase
           .from('reminders')
-          .insert({
+           .insert({
             external_id: String(externalId),
             title,
             description: description || null,
             phone,
             due_date: dueDate || new Date().toISOString(),
             completed: completed || false,
+            instance_name: instanceName,
           })
           .select('id')
           .single();
