@@ -383,7 +383,7 @@ const AutoRecuperacao = () => {
             {/* Right: WhatsApp bubble preview */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-muted-foreground">Preview</Label>
-              <WhatsAppBubblePreview message={message} />
+              <WhatsAppMobilePreview message={message} />
             </div>
           </div>
         </CardContent>
