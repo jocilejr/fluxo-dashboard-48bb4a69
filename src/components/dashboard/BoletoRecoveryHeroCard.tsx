@@ -4,35 +4,32 @@ import { Progress } from "@/components/ui/progress";
 import { Settings, Play, CheckCircle2, Clock, DollarSign } from "lucide-react";
 
 interface BoletoRecoveryHeroCardProps {
-  todayCount: number;
+  totalToday: number;
   todayValue: number;
   contactedToday: number;
-  remainingToContact: number;
+  pendingToday: number;
   onStartRecovery: () => void;
   onOpenSettings: () => void;
 }
 
 export function BoletoRecoveryHeroCard({
-  todayCount,
+  totalToday,
   todayValue,
   contactedToday,
-  remainingToContact,
+  pendingToday,
   onStartRecovery,
   onOpenSettings,
 }: BoletoRecoveryHeroCardProps) {
-  const progress = todayCount > 0 ? (contactedToday / todayCount) * 100 : 0;
+  const progress = totalToday > 0 ? (contactedToday / totalToday) * 100 : 0;
 
   const formatCurrency = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <Card className="relative overflow-hidden bg-gradient-to-br from-primary/20 via-primary/10 to-background border-primary/30">
-      {/* Glow effect */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-      
       <CardContent className="relative p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          {/* Left: Title and Stats */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20 border border-primary/30">
@@ -41,14 +38,15 @@ export function BoletoRecoveryHeroCard({
               <div>
                 <h2 className="text-xl font-bold text-foreground">Recuperação de Hoje</h2>
                 <p className="text-sm text-muted-foreground">
-                  {remainingToContact > 0 
-                    ? `${remainingToContact} boleto${remainingToContact > 1 ? "s" : ""} aguardando contato`
-                    : "Todos os contatos realizados! 🎉"}
+                  {pendingToday > 0
+                    ? `${pendingToday} boleto${pendingToday > 1 ? "s" : ""} aguardando contato`
+                    : totalToday > 0
+                    ? "Todos os contatos realizados! 🎉"
+                    : "Nenhuma regra ativa para hoje"}
                 </p>
               </div>
             </div>
 
-            {/* Stats Row */}
             <div className="flex flex-wrap gap-4">
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/50 border border-border/50">
                 <DollarSign className="h-4 w-4 text-primary" />
@@ -58,16 +56,15 @@ export function BoletoRecoveryHeroCard({
                 </div>
               </div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/50 border border-border/50">
-                <CheckCircle2 className="h-4 w-4 text-success" />
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 <div>
                   <p className="text-xs text-muted-foreground">Contactados</p>
-                  <p className="font-semibold text-foreground">{contactedToday} / {todayCount}</p>
+                  <p className="font-semibold text-foreground">{contactedToday} / {totalToday}</p>
                 </div>
               </div>
             </div>
 
-            {/* Progress Bar */}
-            {todayCount > 0 && (
+            {totalToday > 0 && (
               <div className="space-y-2 max-w-md">
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Progresso de hoje</span>
@@ -78,23 +75,17 @@ export function BoletoRecoveryHeroCard({
             )}
           </div>
 
-          {/* Right: Actions */}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={onStartRecovery}
-              disabled={remainingToContact === 0}
+              disabled={pendingToday === 0}
               size="lg"
               className="gap-2 bg-primary hover:bg-primary/90"
             >
               <Play className="h-4 w-4" />
               Iniciar Recuperação
             </Button>
-            <Button
-              onClick={onOpenSettings}
-              variant="outline"
-              size="lg"
-              className="gap-2"
-            >
+            <Button onClick={onOpenSettings} variant="outline" size="lg" className="gap-2">
               <Settings className="h-4 w-4" />
               Configurar Régua
             </Button>

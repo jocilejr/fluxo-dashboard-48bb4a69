@@ -2,30 +2,23 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction } from "./useTransactions";
 import { useMemo, useEffect, useState } from "react";
-import { addDays, differenceInDays, isBefore, startOfDay, isSameDay, format } from "date-fns";
+import { addDays, differenceInDays, isBefore, startOfDay, format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { getGreeting } from "@/lib/greeting";
 
 const BRAZIL_TIMEZONE = "America/Sao_Paulo";
 
-// Helper to check if a date is "today" in Brazil timezone
-function isTodayInBrazil(date: Date): boolean {
-  const nowInBrazil = toZonedTime(new Date(), BRAZIL_TIMEZONE);
-  const dateInBrazil = toZonedTime(date, BRAZIL_TIMEZONE);
-  return isSameDay(nowInBrazil, dateInBrazil);
+// ── Shared day calculation (same logic as backend) ──
+function getTodayBrazil(): Date {
+  return startOfDay(toZonedTime(new Date(), BRAZIL_TIMEZONE));
 }
 
-// Get start of today in Brazil timezone
-function getTodayStartInBrazil(): Date {
-  const nowInBrazil = toZonedTime(new Date(), BRAZIL_TIMEZONE);
-  return startOfDay(nowInBrazil);
+function calcDaysSinceGeneration(createdAt: string): number {
+  const created = startOfDay(toZonedTime(new Date(createdAt), BRAZIL_TIMEZONE));
+  return differenceInDays(getTodayBrazil(), created);
 }
 
-export interface BoletoSettings {
-  id: string;
-  default_expiration_days: number;
-}
-
+// ── Types ──
 export interface RecoveryRule {
   id: string;
   name: string;
@@ -34,16 +27,7 @@ export interface RecoveryRule {
   message: string;
   is_active: boolean;
   priority: number;
-}
-
-export interface RecoveryContact {
-  id: string;
-  transaction_id: string;
-  rule_id: string | null;
-  contacted_at: string;
-  contact_method: string;
-  notes: string | null;
-  user_id: string;
+  media_blocks?: any;
 }
 
 export interface BoletoWithRecovery extends Transaction {
@@ -53,66 +37,35 @@ export interface BoletoWithRecovery extends Transaction {
   isOverdue: boolean;
   applicableRule: RecoveryRule | null;
   formattedMessage: string | null;
-  contacts: RecoveryContact[];
-  shouldContactToday: boolean;
+  contactedToday: boolean;
 }
 
-export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
+export function useBoletoRecovery() {
   const queryClient = useQueryClient();
-  const [userId, setUserId] = useState<string | null>(null);
 
-  // Get current user id
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserId(data.user?.id || null);
-    });
-  }, []);
-
-  // Realtime subscriptions for live updates
+  // ── Realtime subscriptions ──
   useEffect(() => {
     const channel = supabase
-      .channel('boleto-recovery-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'boleto_recovery_contacts' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'message_log' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
-          queryClient.invalidateQueries({ queryKey: ["boleto-sent-messages-today"] });
-          queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'transactions' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
-        }
-      )
+      .channel("boleto-recovery-v2")
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_log" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["boleto-today-logs"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
+      })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
-  // Dedicated query: fetch all unpaid boletos directly from database
-  const { data: unpaidBoletos, isLoading: isLoadingBoletos } = useQuery({
+  // ── Query 1: unpaid boletos ──
+  const { data: unpaidBoletos, isLoading } = useQuery({
     queryKey: ["unpaid-boletos"],
     staleTime: 60000,
-    gcTime: 300000,
     queryFn: async () => {
-      const allBoletos: Transaction[] = [];
-      const pageSize = 1000;
+      const all: Transaction[] = [];
       let from = 0;
+      const pageSize = 1000;
       let hasMore = true;
-
       while (hasMore) {
         const { data, error } = await supabase
           .from("transactions")
@@ -121,37 +74,20 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
           .not("status", "in", '("pago","cancelado","expirado")')
           .order("created_at", { ascending: false })
           .range(from, from + pageSize - 1);
-
         if (error) throw error;
         if (data && data.length > 0) {
-          allBoletos.push(...(data as Transaction[]));
+          all.push(...(data as Transaction[]));
           from += pageSize;
           hasMore = data.length === pageSize;
         } else {
           hasMore = false;
         }
       }
-      return allBoletos;
+      return all;
     },
   });
 
-  // Use prop transactions if provided (backward compat), otherwise use dedicated query
-  const transactions = transactionsFromProp ?? unpaidBoletos ?? [];
-
-  // Fetch boleto settings
-  const { data: settings } = useQuery({
-    queryKey: ["boleto-settings"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("boleto_settings")
-        .select("*")
-        .maybeSingle();
-      if (error) throw error;
-      return data as BoletoSettings | null;
-    },
-  });
-
-  // Fetch recovery rules
+  // ── Query 2: active rules ──
   const { data: rules } = useQuery({
     queryKey: ["boleto-recovery-rules"],
     queryFn: async () => {
@@ -166,140 +102,69 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     },
   });
 
-  // Fetch all recovery contacts
-  const { data: contacts } = useQuery({
-    queryKey: ["boleto-recovery-contacts"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("boleto_recovery_contacts")
-        .select("*")
-        .order("contacted_at", { ascending: false });
-      if (error) throw error;
-      return data as RecoveryContact[];
-    },
-  });
-
-  // Fetch today's sent boleto messages from message_log
-  const todayBrazilStr = format(toZonedTime(new Date(), BRAZIL_TIMEZONE), "yyyy-MM-dd");
-  const { data: todaySentMessages } = useQuery({
-    queryKey: ["boleto-sent-messages-today", todayBrazilStr],
+  // ── Query 3: today's sent logs (source of truth) ──
+  const todayStr = format(getTodayBrazil(), "yyyy-MM-dd");
+  const { data: todayLogs } = useQuery({
+    queryKey: ["boleto-today-logs", todayStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("message_log")
         .select("transaction_id")
         .eq("message_type", "boleto")
         .eq("status", "sent")
-        .gte("created_at", `${todayBrazilStr}T00:00:00-03:00`)
-        .lt("created_at", `${todayBrazilStr}T23:59:59-03:00`);
+        .gte("created_at", `${todayStr}T00:00:00-03:00`)
+        .lt("created_at", `${todayStr}T23:59:59-03:00`);
       if (error) throw error;
       return data || [];
     },
   });
 
-  // Update settings mutation
-  const updateSettings = useMutation({
-    mutationFn: async (expirationDays: number) => {
-      if (!settings?.id) {
-        const { error } = await supabase
-          .from("boleto_settings")
-          .insert({ default_expiration_days: expirationDays });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("boleto_settings")
-          .update({ default_expiration_days: expirationDays })
-          .eq("id", settings.id);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boleto-settings"] });
-    },
-  });
-
-  // Add contact mutation
-  const addContact = useMutation({
-    mutationFn: async ({ transactionId, ruleId, notes }: { transactionId: string; ruleId?: string; notes?: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-      
-      const { error } = await supabase
-        .from("boleto_recovery_contacts")
-        .insert({
-          transaction_id: transactionId,
-          rule_id: ruleId || null,
-          user_id: user.id,
-          notes: notes || null,
-        });
+  // ── Query 4: boleto settings ──
+  const { data: settings } = useQuery({
+    queryKey: ["boleto-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("boleto_settings")
+        .select("*")
+        .maybeSingle();
       if (error) throw error;
-      return transactionId;
-    },
-    onSuccess: (transactionId) => {
-      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
-      // Invalidate the specific boleto recovery icon count
-      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-count", transactionId] });
+      return data;
     },
   });
 
-  // Process boletos with recovery info
+  // ── Build lookup set of contacted transaction IDs ──
+  const contactedTxIds = useMemo(() => {
+    const set = new Set<string>();
+    todayLogs?.forEach((l) => { if (l.transaction_id) set.add(l.transaction_id); });
+    return set;
+  }, [todayLogs]);
+
+  // ── Single processing pass ──
   const processedBoletos = useMemo(() => {
-    // When using dedicated query, data is already filtered; when using prop, filter here
-    const filteredBoletos = transactionsFromProp
-      ? transactions.filter((t) => t.type === "boleto" && !["pago", "cancelado", "expirado"].includes(t.status))
-      : transactions;
+    const boletos = unpaidBoletos ?? [];
+    const expirationDays = settings?.default_expiration_days || 3;
+    const today = getTodayBrazil();
 
-      const expirationDays = settings?.default_expiration_days || 3;
-      const today = getTodayStartInBrazil();
+    return boletos.map((boleto): BoletoWithRecovery => {
+      const daysSinceGeneration = calcDaysSinceGeneration(boleto.created_at);
+      const createdDay = startOfDay(toZonedTime(new Date(boleto.created_at), BRAZIL_TIMEZONE));
+      const dueDate = addDays(createdDay, expirationDays);
+      const daysUntilDue = differenceInDays(dueDate, today);
+      const isOverdue = isBefore(dueDate, today);
+      const contactedToday = contactedTxIds.has(boleto.id);
 
-      return filteredBoletos.map((boleto): BoletoWithRecovery => {
-        // Convert created_at to Brazil timezone for accurate day calculations
-        const createdAt = new Date(boleto.created_at);
-        const createdAtInBrazil = toZonedTime(createdAt, BRAZIL_TIMEZONE);
-        const createdAtDayStart = startOfDay(createdAtInBrazil);
-        
-        const dueDate = addDays(createdAtDayStart, expirationDays);
-        const daysUntilDue = differenceInDays(dueDate, today);
-        const daysSinceGeneration = differenceInDays(today, createdAtDayStart);
-        const isOverdue = isBefore(dueDate, today);
-
-      // Get contacts for this boleto
-      const boletoContacts = contacts?.filter((c) => c.transaction_id === boleto.id) || [];
-
-      // Find applicable rule
+      // Find matching rule
       let applicableRule: RecoveryRule | null = null;
-      let shouldContactToday = false;
-
-      if (rules && rules.length > 0) {
+      if (rules) {
         for (const rule of rules) {
-          let ruleMatches = false;
-
-          if (rule.rule_type === "days_after_generation" && daysSinceGeneration === rule.days) {
-            ruleMatches = true;
-          } else if (rule.rule_type === "days_before_due" && daysUntilDue === rule.days) {
-            ruleMatches = true;
-          } else if (rule.rule_type === "days_after_due" && isOverdue && Math.abs(daysUntilDue) === rule.days) {
-            ruleMatches = true;
-          }
-
-          if (ruleMatches) {
-            // Check if already contacted today via boleto_recovery_contacts OR message_log
-            const contactedViaContacts = boletoContacts.some(
-              (c) => c.rule_id === rule.id && isTodayInBrazil(new Date(c.contacted_at))
-            );
-            const contactedViaMessageLog = todaySentMessages?.some(
-              (m) => m.transaction_id === boleto.id
-            );
-
-            if (!contactedViaContacts && !contactedViaMessageLog) {
-              applicableRule = rule;
-              shouldContactToday = true;
-              break;
-            }
-          }
+          let matches = false;
+          if (rule.rule_type === "days_after_generation" && daysSinceGeneration === rule.days) matches = true;
+          else if (rule.rule_type === "days_before_due" && daysUntilDue === rule.days) matches = true;
+          else if (rule.rule_type === "days_after_due" && isOverdue && Math.abs(daysUntilDue) === rule.days) matches = true;
+          if (matches) { applicableRule = rule; break; }
         }
       }
 
-      // Format message with variables
       let formattedMessage: string | null = null;
       if (applicableRule) {
         formattedMessage = formatRecoveryMessage(applicableRule.message, boleto, dueDate);
@@ -313,57 +178,25 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
         isOverdue,
         applicableRule,
         formattedMessage,
-        contacts: boletoContacts,
-        shouldContactToday,
+        contactedToday,
       };
     });
-  }, [transactions, settings, rules, contacts, todaySentMessages]);
+  }, [unpaidBoletos, settings, rules, contactedTxIds]);
 
-  // Filter boletos that match any rule today OR were already sent today (for total count)
-  const boletosMatchingRulesToday = useMemo(() => {
-    const today = getTodayStartInBrazil();
-    const expirationDays = settings?.default_expiration_days || 3;
-    
-    // Set of transaction IDs already sent today via message_log
-    const sentTodayTxIds = new Set(
-      todaySentMessages?.map((m) => m.transaction_id).filter(Boolean) || []
-    );
-    
-    return processedBoletos.filter((boleto) => {
-      // Include if already sent today (even if rules don't match frontend calculation)
-      if (sentTodayTxIds.has(boleto.id)) return true;
-      
-      // Also include if contacted today via boleto_recovery_contacts
-      const contactedTodayViaContacts = boleto.contacts.some((c) => 
-        isTodayInBrazil(new Date(c.contacted_at))
-      );
-      if (contactedTodayViaContacts) return true;
-      
-      // Include if any rule matches this boleto today
-      if (!rules || rules.length === 0) return false;
-      
-      const createdAt = new Date(boleto.created_at);
-      const createdAtInBrazil = toZonedTime(createdAt, BRAZIL_TIMEZONE);
-      const createdAtDayStart = startOfDay(createdAtInBrazil);
-      
-      const dueDate = addDays(createdAtDayStart, expirationDays);
-      const daysUntilDue = differenceInDays(dueDate, today);
-      const daysSinceGeneration = differenceInDays(today, createdAtDayStart);
-      const isOverdue = isBefore(dueDate, today);
-      
-      return rules.some((rule) => {
-        if (rule.rule_type === "days_after_generation" && daysSinceGeneration === rule.days) return true;
-        if (rule.rule_type === "days_before_due" && daysUntilDue === rule.days) return true;
-        if (rule.rule_type === "days_after_due" && isOverdue && Math.abs(daysUntilDue) === rule.days) return true;
-        return false;
-      });
-    });
-  }, [processedBoletos, rules, settings, todaySentMessages, contacts]);
-
-  // Boletos that need to be contacted today (not yet contacted)
+  // ── Derived lists ──
   const todayBoletos = useMemo(
-    () => processedBoletos.filter((b) => b.shouldContactToday),
+    () => processedBoletos.filter((b) => b.applicableRule !== null),
     [processedBoletos]
+  );
+
+  const pendingTodayBoletos = useMemo(
+    () => todayBoletos.filter((b) => !b.contactedToday),
+    [todayBoletos]
+  );
+
+  const contactedTodayBoletos = useMemo(
+    () => todayBoletos.filter((b) => b.contactedToday),
+    [todayBoletos]
   );
 
   const pendingBoletos = useMemo(
@@ -376,57 +209,78 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     [processedBoletos]
   );
 
-  // Stats
+  // ── Stats ──
   const stats = useMemo(() => {
-    // Total that match rules today (including already contacted)
-    const totalMatchingToday = boletosMatchingRulesToday.length;
-    const totalValue = boletosMatchingRulesToday.reduce((sum, b) => sum + Number(b.amount), 0);
-    
-    // Already contacted today (via boleto_recovery_contacts OR message_log)
-    const contactedTodayCount = boletosMatchingRulesToday.filter((b) => {
-      const viaContacts = b.contacts.some((c) => isTodayInBrazil(new Date(c.contacted_at)));
-      const viaMessageLog = todaySentMessages?.some((m) => m.transaction_id === b.id);
-      return viaContacts || viaMessageLog;
-    }).length;
-    
-    // Remaining to contact
-    const remainingToContact = todayBoletos.length;
-
+    const totalToday = todayBoletos.length;
+    const contacted = contactedTodayBoletos.length;
+    const pending = pendingTodayBoletos.length;
+    const totalValue = todayBoletos.reduce((sum, b) => sum + Number(b.amount), 0);
     return {
-      todayCount: totalMatchingToday,
+      totalToday,
+      contactedToday: contacted,
+      pendingToday: pending,
       todayValue: totalValue,
-      contactedToday: contactedTodayCount,
-      remainingToContact,
       pendingCount: pendingBoletos.length,
       overdueCount: overdueBoletos.length,
       totalCount: processedBoletos.length,
     };
-  }, [boletosMatchingRulesToday, todayBoletos, pendingBoletos, overdueBoletos, processedBoletos, todaySentMessages]);
+  }, [todayBoletos, contactedTodayBoletos, pendingTodayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
+
+  // ── Manual contact mutation ──
+  const addContact = useMutation({
+    mutationFn: async ({ transactionId, ruleId, notes }: { transactionId: string; ruleId?: string; notes?: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+      const { error } = await supabase
+        .from("boleto_recovery_contacts")
+        .insert({
+          transaction_id: transactionId,
+          rule_id: ruleId || null,
+          user_id: user.id,
+          notes: notes || null,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boleto-today-logs"] });
+    },
+  });
+
+  // ── Update settings mutation ──
+  const updateSettings = useMutation({
+    mutationFn: async (expirationDays: number) => {
+      if (!settings?.id) {
+        const { error } = await supabase.from("boleto_settings").insert({ default_expiration_days: expirationDays });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("boleto_settings").update({ default_expiration_days: expirationDays }).eq("id", settings.id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["boleto-settings"] }); },
+  });
 
   return {
     settings,
     rules,
-    contacts,
     processedBoletos,
     todayBoletos,
+    pendingTodayBoletos,
+    contactedTodayBoletos,
     pendingBoletos,
     overdueBoletos,
     stats,
-    updateSettings,
     addContact,
-    isLoading: isLoadingBoletos,
+    updateSettings,
+    isLoading,
   };
 }
 
 function formatRecoveryMessage(template: string, boleto: Transaction, dueDate: Date): string {
   const firstName = boleto.customer_name?.split(" ")[0] || "Cliente";
-  const formattedAmount = Number(boleto.amount).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  const formattedAmount = Number(boleto.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const formattedDueDate = dueDate.toLocaleDateString("pt-BR");
   const barcode = boleto.external_id || "";
-
   return template
     .replace(/{saudação}/gi, getGreeting())
     .replace(/{nome}/gi, boleto.customer_name || "Cliente")

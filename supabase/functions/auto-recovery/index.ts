@@ -285,19 +285,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ===== BATCH: BOLETO recovery =====
+    // ===== BATCH: BOLETO recovery (rewritten) =====
     const shouldRunBoleto = forceRun || currentBrazilHour === boletoSendHour;
     if ((specificType === null || specificType === 'boleto') && settings.boleto_recovery_enabled && shouldRunBoleto) {
-      console.log('Processing boleto recovery...');
-      
+      console.log('[boleto-recovery] Starting boleto recovery batch...');
+
+      // 1. Load settings
       const { data: boletoSettings } = await supabase
         .from('boleto_settings')
         .select('default_expiration_days')
         .limit(1)
         .single();
-      
       const expirationDays = boletoSettings?.default_expiration_days || 3;
 
+      // 2. Load active rules (no immediate)
       const { data: rules } = await supabase
         .from('boleto_recovery_rules')
         .select('*')
@@ -306,6 +307,7 @@ Deno.serve(async (req) => {
         .order('priority', { ascending: true });
 
       if (rules && rules.length > 0) {
+        // 3. Load unpaid boletos with phone
         const { data: boletos } = await supabase
           .from('transactions')
           .select('*')
@@ -313,170 +315,135 @@ Deno.serve(async (req) => {
           .in('status', ['gerado', 'pendente'])
           .not('customer_phone', 'is', null);
 
-        if (boletos) {
-          const maxPerPersonPerDay = settings.max_messages_per_person_per_day ?? 1;
-          // Track how many messages each phone received today
-          const phonesContactedTodayCount = new Map<string, number>();
-
-          // Pre-load phones that already received a boleto message today
+        if (boletos && boletos.length > 0) {
+          // 4. Pre-load ALL today's sent boleto logs in one query
           const todayBrazil = getBrazilDate();
           todayBrazil.setHours(0, 0, 0, 0);
+          const todayIso = todayBrazil.toISOString();
+
           const { data: todayLogs } = await supabase
             .from('message_log')
-            .select('phone')
+            .select('transaction_id, phone')
             .eq('message_type', 'boleto')
             .eq('status', 'sent')
-            .gte('created_at', todayBrazil.toISOString());
+            .gte('created_at', todayIso);
+
+          // Build lookup: transaction_id → already sent today
+          const sentTodayTxIds = new Set<string>();
+          // Build lookup: phone last 8 → count of messages today
+          const phoneDailyCount = new Map<string, number>();
+
           if (todayLogs) {
             for (const log of todayLogs) {
+              if (log.transaction_id) sentTodayTxIds.add(log.transaction_id);
               const last8 = log.phone.replace(/\D/g, '').slice(-8);
               if (last8.length === 8) {
-                phonesContactedTodayCount.set(last8, (phonesContactedTodayCount.get(last8) || 0) + 1);
+                phoneDailyCount.set(last8, (phoneDailyCount.get(last8) || 0) + 1);
               }
             }
           }
 
-          // Also pre-load manual contacts from boleto_recovery_contacts today
-          const { data: todayManualContacts } = await supabase
-            .from('boleto_recovery_contacts')
-            .select('transaction_id')
-            .gte('contacted_at', todayBrazil.toISOString());
+          const maxPerPersonPerDay = settings.max_messages_per_person_per_day ?? 1;
+          const today = getBrazilDate();
+          today.setHours(0, 0, 0, 0);
 
-          // Build a set of transaction_ids already contacted manually today
-          const manualContactedTxIds = new Set<string>();
-          if (todayManualContacts) {
-            for (const mc of todayManualContacts) {
-              manualContactedTxIds.add(mc.transaction_id);
-            }
-            // Map manual contacts to phone counts by looking up the boleto phone
-            for (const boleto of boletos) {
-              if (manualContactedTxIds.has(boleto.id) && boleto.customer_phone) {
-                const phone8 = boleto.customer_phone.replace(/\D/g, '').slice(-8);
-                if (phone8.length === 8) {
-                  phonesContactedTodayCount.set(phone8, (phonesContactedTodayCount.get(phone8) || 0) + 1);
-                }
-              }
-            }
+          // Helper: calculate days since generation in Brazil TZ
+          function calcDaysSince(createdAt: string): number {
+            const utc = new Date(createdAt);
+            const offset = -3 * 60;
+            const utcOff = utc.getTimezoneOffset();
+            const inBrazil = new Date(utc.getTime() + (offset - utcOff) * 60 * 1000);
+            inBrazil.setHours(0, 0, 0, 0);
+            return Math.round((today.getTime() - inBrazil.getTime()) / (1000 * 60 * 60 * 24));
           }
 
+          function calcDueDate(createdAt: string): Date {
+            const utc = new Date(createdAt);
+            const offset = -3 * 60;
+            const utcOff = utc.getTimezoneOffset();
+            const inBrazil = new Date(utc.getTime() + (offset - utcOff) * 60 * 1000);
+            inBrazil.setHours(0, 0, 0, 0);
+            inBrazil.setDate(inBrazil.getDate() + expirationDays);
+            return inBrazil;
+          }
+
+          // 5. Process each boleto
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
 
-            // Deduplicate: max N boleto messages per person per day (using last 8 digits)
-            const boletoPhoneNorm = boleto.customer_phone!.replace(/\D/g, '');
-            const boletophone8 = boletoPhoneNorm.slice(-8);
-            const currentCount = boletophone8.length === 8 ? (phonesContactedTodayCount.get(boletophone8) || 0) : 0;
-            if (boletophone8.length === 8 && currentCount >= maxPerPersonPerDay) {
+            // Dedup: already sent today for this transaction
+            if (sentTodayTxIds.has(boleto.id)) {
               stats.boleto.skipped++;
               continue;
             }
 
-            // Convert createdAt to Brazil timezone before calculating (aligned with frontend)
-            const createdAtUtc = new Date(boleto.created_at);
-            const createdAtBrazil = getBrazilDate();
-            // Adjust createdAt to Brazil time
-            const createdAtOffset = -3 * 60;
-            const createdAtUtcOffset = createdAtUtc.getTimezoneOffset();
-            const createdAtInBrazil = new Date(createdAtUtc.getTime() + (createdAtOffset - createdAtUtcOffset) * 60 * 1000);
-            createdAtInBrazil.setHours(0, 0, 0, 0);
-            
-            const dueDate = new Date(createdAtInBrazil);
-            dueDate.setDate(dueDate.getDate() + expirationDays);
-            
-            const today = getBrazilDate();
-            today.setHours(0, 0, 0, 0);
-            
-            const daysSinceCreation = Math.round((today.getTime() - createdAtInBrazil.getTime()) / (1000 * 60 * 60 * 24));
+            // Dedup: phone daily limit
+            const phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
+            const phone8 = phoneNorm.slice(-8);
+            if (phone8.length === 8 && (phoneDailyCount.get(phone8) || 0) >= maxPerPersonPerDay) {
+              stats.boleto.skipped++;
+              continue;
+            }
+
+            // Calculate timing
+            const daysSinceGen = calcDaysSince(boleto.created_at);
+            const dueDate = calcDueDate(boleto.created_at);
             const daysUntilDue = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            
-            console.log(`[boleto-recovery] ${boleto.id}: created=${boleto.created_at}, daysSinceCreation=${daysSinceCreation}, daysUntilDue=${daysUntilDue}`);
 
+            // Find matching rule
+            let matchedRule: typeof rules[0] | null = null;
             for (const rule of rules) {
-              let shouldSend = false;
-              
-              if (rule.rule_type === 'days_after_generation' && daysSinceCreation === rule.days) shouldSend = true;
-              else if (rule.rule_type === 'days_before_due' && daysUntilDue === rule.days) shouldSend = true;
-              else if (rule.rule_type === 'days_after_due' && daysUntilDue === -rule.days) shouldSend = true;
+              if (rule.rule_type === 'days_after_generation' && daysSinceGen === rule.days) { matchedRule = rule; break; }
+              if (rule.rule_type === 'days_before_due' && daysUntilDue === rule.days) { matchedRule = rule; break; }
+              if (rule.rule_type === 'days_after_due' && daysUntilDue === -rule.days) { matchedRule = rule; break; }
+            }
 
-              if (shouldSend) {
-                // Check if already contacted today via message_log OR boleto_recovery_contacts
-                if (manualContactedTxIds.has(boleto.id)) {
-                  stats.boleto.skipped++;
-                  break;
-                }
+            if (!matchedRule) continue;
 
-                const { count: alreadyContacted } = await supabase
-                  .from('message_log')
-                  .select('*', { count: 'exact', head: true })
-                  .eq('transaction_id', boleto.id)
-                  .eq('message_type', 'boleto')
-                  .gte('created_at', today.toISOString());
+            console.log(`[boleto-recovery] ${boleto.id}: daysSinceGen=${daysSinceGen}, daysUntilDue=${daysUntilDue}, rule=${matchedRule.name}`);
 
-                if (alreadyContacted && alreadyContacted > 0) {
-                  stats.boleto.skipped++;
-                  break;
-                }
+            // Format message using rule template
+            const firstName = boleto.customer_name?.split(' ')[0] || 'Cliente';
+            const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(boleto.amount);
+            const message = formatMessage(matchedRule.message, {
+              nome: boleto.customer_name || 'Cliente',
+              primeiro_nome: firstName,
+              valor: formattedValue,
+              produto: boleto.description || 'Produto',
+              vencimento: dueDate.toLocaleDateString('pt-BR'),
+              saudação: getGreeting(),
+              codigo_barras: boleto.external_id || '',
+            });
 
-                const firstName = boleto.customer_name?.split(' ')[0] || 'Cliente';
-                const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(boleto.amount);
-                
-                const message = formatMessage(rule.message, {
-                  nome: boleto.customer_name || 'Cliente',
-                  primeiro_nome: firstName,
-                  valor: formattedValue,
-                  produto: boleto.description || 'Produto',
-                  vencimento: dueDate.toLocaleDateString('pt-BR'),
-                  saudação: getGreeting()
-                });
+            // Prepare media attachments
+            const metadata = boleto.metadata as Record<string, unknown> | null;
+            const boletoUrl = metadata?.boleto_url as string | undefined;
+            const boletoMedia: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
+            const mediaBlocks = (matchedRule.media_blocks as Array<{ type: string; enabled: boolean }>) || [];
 
-                const metadata = boleto.metadata as Record<string, unknown> | null;
-                const boletoUrl = metadata?.boleto_url as string | undefined;
-                const boletoMedia: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
-                const mediaBlocks = (rule.media_blocks as Array<{ type: string; enabled: boolean }>) || [];
-                
-                if (boletoUrl) {
-                  const pdfEnabled = mediaBlocks.find((b: { type: string; enabled: boolean }) => b.type === 'pdf')?.enabled;
-                  const imageEnabled = mediaBlocks.find((b: { type: string; enabled: boolean }) => b.type === 'image')?.enabled;
-                  
-                  if (pdfEnabled) {
-                    boletoMedia.push({
-                      media_url: boletoUrl,
-                      type: 'document',
-                      caption: `Boleto - ${boleto.description || 'Produto'}`
-                    });
-                  }
-                  if (imageEnabled) {
-                    boletoMedia.push({
-                      media_url: boletoUrl,
-                      type: 'image',
-                      caption: `Boleto - ${boleto.description || 'Produto'}`
-                    });
-                  }
-                }
+            if (boletoUrl) {
+              if (mediaBlocks.find((b) => b.type === 'pdf')?.enabled) {
+                boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
+              }
+              if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
+                boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
+              }
+            }
 
-                await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
+            // Send
+            const sent = await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
 
-                // Increment contact count for this phone today
-                if (boletophone8.length === 8) {
-                  phonesContactedTodayCount.set(boletophone8, (phonesContactedTodayCount.get(boletophone8) || 0) + 1);
-                }
-
-                await supabase.from('boleto_recovery_contacts').insert({
-                  transaction_id: boleto.id,
-                  rule_id: rule.id,
-                  user_id: '00000000-0000-0000-0000-000000000000',
-                  contact_method: 'whatsapp_auto',
-                  notes: 'Enviado automaticamente via API externa'
-                });
-
-                break;
+            if (sent) {
+              // Update lookups
+              sentTodayTxIds.add(boleto.id);
+              if (phone8.length === 8) {
+                phoneDailyCount.set(phone8, (phoneDailyCount.get(phone8) || 0) + 1);
               }
             }
           }
         }
       }
     }
-
     // ===== BATCH: PIX/CARD recovery =====
     if ((specificType === null || specificType === 'pix_card') && settings.pix_card_recovery_enabled && !specificTransactionId) {
       console.log('Processing PIX/Card recovery...');
