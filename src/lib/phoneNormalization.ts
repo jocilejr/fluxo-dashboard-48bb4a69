@@ -10,16 +10,14 @@ export function normalizePhoneForMatching(phone: string | null | undefined): str
   // Remove all non-digit characters
   let digits = phone.replace(/\D/g, '');
   
+  // Remove leading zero if present
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  
   if (digits.length < 8) return null;
   
   // Add country code 55 if not present (10-11 digits means DDD + number)
   if (digits.length >= 10 && digits.length <= 11) {
     digits = '55' + digits;
-  }
-  
-  // Remove leading zeros after country code
-  if (digits.length > 4 && digits[2] === '0') {
-    digits = digits.slice(0, 2) + digits.slice(3);
   }
   
   return digits;
