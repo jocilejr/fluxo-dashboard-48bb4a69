@@ -315,6 +315,7 @@ Deno.serve(async (req) => {
         if (phone) updateFields.phone = phone;
         if (dueDate) updateFields.due_date = dueDate;
         if (completed !== undefined) updateFields.completed = completed;
+        if (instanceName) updateFields.instance_name = instanceName;
 
         const { error } = await supabase.from('reminders').update(updateFields).eq('id', existing.id);
         if (error) {
