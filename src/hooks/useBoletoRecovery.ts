@@ -174,6 +174,7 @@ export function useBoletoRecovery() {
       }
 
       const contactedToday = applicableRule ? contactedKeys.has(`${boleto.id}:${applicableRule.id}`) : false;
+      const duplicateToday = applicableRule ? duplicateKeys.has(`${boleto.id}:${applicableRule.id}`) : false;
 
       let formattedMessage: string | null = null;
       if (applicableRule) {
