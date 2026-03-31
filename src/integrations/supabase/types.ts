@@ -1801,6 +1801,7 @@ export type Database = {
           due_date: string
           external_id: string | null
           id: string
+          instance_name: string | null
           phone: string
           title: string
           updated_at: string
@@ -1812,6 +1813,7 @@ export type Database = {
           due_date: string
           external_id?: string | null
           id?: string
+          instance_name?: string | null
           phone: string
           title: string
           updated_at?: string
@@ -1823,6 +1825,7 @@ export type Database = {
           due_date?: string
           external_id?: string | null
           id?: string
+          instance_name?: string | null
           phone?: string
           title?: string
           updated_at?: string

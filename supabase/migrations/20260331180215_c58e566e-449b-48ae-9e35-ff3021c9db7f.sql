@@ -1,0 +1,1 @@
+ALTER TABLE public.reminders ADD COLUMN instance_name text DEFAULT null;
