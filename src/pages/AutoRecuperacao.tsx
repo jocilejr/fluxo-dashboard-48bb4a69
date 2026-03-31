@@ -494,6 +494,9 @@ const AutoRecuperacao = () => {
             instanceName={settings.pix_card_instance_name}
             message={settings.auto_pix_card_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_pix_card_message: v })}
+            apiConfigured={apiConfigured}
+            onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
+            onRemoveInstance={removeInstance}
           />
         </TabsContent>
 
