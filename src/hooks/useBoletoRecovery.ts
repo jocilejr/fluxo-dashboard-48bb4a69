@@ -390,7 +390,7 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
       overdueCount: overdueBoletos.length,
       totalCount: processedBoletos.length,
     };
-  }, [boletosMatchingRulesToday, todayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
+  }, [boletosMatchingRulesToday, todayBoletos, pendingBoletos, overdueBoletos, processedBoletos, todaySentMessages]);
 
   return {
     settings,
