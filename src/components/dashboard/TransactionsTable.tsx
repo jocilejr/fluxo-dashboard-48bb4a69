@@ -724,20 +724,9 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                     </div>
                   </td>
                   <td className="py-3.5 px-4 hidden xl:table-cell">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
-                        {transaction.customer_phone || '-'}
-                      </span>
-                      {transaction.customer_phone && (() => {
-                        const validationStatus = getValidationStatus(transaction.customer_phone);
-                        return (
-                          <PhoneValidationIndicator 
-                            status={validationStatus?.status || null}
-                            errorMessage={validationStatus?.result?.error}
-                          />
-                        );
-                      })()}
-                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {transaction.customer_phone || '-'}
+                    </span>
                   </td>
                   <td className="py-3.5 px-4">
                     <TooltipProvider>
