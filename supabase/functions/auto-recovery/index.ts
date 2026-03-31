@@ -292,6 +292,71 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ===== SINGLE BOLETO TRANSACTION (immediate send) =====
+    if (specificTransactionId && specificType === 'boleto') {
+      if (!settings.boleto_recovery_enabled) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Boleto recovery disabled', skipped: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: tx } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', specificTransactionId)
+        .single();
+
+      if (tx && tx.customer_phone) {
+        const firstName = tx.customer_name?.split(' ')[0] || 'Cliente';
+        const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount);
+
+        const message = formatMessage(autoMessages.boleto, {
+          nome: tx.customer_name || 'Cliente',
+          primeiro_nome: firstName,
+          valor: formattedValue,
+          produto: tx.description || 'Produto',
+          saudação: getGreeting(),
+          vencimento: '',
+          codigo_barras: tx.external_id || '',
+        });
+
+        // Use boleto_immediate to bypass rule_id validation trigger
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`
+          },
+          body: JSON.stringify({
+            phone: tx.customer_phone,
+            message,
+            messageType: 'boleto_immediate',
+            transactionId: tx.id,
+            instanceName: instanceMap.boleto,
+          })
+        });
+        const result = await response.json();
+        if (result.success) {
+          messagesSent++;
+          stats.boleto.sent++;
+        } else {
+          stats.boleto.failed++;
+        }
+      }
+
+      await supabase.from('messaging_api_settings').update({
+        last_recovery_status: 'completed',
+        last_recovery_finished_at: new Date().toISOString(),
+        last_recovery_stats: stats,
+      }).eq('id', settings.id);
+
+      return new Response(
+        JSON.stringify({ success: true, stats, totalSent: messagesSent }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // ===== SINGLE PIX/CARD TRANSACTION =====
     if (specificTransactionId && specificType === 'pix_card') {
       if (!settings.pix_card_recovery_enabled) {
@@ -364,9 +429,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ===== BATCH: BOLETO recovery =====
-    // Always run boleto recovery when auto-recovery is triggered (manually or via cron)
-    const shouldRunBoleto = true;
+    // ===== BATCH: BOLETO recovery (drip/follow-up) =====
+    const shouldRunBoleto = forceRun || currentBrazilHour === boletoSendHour;
     let boletoProcessedUpTo = 0; // track offset for continuation
     let needsContinuation = false;
 
