@@ -61,6 +61,7 @@ const defaultSettings: MessagingSettings = {
   auto_pix_card_message: "Olá {primeiro_nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?",
   auto_abandoned_message: "Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?",
   auto_boleto_message: "{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!",
+  boleto_send_hour: 9,
 };
 
 const VARIABLES_INFO = [
