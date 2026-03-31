@@ -413,6 +413,12 @@ Deno.serve(async (req) => {
               else if (rule.rule_type === 'days_after_due' && daysUntilDue === -rule.days) shouldSend = true;
 
               if (shouldSend) {
+                // Check if already contacted today via message_log OR boleto_recovery_contacts
+                if (manualContactedTxIds.has(boleto.id)) {
+                  stats.boleto.skipped++;
+                  break;
+                }
+
                 const { count: alreadyContacted } = await supabase
                   .from('message_log')
                   .select('*', { count: 'exact', head: true })
