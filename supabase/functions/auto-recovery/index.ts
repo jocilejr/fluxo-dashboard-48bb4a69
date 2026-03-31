@@ -123,13 +123,13 @@ Deno.serve(async (req) => {
     const boletoSendHour = settings.boleto_send_hour ?? 9;
     const currentBrazilHour = getBrazilDate().getHours();
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayBrazilForLimit = getBrazilDate();
+    todayBrazilForLimit.setHours(0, 0, 0, 0);
     
     const { count: todayCount } = await supabase
       .from('message_log')
       .select('*', { count: 'exact', head: true })
-      .gte('created_at', todayStart.toISOString())
+      .gte('created_at', todayBrazilForLimit.toISOString())
       .eq('status', 'sent');
 
     const remainingLimit = settings.daily_limit - (todayCount || 0);
