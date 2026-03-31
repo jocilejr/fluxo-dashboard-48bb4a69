@@ -325,19 +325,21 @@ Deno.serve(async (req) => {
 
           const { data: todayLogs } = await supabase
             .from('message_log')
-            .select('transaction_id, phone')
+            .select('transaction_id, rule_id, phone')
             .eq('message_type', 'boleto')
             .eq('status', 'sent')
             .gte('created_at', todayIso);
 
-          // Build lookup: transaction_id → already sent today
-          const sentTodayTxIds = new Set<string>();
+          // Build lookup: transaction_id:rule_id → already sent today
+          const sentTodayKeys = new Set<string>();
           // Build lookup: phone last 8 → count of messages today
           const phoneDailyCount = new Map<string, number>();
 
           if (todayLogs) {
             for (const log of todayLogs) {
-              if (log.transaction_id) sentTodayTxIds.add(log.transaction_id);
+              if (log.transaction_id && log.rule_id) {
+                sentTodayKeys.add(`${log.transaction_id}:${log.rule_id}`);
+              }
               const last8 = log.phone.replace(/\D/g, '').slice(-8);
               if (last8.length === 8) {
                 phoneDailyCount.set(last8, (phoneDailyCount.get(last8) || 0) + 1);
