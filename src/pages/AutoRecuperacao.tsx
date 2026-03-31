@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Send, Smartphone, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck, Wifi, Battery, Signal } from "lucide-react";
+import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -79,8 +79,8 @@ const EXAMPLE_VALUES: Record<string, string> = {
   "{vencimento}": "05/04/2026",
 };
 
-// Mobile WhatsApp mockup preview
-const WhatsAppPhoneMockup = ({ message }: { message: string }) => {
+// Simple WhatsApp bubble preview — no phone frame
+const WhatsAppBubblePreview = ({ message }: { message: string }) => {
   const rendered = useMemo(() => {
     let text = message || "Sua mensagem aparecerá aqui...";
     Object.entries(EXAMPLE_VALUES).forEach(([key, value]) => {
@@ -93,90 +93,42 @@ const WhatsAppPhoneMockup = ({ message }: { message: string }) => {
   const time = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
 
   return (
-    <div className="flex items-start justify-center py-4">
-      {/* Phone frame */}
-      <div className="w-[280px] rounded-[2rem] border-[3px] border-[#2a2a2e] bg-[#111b21] shadow-2xl shadow-black/40 overflow-hidden">
-        {/* Status bar */}
-        <div className="flex items-center justify-between px-5 pt-2 pb-1 bg-[#1f2c33]">
-          <span className="text-[10px] font-medium text-[#aebac1]">{time}</span>
-          <div className="flex items-center gap-1">
-            <Signal className="h-2.5 w-2.5 text-[#aebac1]" />
-            <Wifi className="h-2.5 w-2.5 text-[#aebac1]" />
-            <Battery className="h-2.5 w-2.5 text-[#aebac1]" />
-          </div>
-        </div>
+    <div className="h-full min-h-[200px] rounded-lg overflow-hidden" style={{ backgroundColor: "#0b141a" }}>
+      {/* Date chip */}
+      <div className="flex justify-center pt-4 pb-3">
+        <span className="text-[10px] px-3 py-0.5 rounded-md" style={{ backgroundColor: "#182229", color: "#8696a0" }}>
+          HOJE
+        </span>
+      </div>
 
-        {/* WhatsApp header */}
-        <div className="flex items-center gap-2.5 px-3 py-2 bg-[#1f2c33] border-b border-[#2a3942]">
-          <div className="text-[#aebac1] text-lg">←</div>
-          <div className="w-8 h-8 rounded-full bg-[#6b7b8d] flex items-center justify-center text-[#e9edef] text-xs font-bold shrink-0">
-            J
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-[#e9edef] truncate">João Silva</p>
-            <p className="text-[10px] text-[#8696a0]">online</p>
-          </div>
-          <div className="flex items-center gap-3 text-[#aebac1]">
-            <span className="text-sm">📹</span>
-            <span className="text-sm">📞</span>
-            <span className="text-sm">⋮</span>
-          </div>
-        </div>
-
-        {/* Chat area */}
-        <div
-          className="min-h-[320px] px-3 py-4 flex flex-col justify-end"
-          style={{
-            backgroundColor: "#0b141a",
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M20 18v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        >
-          {/* Date chip */}
-          <div className="flex justify-center mb-3">
-            <span className="text-[10px] bg-[#182229] text-[#8696a0] px-3 py-1 rounded-md shadow-sm">
-              HOJE
-            </span>
-          </div>
-
-          {/* Incoming message (from contact) */}
-          <div className="max-w-[82%] mr-auto mb-2">
-            <div className="bg-[#202c33] rounded-lg rounded-tl-none px-2.5 py-1.5">
-              <p className="text-[12px] text-[#e9edef] leading-relaxed">
-                Olá, gostaria de mais informações
-              </p>
-              <div className="flex justify-end mt-0.5">
-                <span className="text-[9px] text-[#8696a0]">
-                  {`${(now.getHours() - 1 + 24) % 24}`.padStart(2, "0")}:{now.getMinutes().toString().padStart(2, "0")}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Our auto message (sent) */}
-          <div className="max-w-[82%] ml-auto">
-            <div className="bg-[#005c4b] rounded-lg rounded-tr-none px-2.5 py-1.5 relative">
-              <p className="text-[12px] text-[#e9edef] whitespace-pre-wrap leading-relaxed break-words">
-                {rendered}
-              </p>
-              <div className="flex items-center justify-end gap-1 mt-0.5">
-                <span className="text-[9px] text-[#ffffff80]">{time}</span>
-                <CheckCheck className="h-3 w-3 text-[#53bdeb]" />
-              </div>
+      {/* Chat area */}
+      <div className="px-3 pb-4 space-y-2">
+        {/* Incoming message */}
+        <div className="max-w-[85%] mr-auto">
+          <div className="rounded-lg rounded-tl-none px-2.5 py-1.5" style={{ backgroundColor: "#202c33" }}>
+            <p className="text-[12px] leading-relaxed" style={{ color: "#e9edef" }}>
+              Olá, gostaria de mais informações
+            </p>
+            <div className="flex justify-end mt-0.5">
+              <span className="text-[9px]" style={{ color: "#8696a0" }}>
+                {`${(now.getHours() - 1 + 24) % 24}`.padStart(2, "0")}:{now.getMinutes().toString().padStart(2, "0")}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Input bar */}
-        <div className="flex items-center gap-2 px-2 py-2 bg-[#1f2c33] border-t border-[#2a3942]">
-          <span className="text-[#8696a0] text-sm">😊</span>
-          <div className="flex-1 bg-[#2a3942] rounded-full px-3 py-1.5">
-            <span className="text-[11px] text-[#8696a0]">Mensagem</span>
+        {/* Sent message (auto recovery) */}
+        <div className="max-w-[85%] ml-auto">
+          <div className="rounded-lg rounded-tr-none px-2.5 py-1.5" style={{ backgroundColor: "#005c4b" }}>
+            <p className="text-[12px] whitespace-pre-wrap leading-relaxed break-words" style={{ color: "#e9edef" }}>
+              {rendered}
+            </p>
+            <div className="flex items-center justify-end gap-1 mt-0.5">
+              <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.5)" }}>{time}</span>
+              <CheckCheck className="h-3 w-3" style={{ color: "#53bdeb" }} />
+            </div>
           </div>
-          <span className="text-[#8696a0] text-sm">🎤</span>
         </div>
-
-        {/* Bottom nav bar */}
-        <div className="h-1 bg-[#e9edef] rounded-full w-24 mx-auto my-1.5 opacity-30" />
       </div>
     </div>
   );
@@ -269,24 +221,6 @@ const AutoRecuperacao = () => {
     onError: () => toast.error("Erro ao salvar configurações"),
   });
 
-  const runAutoRecovery = async (type?: string) => {
-    try {
-      toast.info("Iniciando recuperação automática...");
-      const { data, error } = await supabase.functions.invoke("auto-recovery", {
-        body: { forceRun: true, type },
-      });
-      if (error) throw error;
-      if (data?.success) {
-        toast.success(`Recuperação concluída! ${data.totalSent} mensagens enviadas`);
-        queryClient.invalidateQueries({ queryKey: ["messaging-stats"] });
-      } else {
-        toast.error(data?.error || "Erro na recuperação");
-      }
-    } catch {
-      toast.error("Erro ao executar recuperação automática");
-    }
-  };
-
   const getInstanceKey = (type: 'boleto' | 'pix_card' | 'abandoned'): keyof MessagingSettings => {
     const map = { boleto: 'boleto_instance_name', pix_card: 'pix_card_instance_name', abandoned: 'abandoned_instance_name' } as const;
     return map[type];
@@ -316,29 +250,6 @@ const AutoRecuperacao = () => {
     );
   }
 
-  const InstanceSelector = ({ type, instanceName }: { type: 'boleto' | 'pix_card' | 'abandoned'; instanceName: string | null }) => (
-    <div className="flex items-center gap-2">
-      <Label className="text-xs font-medium text-muted-foreground shrink-0">Instância:</Label>
-      {instanceName ? (
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30">
-          <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 shrink-0" />
-          <span className="text-xs font-medium truncate max-w-[120px]">{instanceName}</span>
-          <button onClick={() => removeInstance(type)} className="text-muted-foreground hover:text-destructive transition-colors ml-0.5">
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => apiConfigured && setInstanceModal({ open: true, type })}
-          disabled={!apiConfigured}
-          className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
-        >
-          {apiConfigured ? "Selecionar" : "Configure a API"}
-        </button>
-      )}
-    </div>
-  );
-
   const RecoveryTabContent = ({
     type,
     title,
@@ -365,67 +276,88 @@ const AutoRecuperacao = () => {
     showBoletoRules?: boolean;
   }) => (
     <div className="space-y-4">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <Badge variant={showBoletoRules ? "secondary" : "outline"} className="text-[10px] h-5 gap-1">
-            <BadgeIcon className="h-2.5 w-2.5" />
-            {badgeLabel}
-          </Badge>
+      <Card className="border-border/40">
+        {/* Compact header: switch + instance + badge */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
+          <div className="flex items-center gap-3">
+            <Switch checked={enabled} onCheckedChange={onToggle} />
+            <div>
+              <h3 className="text-sm font-medium">{title}</h3>
+              <p className="text-[10px] text-muted-foreground">{description}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Instance chip */}
+            {instanceName ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30">
+                <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 shrink-0" />
+                <span className="text-[10px] font-medium truncate max-w-[100px]">{instanceName}</span>
+                <button onClick={() => removeInstance(type)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => apiConfigured && setInstanceModal({ open: true, type })}
+                disabled={!apiConfigured}
+                className="text-[10px] text-primary hover:underline disabled:text-muted-foreground disabled:no-underline px-2 py-1 rounded border border-dashed border-border/50"
+              >
+                {apiConfigured ? "Selecionar instância" : "Configure a API"}
+              </button>
+            )}
+            <Badge variant="outline" className="text-[10px] h-5 gap-1 shrink-0">
+              <BadgeIcon className="h-2.5 w-2.5" />
+              {badgeLabel}
+            </Badge>
+          </div>
         </div>
-        <Switch checked={enabled} onCheckedChange={onToggle} />
-      </div>
-      <p className="text-xs text-muted-foreground -mt-2">{description}</p>
 
-      {/* Two-column layout: config + phone preview */}
-      <div className="grid md:grid-cols-[1fr_auto] gap-6">
-        {/* Left: Configuration card */}
-        <Card className="bg-card/60 border-border/30">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Configuração</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <InstanceSelector type={type} instanceName={instanceName} />
-
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground">Mensagem automática</Label>
-              <Textarea
-                value={message}
-                onChange={(e) => onMessageChange(e.target.value)}
-                placeholder="Digite a mensagem..."
-                className="min-h-[140px] text-sm bg-secondary/20 border-border/30 resize-none"
-              />
-              <div className="flex flex-wrap gap-1">
-                {VARIABLES_INFO.map((v) => (
-                  <button
-                    key={v.var}
-                    type="button"
-                    onClick={() => onMessageChange(message + v.var)}
-                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
-                  >
-                    {v.var}
-                  </button>
-                ))}
+        {/* Two-column: editor + preview */}
+        <CardContent className="p-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Left: editor */}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Mensagem automática</Label>
+                <Textarea
+                  value={message}
+                  onChange={(e) => onMessageChange(e.target.value)}
+                  placeholder="Digite a mensagem..."
+                  className="min-h-[160px] text-sm bg-secondary/20 border-border/30 resize-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Variáveis disponíveis</Label>
+                <div className="flex flex-wrap gap-1">
+                  {VARIABLES_INFO.map((v) => (
+                    <button
+                      key={v.var}
+                      type="button"
+                      onClick={() => onMessageChange(message + v.var)}
+                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      {v.var}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-          </CardContent>
-        </Card>
-
-        {/* Right: Phone mockup preview */}
-        <div className="flex flex-col items-center">
-          <Label className="text-xs font-medium text-muted-foreground mb-1 text-center block">Preview da mensagem</Label>
-          <WhatsAppPhoneMockup message={message} />
-        </div>
-      </div>
+            {/* Right: WhatsApp bubble preview */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Preview</Label>
+              <WhatsAppBubblePreview message={message} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {showBoletoRules && <BoletoRecoveryRulesConfig />}
     </div>
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -433,12 +365,12 @@ const AutoRecuperacao = () => {
             <Zap className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Recuperação Automática</h1>
-            <p className="text-sm text-muted-foreground">Mensagens exclusivas da automação — independentes da recuperação manual</p>
+            <h1 className="text-xl font-semibold">Recuperação Automática</h1>
+            <p className="text-xs text-muted-foreground">Mensagens automáticas de recuperação de vendas</p>
           </div>
         </div>
-        <Button onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending} size="sm">
-          {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+        <Button onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending} size="sm" variant="default">
+          {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
           Salvar
         </Button>
       </div>
@@ -449,25 +381,23 @@ const AutoRecuperacao = () => {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats — subtle inline */}
       {stats && (
-        <div className="grid grid-cols-5 gap-2">
-          {[
-            { label: "Enviadas", value: stats.sent, color: "text-foreground" },
-            { label: "Falharam", value: stats.failed, color: "text-destructive" },
-            { label: "Boleto", value: stats.boleto, color: "text-foreground" },
-            { label: "PIX/Cartão", value: stats.pix_card, color: "text-foreground" },
-            { label: "Abandonos", value: stats.abandoned, color: "text-foreground" },
-          ].map((s) => (
-            <div key={s.label} className="text-center p-3 rounded-lg bg-secondary/10">
-              <p className={`text-xl font-semibold ${s.color}`}>{s.value}</p>
-              <p className="text-[10px] text-muted-foreground">{s.label}</p>
-            </div>
-          ))}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span>Hoje:</span>
+          <span className="text-foreground font-medium">{stats.sent}</span> enviadas
+          <span className="text-muted-foreground">·</span>
+          <span className="text-destructive font-medium">{stats.failed}</span> falhas
+          <span className="text-muted-foreground">·</span>
+          <span className="text-foreground font-medium">{stats.boleto}</span> boleto
+          <span className="text-muted-foreground">·</span>
+          <span className="text-foreground font-medium">{stats.pix_card}</span> pix
+          <span className="text-muted-foreground">·</span>
+          <span className="text-foreground font-medium">{stats.abandoned}</span> abandono
         </div>
       )}
 
-      {/* Main Tabs: recovery types + settings */}
+      {/* Tabs */}
       <Tabs defaultValue="pix_card" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pix_card" className="gap-1.5">
@@ -487,7 +417,7 @@ const AutoRecuperacao = () => {
           <TabsTrigger value="settings" className="gap-1.5">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Configurações</span>
-            <span className="sm:hidden">Config</span>
+            <span className="sm:hidden">⚙</span>
           </TabsTrigger>
         </TabsList>
 
@@ -495,7 +425,7 @@ const AutoRecuperacao = () => {
           <RecoveryTabContent
             type="pix_card"
             title="PIX / Cartão"
-            description="Dispara automaticamente quando chega uma transação PIX/Cartão pendente via webhook."
+            description="Dispara ao receber transação PIX/Cartão pendente via webhook."
             badgeLabel="Tempo Real"
             badgeIcon={Radio}
             enabled={settings.pix_card_recovery_enabled}
@@ -510,7 +440,7 @@ const AutoRecuperacao = () => {
           <RecoveryTabContent
             type="abandoned"
             title="Abandonos"
-            description="Dispara automaticamente quando um evento de abandono é recebido via webhook."
+            description="Dispara ao receber evento de abandono via webhook."
             badgeLabel="Tempo Real"
             badgeIcon={Radio}
             enabled={settings.abandoned_recovery_enabled}
@@ -525,7 +455,7 @@ const AutoRecuperacao = () => {
           <RecoveryTabContent
             type="boleto"
             title="Boleto"
-            description="Executa automaticamente todos os dias às 9h, seguindo a régua de cobrança configurada abaixo."
+            description="Executa diariamente às 9h, seguindo a régua de cobrança."
             badgeLabel="Diário 9h"
             badgeIcon={Clock}
             enabled={settings.boleto_recovery_enabled}
@@ -537,39 +467,38 @@ const AutoRecuperacao = () => {
           />
         </TabsContent>
 
-        {/* Settings Tab */}
         <TabsContent value="settings">
-          <Card className="bg-card/60 border-border/30">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
+          <Card className="border-border/40">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
                 <Settings className="h-4 w-4" />
                 Configurações Gerais
               </CardTitle>
               <CardDescription className="text-xs">
-                Limites de envio, delay entre mensagens e horário de funcionamento da automação.
+                Limites de envio, delay e horário de funcionamento.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Limite diário de mensagens</Label>
+                  <Label className="text-xs">Limite diário</Label>
                   <Input
                     type="number"
                     value={settings.daily_limit}
                     onChange={(e) => setSettings({ ...settings, daily_limit: Number(e.target.value) })}
                     className="bg-secondary/30 border-border/30 h-9 text-sm"
                   />
-                  <p className="text-[10px] text-muted-foreground">Máximo de mensagens enviadas por dia em todas as automações</p>
+                  <p className="text-[10px] text-muted-foreground">Máximo de mensagens por dia</p>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Delay entre mensagens (segundos)</Label>
+                  <Label className="text-xs">Delay entre mensagens (s)</Label>
                   <Input
                     type="number"
                     value={settings.delay_between_messages}
                     onChange={(e) => setSettings({ ...settings, delay_between_messages: Number(e.target.value) })}
                     className="bg-secondary/30 border-border/30 h-9 text-sm"
                   />
-                  <p className="text-[10px] text-muted-foreground">Intervalo mínimo entre cada mensagem enviada</p>
+                  <p className="text-[10px] text-muted-foreground">Intervalo entre cada envio</p>
                 </div>
               </div>
 
@@ -577,7 +506,7 @@ const AutoRecuperacao = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-sm font-medium">Horário comercial</Label>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Enviar mensagens apenas dentro do horário definido</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Enviar apenas dentro do horário</p>
                   </div>
                   <Switch
                     checked={settings.working_hours_enabled}
