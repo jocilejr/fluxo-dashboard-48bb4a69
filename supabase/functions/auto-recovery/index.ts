@@ -315,8 +315,35 @@ Deno.serve(async (req) => {
           .not('customer_phone', 'is', null);
 
         if (boletos) {
+          // Track phones already contacted today to send max 1 message per person per day
+          const phonesContactedToday = new Set<string>();
+
+          // Pre-load phones that already received a boleto message today
+          const todayBrazil = getBrazilDate();
+          todayBrazil.setHours(0, 0, 0, 0);
+          const { data: todayLogs } = await supabase
+            .from('message_log')
+            .select('phone')
+            .eq('message_type', 'boleto')
+            .eq('status', 'sent')
+            .gte('created_at', todayBrazil.toISOString());
+          if (todayLogs) {
+            for (const log of todayLogs) {
+              const last8 = log.phone.replace(/\D/g, '').slice(-8);
+              if (last8.length === 8) phonesContactedToday.add(last8);
+            }
+          }
+
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
+
+            // Deduplicate: max 1 boleto message per person per day (using last 8 digits)
+            const boletoPhoneNorm = boleto.customer_phone!.replace(/\D/g, '');
+            const boletophone8 = boletoPhoneNorm.slice(-8);
+            if (boletophone8.length === 8 && phonesContactedToday.has(boletophone8)) {
+              stats.boleto.skipped++;
+              continue;
+            }
 
             const createdAt = new Date(boleto.created_at);
             const dueDate = new Date(createdAt);
@@ -351,7 +378,6 @@ Deno.serve(async (req) => {
                 const firstName = boleto.customer_name?.split(' ')[0] || 'Cliente';
                 const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(boleto.amount);
                 
-                // Use rule-specific message for boleto (régua de cobrança)
                 const message = formatMessage(rule.message, {
                   nome: boleto.customer_name || 'Cliente',
                   primeiro_nome: firstName,
@@ -361,7 +387,6 @@ Deno.serve(async (req) => {
                   saudação: getGreeting()
                 });
 
-                // Build media attachments based on rule's media_blocks
                 const metadata = boleto.metadata as Record<string, unknown> | null;
                 const boletoUrl = metadata?.boleto_url as string | undefined;
                 const boletoMedia: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
@@ -389,6 +414,9 @@ Deno.serve(async (req) => {
 
                 await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
 
+                // Mark this phone as contacted today
+                if (boletophone8.length === 8) phonesContactedToday.add(boletophone8);
+
                 await supabase.from('boleto_recovery_contacts').insert({
                   transaction_id: boleto.id,
                   rule_id: rule.id,
@@ -402,6 +430,7 @@ Deno.serve(async (req) => {
             }
           }
         }
+      }
       }
     }
 
