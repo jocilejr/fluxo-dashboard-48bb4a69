@@ -259,8 +259,26 @@ export function BoletoAutoRecoveryToggle() {
                     <p className="text-[10px] text-muted-foreground">
                       Após enviar {batchSize} msgs, aguarda {batchPause}s. Máx. {maxPerPersonPerDay} msg(s)/pessoa/dia.
                     </p>
-                  </div>
-                </PopoverContent>
+
+                    <div className="pt-2 border-t border-border/40">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full gap-2 text-xs"
+                        disabled={isRunning || !apiConfigured}
+                        onClick={handleManualRun}
+                      >
+                        {isRunning ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5" />
+                        )}
+                        {isRunning ? "Enviando..." : "Iniciar recuperação agora"}
+                      </Button>
+                      <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
+                        Dispara a régua de cobrança imediatamente
+                      </p>
+                    </div>
               </Popover>
             </div>
           )}
