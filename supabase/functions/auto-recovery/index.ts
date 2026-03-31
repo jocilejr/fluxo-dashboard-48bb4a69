@@ -127,10 +127,22 @@ Deno.serve(async (req) => {
       abandoned: settings.abandoned_instance_name || null,
     };
 
-    // Use dedicated auto-recovery messages from messaging_api_settings
+    // Fetch manual recovery messages from their respective tables
+    const { data: pixCardSettings } = await supabase
+      .from('pix_card_recovery_settings')
+      .select('message')
+      .limit(1)
+      .maybeSingle();
+
+    const { data: abandonedSettings } = await supabase
+      .from('abandoned_recovery_settings')
+      .select('message')
+      .limit(1)
+      .maybeSingle();
+
     const autoMessages = {
-      pix_card: settings.auto_pix_card_message || 'Olá {primeiro_nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?',
-      abandoned: settings.auto_abandoned_message || 'Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?',
+      pix_card: pixCardSettings?.message || settings.auto_pix_card_message || 'Olá {primeiro_nome}! Notamos que seu pagamento de {valor} está pendente. Podemos ajudar?',
+      abandoned: abandonedSettings?.message || settings.auto_abandoned_message || 'Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?',
       boleto: settings.auto_boleto_message || '{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!',
     };
 

@@ -45,6 +45,7 @@ import { RecoveryStatusIndicator } from "./RecoveryStatusIndicator";
 import { PhoneValidationIndicator } from "./PhoneValidationIndicator";
 import { useTransactionRecoveryLogs } from "@/hooks/useTransactionRecoveryLogs";
 import { usePhoneValidation } from "@/hooks/usePhoneValidation";
+import { AutoRecoveryToggleBar } from "./AutoRecoveryToggleBar";
 
 interface TransactionsTableProps {
   transactions: Transaction[];
@@ -1037,9 +1038,18 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
       </Tabs>
 
       {activeTab === "abandono-falha" ? (
-        <AbandonedEventsTab isAdmin={isAdmin} />
+        <>
+          {isAdmin && <AutoRecoveryToggleBar type="abandoned" isAdmin={isAdmin} />}
+          <AbandonedEventsTab isAdmin={isAdmin} />
+        </>
       ) : (
         <>
+          {isAdmin && activeTab === "boletos-gerados" && (
+            <AutoRecoveryToggleBar type="boleto" isAdmin={isAdmin} />
+          )}
+          {isAdmin && activeTab === "pix-cartao-pendentes" && (
+            <AutoRecoveryToggleBar type="pix_card" isAdmin={isAdmin} />
+          )}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

@@ -14,7 +14,7 @@ import { Loader2 } from "lucide-react";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Transacoes = lazy(() => import("./pages/Transacoes"));
 const Recuperacao = lazy(() => import("./pages/Recuperacao"));
-const AutoRecuperacao = lazy(() => import("./pages/AutoRecuperacao"));
+
 const Projetos = lazy(() => import("./pages/Projetos"));
 const TypebotRanking = lazy(() => import("./pages/TypebotRanking"));
 const GerarBoleto = lazy(() => import("./pages/GerarBoleto"));
@@ -78,7 +78,7 @@ const App = () => {
             <Route index element={<Dashboard />} />
             <Route path="transacoes" element={<Transacoes />} />
             <Route path="recuperacao" element={<Recuperacao />} />
-            <Route path="auto-recuperacao" element={<AutoRecuperacao />} />
+            
             <Route path="projetos" element={<Projetos />} />
             <Route path="typebots" element={<TypebotRanking />} />
             <Route path="gerar-boleto" element={<GerarBoleto />} />
