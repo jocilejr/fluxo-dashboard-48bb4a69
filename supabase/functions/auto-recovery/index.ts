@@ -328,18 +328,30 @@ Deno.serve(async (req) => {
                   saudação: getGreeting()
                 });
 
-                // Build media attachments for boleto if PDF URL available and setting enabled
-                const boletoSendPdf = settings.boleto_send_pdf !== false; // default true
+                // Build media attachments based on rule's media_blocks
                 const metadata = boleto.metadata as Record<string, unknown> | null;
                 const boletoUrl = metadata?.boleto_url as string | undefined;
                 const boletoMedia: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
+                const mediaBlocks = (rule.media_blocks as Array<{ type: string; enabled: boolean }>) || [];
                 
-                if (boletoSendPdf && boletoUrl) {
-                  boletoMedia.push({
-                    media_url: boletoUrl,
-                    type: 'document',
-                    caption: `Boleto - ${boleto.description || 'Produto'}`
-                  });
+                if (boletoUrl) {
+                  const pdfEnabled = mediaBlocks.find((b: { type: string; enabled: boolean }) => b.type === 'pdf')?.enabled;
+                  const imageEnabled = mediaBlocks.find((b: { type: string; enabled: boolean }) => b.type === 'image')?.enabled;
+                  
+                  if (pdfEnabled) {
+                    boletoMedia.push({
+                      media_url: boletoUrl,
+                      type: 'document',
+                      caption: `Boleto - ${boleto.description || 'Produto'}`
+                    });
+                  }
+                  if (imageEnabled) {
+                    boletoMedia.push({
+                      media_url: boletoUrl,
+                      type: 'image',
+                      caption: `Boleto - ${boleto.description || 'Produto'}`
+                    });
+                  }
                 }
 
                 await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
