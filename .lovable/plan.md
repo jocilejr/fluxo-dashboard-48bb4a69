@@ -2,71 +2,44 @@
 
 ## Problema
 
-Números que começam com `0` (ex: `018988110401`) ficam com DDD inválido após normalização. Solução simples: se o número começa com `0`, remove o primeiro `0`.
+Na recuperação diária (régua de cobrança), quando a regra tem o bloco de **imagem** habilitado, o sistema envia a URL do PDF diretamente com `type: 'image'`. O WhatsApp não renderiza PDFs como imagem. A função `convertPdfToImageUrl()` já existe no código mas só é chamada no envio imediato.
 
-## Plano
+## Solução
 
-### 1. Migração SQL — atualizar `normalize_phone`
+No arquivo `supabase/functions/auto-recovery/index.ts`, na seção "BATCH: BOLETO recovery (drip/follow-up)" (linhas ~792-801), antes de montar o array `boletoMedia`, converter o PDF em imagem usando `convertPdfToImageUrl()` quando o bloco de imagem estiver habilitado.
 
-Alterar a função para, após remover não-dígitos, remover um `0` inicial se existir. Depois fazer backfill nas 3 tabelas.
+### Alteração
 
-```sql
-CREATE OR REPLACE FUNCTION public.normalize_phone(phone text)
- RETURNS text
- LANGUAGE plpgsql
- IMMUTABLE
- SET search_path = public
-AS $function$
-DECLARE
-  digits text;
-BEGIN
-  digits := regexp_replace(phone, '[^0-9]', '', 'g');
-  -- Remove leading zero if present
-  IF left(digits, 1) = '0' THEN
-    digits := substring(digits from 2);
-  END IF;
-  RETURN digits;
-END;
-$function$;
+Arquivo: `supabase/functions/auto-recovery/index.ts`
 
--- Backfill
-UPDATE customers SET normalized_phone = normalize_phone(display_phone) WHERE display_phone IS NOT NULL;
-UPDATE transactions SET normalized_phone = normalize_phone(customer_phone) WHERE customer_phone IS NOT NULL;
-UPDATE abandoned_events SET normalized_phone = normalize_phone(customer_phone) WHERE customer_phone IS NOT NULL;
-```
+Na seção de construção de mídia da régua diária (~linha 792):
 
-### 2. Frontend — `src/lib/phoneNormalization.ts`
+1. Verificar se existe bloco de imagem habilitado
+2. Se sim, chamar `convertPdfToImageUrl(boletoUrl, supabase)` para converter
+3. Usar a URL da imagem convertida no `media_url` em vez da URL do PDF
+4. Se a conversão falhar, fazer fallback para envio como documento
 
-Em `normalizePhoneForMatching` e `generatePhoneVariations`, após `replace(/\D/g, '')`, adicionar:
-```ts
-if (digits.startsWith('0')) digits = digits.slice(1);
-```
+```text
+Antes (linha ~798):
+  if (mediaBlocks.find(b => b.type === 'image')?.enabled) {
+    boletoMedia.push({ media_url: boletoUrl, type: 'image', ... });
+  }
 
-Remover a lógica existente nas linhas 20-23 que já tentava fazer algo parecido (mas só funcionava com `55` na frente).
-
-### 3. Edge functions — todos os pontos de normalização
-
-Nos arquivos que fazem `phone.replace(/\D/g, '')`, adicionar a mesma linha logo depois:
-- `webhook-receiver/index.ts` (linha 34)
-- `send-external-message/index.ts` (linha 88)
-- `webhook-abandoned/index.ts` (linha 30)
-- `auto-recovery/index.ts` (linhas 397, 726, 851, 905)
-- `delivery-access/index.ts` (linha 29)
-- `external-messaging-webhook/index.ts` (linhas 75, 119, 255, 454, 580, 624)
-- `validate-external-number/index.ts` (linha 51)
-- `sync-external-data/index.ts` (linha 121)
-
-Padrão simples em cada ponto:
-```ts
-let digits = phone.replace(/\D/g, '');
-if (digits.startsWith('0')) digits = digits.slice(1);
+Depois:
+  if (mediaBlocks.find(b => b.type === 'image')?.enabled) {
+    const imgUrl = await convertPdfToImageUrl(boletoUrl, supabase);
+    if (imgUrl) {
+      boletoMedia.push({ media_url: imgUrl, type: 'image', ... });
+    } else {
+      // Fallback: send as document
+      boletoMedia.push({ media_url: boletoUrl, type: 'document', ... });
+    }
+  }
 ```
 
 ### Arquivos alterados
 
 | Arquivo | Mudança |
 |---------|---------|
-| Nova migração SQL | `normalize_phone` remove `0` inicial + backfill |
-| `src/lib/phoneNormalization.ts` | Adiciona remoção de `0` inicial nas 2 funções |
-| 8+ edge functions | Adiciona `if (startsWith('0')) slice(1)` após cada normalização |
+| `supabase/functions/auto-recovery/index.ts` | Chamar `convertPdfToImageUrl` na régua diária para blocos de imagem |
 
