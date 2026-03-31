@@ -46,6 +46,7 @@ export default function Lembretes() {
   const [filter, setFilter] = useState<string>("all");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedReminder, setSelectedReminder] = useState<any>(null);
   const [newReminder, setNewReminder] = useState({
     phone: "",
     title: "",
@@ -473,99 +474,65 @@ export default function Lembretes() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {filteredReminders.map((reminder: any) => {
                 const isOverdue =
                   !reminder.completed &&
                   isPast(new Date(reminder.due_date)) &&
                   !isToday(new Date(reminder.due_date));
                 const isTodayReminder = isToday(new Date(reminder.due_date));
+                const isFuture = !reminder.completed && !isOverdue && !isTodayReminder;
 
                 return (
                   <Card
                     key={reminder.id}
-                    className={`transition-all hover:shadow-md ${
+                    className={`cursor-pointer transition-all hover:shadow-md hover:border-primary/50 ${
                       reminder.completed ? "opacity-60" : ""
-                    }`}
+                    } ${isOverdue ? "border-destructive/30" : ""}`}
+                    onClick={() => setSelectedReminder(reminder)}
                   >
-                    <CardContent className="flex items-center gap-3 py-3 px-4">
-                      <button
-                        className="flex-shrink-0 transition-colors"
-                        onClick={() =>
-                          toggleMutation.mutate({
-                            id: reminder.id,
-                            completed: !reminder.completed,
-                            external_id: reminder.external_id,
-                          })
-                        }
-                      >
-                        {reminder.completed ? (
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                        ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={`font-medium text-sm truncate ${reminder.completed ? "line-through text-muted-foreground" : ""}`}>
+                          {reminder.title}
+                        </span>
+                        {isTodayReminder && !reminder.completed && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-yellow-500/10 text-yellow-600 border-yellow-500/20 shrink-0">
+                            Hoje
+                          </Badge>
                         )}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`font-medium text-sm ${
-                              reminder.completed
-                                ? "line-through text-muted-foreground"
-                                : ""
-                            }`}
-                          >
-                            {reminder.title}
-                          </span>
-                          {isTodayReminder && !reminder.completed && (
-                            <Badge className="text-[10px] px-1.5 py-0 bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
-                              Hoje
-                            </Badge>
-                          )}
-                          {isOverdue && (
-                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                              Atrasado
-                            </Badge>
-                          )}
-                          {reminder.completed && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              Concluído
-                            </Badge>
-                          )}
-                        </div>
-                        {reminder.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                            {reminder.description}
-                          </p>
+                        {isOverdue && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 shrink-0">
+                            Atrasado
+                          </Badge>
                         )}
-                        <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {reminder.phone}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <CalendarIcon className="h-3 w-3" />
-                            {(() => {
-                              try {
-                                return format(
-                                  new Date(reminder.due_date),
-                                  "dd/MM/yyyy HH:mm",
-                                  { locale: ptBR }
-                                );
-                              } catch {
-                                return reminder.due_date;
-                              }
-                            })()}
-                          </span>
-                        </div>
+                        {isFuture && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 shrink-0">
+                            Futuro
+                          </Badge>
+                        )}
+                        {reminder.completed && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                            Concluído
+                          </Badge>
+                        )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-                        onClick={() => deleteMutation.mutate(reminder.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {reminder.phone}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <CalendarIcon className="h-3 w-3" />
+                        {(() => {
+                          try {
+                            return format(new Date(reminder.due_date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+                          } catch {
+                            return reminder.due_date;
+                          }
+                        })()}
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -573,6 +540,138 @@ export default function Lembretes() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Detail Dialog */}
+      <Dialog open={!!selectedReminder} onOpenChange={(open) => !open && setSelectedReminder(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-primary" />
+              Detalhes do Lembrete
+            </DialogTitle>
+          </DialogHeader>
+          {selectedReminder && (
+            <ReminderDetail
+              reminder={selectedReminder}
+              onToggle={() => {
+                toggleMutation.mutate({
+                  id: selectedReminder.id,
+                  completed: !selectedReminder.completed,
+                  external_id: selectedReminder.external_id,
+                });
+                setSelectedReminder({ ...selectedReminder, completed: !selectedReminder.completed });
+              }}
+              onDelete={() => {
+                deleteMutation.mutate(selectedReminder.id);
+                setSelectedReminder(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function ReminderDetail({ reminder, onToggle, onDelete }: { reminder: any; onToggle: () => void; onDelete: () => void }) {
+  const isOverdue = !reminder.completed && isPast(new Date(reminder.due_date)) && !isToday(new Date(reminder.due_date));
+  const isTodayReminder = isToday(new Date(reminder.due_date));
+  const isFuture = !reminder.completed && !isOverdue && !isTodayReminder;
+
+  const statusLabel = reminder.completed ? "Concluído" : isOverdue ? "Atrasado" : isTodayReminder ? "Hoje" : "Futuro";
+  const statusColor = reminder.completed
+    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+    : isOverdue
+    ? "bg-destructive/10 text-destructive border-destructive/20"
+    : isTodayReminder
+    ? "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
+    : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20";
+
+  return (
+    <div className="space-y-5">
+      <Card className="border-border/50">
+        <CardContent className="p-4 space-y-4">
+          <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Contato</p>
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-md bg-primary/10">
+                <Bell className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Título</p>
+                <p className="font-medium text-sm">{reminder.title}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-md bg-primary/10">
+                <Phone className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] text-muted-foreground">Telefone</p>
+                <p className="font-medium text-sm">{reminder.phone}</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => {
+                  navigator.clipboard.writeText(reminder.phone);
+                  toast.success("Copiado!");
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={`text-xs ${statusColor}`}>
+                {statusLabel}
+              </Badge>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <CalendarIcon className="h-3 w-3" />
+                {(() => {
+                  try {
+                    return format(new Date(reminder.due_date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+                  } catch {
+                    return reminder.due_date;
+                  }
+                })()}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {reminder.description && (
+        <Card className="border-border/50">
+          <CardContent className="p-4 space-y-2">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Descrição</p>
+            <p className="text-sm whitespace-pre-wrap">{reminder.description}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex gap-2">
+        <Button
+          variant={reminder.completed ? "outline" : "default"}
+          className="flex-1 gap-2"
+          onClick={onToggle}
+        >
+          {reminder.completed ? (
+            <>
+              <Circle className="h-4 w-4" />
+              Reabrir
+            </>
+          ) : (
+            <>
+              <CheckCircle className="h-4 w-4" />
+              Concluir
+            </>
+          )}
+        </Button>
+        <Button variant="destructive" size="icon" onClick={onDelete}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
