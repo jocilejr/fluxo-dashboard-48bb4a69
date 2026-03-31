@@ -206,13 +206,18 @@ export function useBoletoRecovery() {
     [todayBoletos]
   );
 
-  const contactedTodayBoletos = useMemo(
-    () => todayBoletos.filter((b) => b.contactedToday || b.duplicateToday),
+  const sentTodayBoletos = useMemo(
+    () => todayBoletos.filter((b) => b.contactedToday && !b.duplicateToday),
     [todayBoletos]
   );
 
   const duplicateTodayBoletos = useMemo(
     () => todayBoletos.filter((b) => b.duplicateToday),
+    [todayBoletos]
+  );
+
+  const resolvedTodayBoletos = useMemo(
+    () => todayBoletos.filter((b) => b.contactedToday || b.duplicateToday),
     [todayBoletos]
   );
 
@@ -229,21 +234,23 @@ export function useBoletoRecovery() {
   // ── Stats ──
   const stats = useMemo(() => {
     const totalToday = todayBoletos.length;
-    const contacted = contactedTodayBoletos.length;
-    const duplicates = duplicateTodayBoletos.length;
-    const pending = pendingTodayBoletos.length;
+    const sentToday = sentTodayBoletos.length;
+    const duplicatesToday = duplicateTodayBoletos.length;
+    const resolvedToday = resolvedTodayBoletos.length;
+    const pendingToday = pendingTodayBoletos.length;
     const totalValue = todayBoletos.reduce((sum, b) => sum + Number(b.amount), 0);
     return {
       totalToday,
-      contactedToday: contacted,
-      duplicatesToday: duplicates,
-      pendingToday: pending,
+      sentToday,
+      duplicatesToday,
+      resolvedToday,
+      pendingToday,
       todayValue: totalValue,
       pendingCount: pendingBoletos.length,
       overdueCount: overdueBoletos.length,
       totalCount: processedBoletos.length,
     };
-  }, [todayBoletos, contactedTodayBoletos, duplicateTodayBoletos, pendingTodayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
+  }, [todayBoletos, sentTodayBoletos, duplicateTodayBoletos, resolvedTodayBoletos, pendingTodayBoletos, pendingBoletos, overdueBoletos, processedBoletos]);
 
   // ── Manual contact mutation (writes to both boleto_recovery_contacts AND message_log) ──
   const addContact = useMutation({
@@ -306,8 +313,9 @@ export function useBoletoRecovery() {
     processedBoletos,
     todayBoletos,
     pendingTodayBoletos,
-    contactedTodayBoletos,
+    sentTodayBoletos,
     duplicateTodayBoletos,
+    resolvedTodayBoletos,
     pendingBoletos,
     overdueBoletos,
     stats,
