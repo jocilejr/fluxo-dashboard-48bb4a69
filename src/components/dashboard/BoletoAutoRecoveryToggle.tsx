@@ -4,7 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Circle, X, Clock, Zap, Settings, Play, Loader2 } from "lucide-react";
+import { Circle, X, Clock, Zap, Settings, Play, Loader2, CheckCircle2, AlertCircle, PauseCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -24,6 +24,11 @@ interface MessagingSettings {
   batch_size: number;
   batch_pause_seconds: number;
   max_messages_per_person_per_day: number;
+  last_recovery_status: string;
+  last_recovery_started_at: string | null;
+  last_recovery_finished_at: string | null;
+  last_recovery_stats: { boleto?: { sent: number; failed: number; skipped: number }; pix_card?: { sent: number; failed: number; skipped: number }; abandoned?: { sent: number; failed: number; skipped: number } } | null;
+  last_recovery_error: string | null;
   [key: string]: unknown;
 }
 
@@ -41,6 +46,10 @@ export function BoletoAutoRecoveryToggle() {
         .maybeSingle();
       if (error) throw error;
       return data as MessagingSettings | null;
+    },
+    refetchInterval: (query) => {
+      const status = query.state.data?.last_recovery_status;
+      return status === 'running' ? 3000 : false;
     },
   });
 
@@ -67,6 +76,22 @@ export function BoletoAutoRecoveryToggle() {
   const batchSize = settings?.batch_size ?? 10;
   const batchPause = settings?.batch_pause_seconds ?? 30;
   const maxPerPersonPerDay = settings?.max_messages_per_person_per_day ?? 1;
+  const recoveryStatus = settings?.last_recovery_status ?? 'idle';
+  const recoveryStartedAt = settings?.last_recovery_started_at;
+  const recoveryFinishedAt = settings?.last_recovery_finished_at;
+  const recoveryStats = settings?.last_recovery_stats;
+  const recoveryError = settings?.last_recovery_error;
+
+  const formatTimeAgo = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'agora';
+    if (mins < 60) return `${mins}min atrás`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h atrás`;
+    return `${Math.floor(hours / 24)}d atrás`;
+  };
 
   const handleManualRun = async () => {
     setIsRunning(true);
@@ -285,6 +310,61 @@ export function BoletoAutoRecoveryToggle() {
             </div>
           )}
         </div>
+
+        {/* Recovery status bar */}
+        {enabled && recoveryStatus !== 'idle' && (
+          <div className="border-t border-border/30 px-4 py-2 flex items-center gap-2 flex-wrap">
+            {recoveryStatus === 'running' && (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                <span className="text-[11px] font-medium text-primary">Recuperação em andamento...</span>
+                {recoveryStartedAt && (
+                  <span className="text-[10px] text-muted-foreground">Iniciada {formatTimeAgo(recoveryStartedAt)}</span>
+                )}
+              </>
+            )}
+            {recoveryStatus === 'completed' && (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-[11px] font-medium text-emerald-500">Concluída</span>
+                {recoveryFinishedAt && (
+                  <span className="text-[10px] text-muted-foreground">{formatTimeAgo(recoveryFinishedAt)}</span>
+                )}
+                {recoveryStats?.boleto && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Badge variant="outline" className="text-[9px] h-4 bg-emerald-500/10 border-emerald-500/30 text-emerald-500">
+                      {recoveryStats.boleto.sent} enviada(s)
+                    </Badge>
+                    {recoveryStats.boleto.skipped > 0 && (
+                      <Badge variant="outline" className="text-[9px] h-4 text-muted-foreground">
+                        {recoveryStats.boleto.skipped} ignorada(s)
+                      </Badge>
+                    )}
+                    {recoveryStats.boleto.failed > 0 && (
+                      <Badge variant="outline" className="text-[9px] h-4 bg-destructive/10 border-destructive/30 text-destructive">
+                        {recoveryStats.boleto.failed} falha(s)
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            {recoveryStatus === 'error' && (
+              <>
+                <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                <span className="text-[11px] font-medium text-destructive">Erro na recuperação</span>
+                {recoveryError && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[200px]" title={recoveryError}>
+                    {recoveryError}
+                  </span>
+                )}
+                {recoveryFinishedAt && (
+                  <span className="text-[10px] text-muted-foreground ml-auto">{formatTimeAgo(recoveryFinishedAt)}</span>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </Card>
 
       {instanceModalOpen && settings && (

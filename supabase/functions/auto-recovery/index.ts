@@ -84,6 +84,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Mark status as running
+    await supabase.from('messaging_api_settings').update({
+      last_recovery_status: 'running',
+      last_recovery_started_at: new Date().toISOString(),
+      last_recovery_finished_at: null,
+      last_recovery_error: null,
+    }).eq('id', settings.id);
+
     const isSingleItem = !!specificTransactionId || !!specificAbandonedEventId;
     if (!forceRun && !isSingleItem && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
       return new Response(
@@ -603,6 +611,14 @@ Deno.serve(async (req) => {
 
     console.log('Auto recovery completed:', stats);
 
+    // Mark status as completed
+    await supabase.from('messaging_api_settings').update({
+      last_recovery_status: 'completed',
+      last_recovery_finished_at: new Date().toISOString(),
+      last_recovery_stats: stats,
+      last_recovery_error: null,
+    }).eq('id', settings.id);
+
     return new Response(
       JSON.stringify({ success: true, stats, totalSent: messagesSent, remainingLimit: remainingLimit - messagesSent }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -611,6 +627,19 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in auto-recovery:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Try to mark status as error
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const sb = createClient(supabaseUrl, supabaseServiceKey);
+      await sb.from('messaging_api_settings').update({
+        last_recovery_status: 'error',
+        last_recovery_finished_at: new Date().toISOString(),
+        last_recovery_error: errorMessage,
+      }).neq('id', '');
+    } catch { /* ignore */ }
+
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
