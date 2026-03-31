@@ -64,6 +64,7 @@ const defaultSettings: MessagingSettings = {
   auto_abandoned_message: "Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?",
   auto_boleto_message: "{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!",
   boleto_send_hour: 9,
+  boleto_send_pdf: true,
 };
 
 const VARIABLES_INFO = [
