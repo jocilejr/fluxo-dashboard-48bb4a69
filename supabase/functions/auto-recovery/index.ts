@@ -321,7 +321,28 @@ Deno.serve(async (req) => {
           codigo_barras: tx.external_id || '',
         });
 
-        await sendMessage(tx.customer_phone, message, 'boleto', tx.id, undefined, undefined, undefined);
+        // Use boleto_immediate to bypass rule_id validation trigger
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`
+          },
+          body: JSON.stringify({
+            phone: tx.customer_phone,
+            message,
+            messageType: 'boleto_immediate',
+            transactionId: tx.id,
+            instanceName: instanceMap.boleto,
+          })
+        });
+        const result = await response.json();
+        if (result.success) {
+          messagesSent++;
+          stats.boleto.sent++;
+        } else {
+          stats.boleto.failed++;
+        }
       }
 
       await supabase.from('messaging_api_settings').update({

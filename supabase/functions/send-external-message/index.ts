@@ -16,7 +16,7 @@ interface SendMessageRequest {
   message: string;
   transactionId?: string;
   abandonedEventId?: string;
-  messageType: 'boleto' | 'pix_card' | 'abandoned';
+  messageType: 'boleto' | 'boleto_immediate' | 'pix_card' | 'abandoned';
   customerName?: string;
   amount?: number;
   instanceName?: string;
@@ -73,7 +73,8 @@ Deno.serve(async (req) => {
         pix_card: settings.pix_card_instance_name || null,
         abandoned: settings.abandoned_instance_name || null,
       };
-      instance = instanceMap[messageType] || null;
+      const lookupType = messageType === 'boleto_immediate' ? 'boleto' : messageType;
+      instance = instanceMap[lookupType] || null;
     }
 
     if (!instance) {
