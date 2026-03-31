@@ -504,8 +504,17 @@ Deno.serve(async (req) => {
         .not('customer_phone', 'is', null);
 
       if (events) {
+        const abandonedPhonesContacted = new Set<string>();
         for (const event of events) {
           if (messagesSent >= remainingLimit && !forceRun) break;
+
+          // Deduplicate: max 1 abandoned message per person per day
+          const evPhoneNorm = event.customer_phone!.replace(/\D/g, '');
+          const evPhone8 = evPhoneNorm.slice(-8);
+          if (evPhone8.length === 8 && abandonedPhonesContacted.has(evPhone8)) {
+            stats.abandoned.skipped++;
+            continue;
+          }
 
           const { count: alreadyContacted } = await supabase
             .from('message_log')
@@ -530,6 +539,7 @@ Deno.serve(async (req) => {
           });
 
           await sendMessage(event.customer_phone!, message, 'abandoned', undefined, event.id);
+          if (evPhone8.length === 8) abandonedPhonesContacted.add(evPhone8);
         }
       }
     }
