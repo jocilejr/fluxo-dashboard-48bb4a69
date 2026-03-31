@@ -468,8 +468,33 @@ Deno.serve(async (req) => {
             // Dedup: phone daily limit
             const phoneNorm = boleto.customer_phone!.replace(/\D/g, '');
             const phone8 = phoneNorm.slice(-8);
+
+            // Check rule match FIRST so we can log duplicate with rule_id
+            const daysSinceGenEarly = calcDaysSince(boleto.created_at);
+            const dueDateEarly = calcDueDate(boleto.created_at);
+            const daysUntilDueEarly = Math.round((dueDateEarly.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            let earlyMatchedRule: typeof rules[0] | null = null;
+            for (const rule of rules) {
+              if (rule.rule_type === 'days_after_generation' && daysSinceGenEarly === rule.days) { earlyMatchedRule = rule; break; }
+              if (rule.rule_type === 'days_before_due' && daysUntilDueEarly === rule.days) { earlyMatchedRule = rule; break; }
+              if (rule.rule_type === 'days_after_due' && daysUntilDueEarly === -rule.days) { earlyMatchedRule = rule; break; }
+            }
+
+            if (!earlyMatchedRule) continue;
+
             if (phone8.length === 8 && (phoneDailyCount.get(phone8) || 0) >= maxPerPersonPerDay) {
-              stats.boleto.skipped++;
+              // Register as duplicate in message_log
+              const normalizedPhone = phoneNorm.startsWith('55') ? phoneNorm : `55${phoneNorm}`;
+              await supabase.from('message_log').insert({
+                phone: normalizedPhone,
+                message: 'Duplicado - telefone já contactado hoje',
+                message_type: 'boleto',
+                status: 'duplicate',
+                transaction_id: boleto.id,
+                rule_id: earlyMatchedRule.id,
+                sent_at: new Date().toISOString(),
+              });
+              stats.boleto.duplicates++;
               continue;
             }
 
