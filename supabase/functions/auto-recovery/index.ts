@@ -94,6 +94,11 @@ Deno.serve(async (req) => {
 
     const isSingleItem = !!specificTransactionId || !!specificAbandonedEventId;
     if (!forceRun && !isSingleItem && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
+      await supabase.from('messaging_api_settings').update({
+        last_recovery_status: 'completed',
+        last_recovery_finished_at: new Date().toISOString(),
+        last_recovery_error: null,
+      }).eq('id', settings.id);
       return new Response(
         JSON.stringify({ success: true, message: 'Fora do horário de funcionamento', skipped: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
