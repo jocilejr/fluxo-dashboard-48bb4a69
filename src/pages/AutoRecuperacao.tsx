@@ -39,6 +39,7 @@ interface MessagingSettings {
   auto_abandoned_message: string;
   auto_boleto_message: string;
   boleto_send_hour: number;
+  boleto_send_pdf: boolean;
 }
 
 const defaultSettings: MessagingSettings = {
