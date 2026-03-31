@@ -117,7 +117,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      const normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
+      let normPhone = customer_phone ? customer_phone.replace(/\D/g, '') : null;
+      if (normPhone?.startsWith('0')) normPhone = normPhone.slice(1);
 
       if (external_id) {
         const { data: existing } = await supabase
