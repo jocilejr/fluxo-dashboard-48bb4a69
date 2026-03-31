@@ -405,9 +405,9 @@ Deno.serve(async (req) => {
 
           const { data: todayLogs } = await supabase
             .from('message_log')
-            .select('transaction_id, rule_id, phone')
+            .select('transaction_id, rule_id, phone, status')
             .eq('message_type', 'boleto')
-            .eq('status', 'sent')
+            .in('status', ['sent', 'duplicate'])
             .not('rule_id', 'is', null)
             .gte('created_at', todayIso);
 
