@@ -244,6 +244,28 @@ export function BoletoAutoRecoveryToggle() {
                 </button>
               )}
 
+              {/* Template selector */}
+              {templates && templates.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Select
+                    value={defaultTemplate?.id || ""}
+                    onValueChange={(val) => setDefaultTemplate.mutate(val)}
+                  >
+                    <SelectTrigger className="bg-secondary/30 border-border/30 h-7 text-xs w-[140px]">
+                      <SelectValue placeholder="Template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id} className="text-xs">
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Hour selector */}
 
               <div className="flex items-center gap-1.5">
