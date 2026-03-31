@@ -292,7 +292,6 @@ export function BoletoRecoveryRulesConfig() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="immediate">Imediatamente ao gerar</SelectItem>
                           <SelectItem value="days_after_generation">Dias após geração</SelectItem>
                           <SelectItem value="days_before_due">Dias antes do vencimento</SelectItem>
                           <SelectItem value="days_after_due">Dias após vencimento</SelectItem>
