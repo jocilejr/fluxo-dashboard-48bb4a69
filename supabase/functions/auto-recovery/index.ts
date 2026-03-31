@@ -388,28 +388,6 @@ Deno.serve(async (req) => {
         .neq('rule_type', 'immediate')
         .order('priority', { ascending: true });
 
-      // 3. Load default template from boleto_recovery_templates
-      const { data: defaultTemplate } = await supabase
-        .from('boleto_recovery_templates')
-        .select('*')
-        .eq('is_default', true)
-        .maybeSingle();
-
-      // Fallback: first template if no default
-      let template = defaultTemplate;
-      if (!template) {
-        const { data: firstTemplate } = await supabase
-          .from('boleto_recovery_templates')
-          .select('*')
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        template = firstTemplate;
-      }
-
-      const templateBlocks = (template?.blocks as Array<{ type: string; content?: string; enabled?: boolean }>) || [];
-      const hasTemplate = templateBlocks.length > 0;
-
       if (rules && rules.length > 0) {
         // 4. Load unpaid boletos with phone
         const { data: boletos } = await supabase
