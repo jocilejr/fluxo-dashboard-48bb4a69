@@ -504,6 +504,7 @@ Deno.serve(async (req) => {
         const pixCardPhonesContacted = new Set<string>();
         for (const tx of transactions) {
           if (messagesSent >= remainingLimit && !forceRun) break;
+          if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
           // Deduplicate: max 1 pix/card message per person per day
           const txPhoneNorm = tx.customer_phone!.replace(/\D/g, '');
