@@ -49,7 +49,7 @@ export function BoletoAutoRecoveryToggle() {
     },
     refetchInterval: (query) => {
       const status = query.state.data?.last_recovery_status;
-      return status === 'running' ? 3000 : false;
+      return (status === 'running' || status === 'paused') ? 3000 : false;
     },
   });
 
