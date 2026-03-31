@@ -313,6 +313,22 @@ async function handleWebhookReceiver(req: Request): Promise<Response> {
   await sendPushToAllSubscribers(supabase, `🔔 Nova Transação - ${typeLabel}`, `${payload.customer_name || 'Cliente'} - ${amount}`, `transaction-${data.id}`);
   await sendWirePusherNotification(supabase, `${payload.type}_${status}`, notificationData);
 
+  // ===== INSTANT RECOVERY FOR BOLETO =====
+  if (payload.type === 'boleto' && status !== 'pago') {
+    console.log('[main/webhook-receiver] Boleto pending, triggering instant boleto recovery...');
+    fetch(`${supabaseUrl}/functions/v1/auto-recovery`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        type: 'boleto',
+        transactionId: data.id,
+      }),
+    }).catch(err => console.error('[BoletoInstantRecovery] Background error:', err));
+  }
+
   return new Response(
     JSON.stringify({ success: true, action: 'created', transaction_id: data.id }),
     { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -294,6 +294,18 @@ Deno.serve(async (req) => {
 
     // ===== SINGLE BOLETO TRANSACTION (immediate send) =====
     if (specificTransactionId && specificType === 'boleto') {
+      if (!settings.boleto_recovery_enabled) {
+        console.log('[boleto-immediate] Boleto recovery disabled, skipping');
+        await supabase.from('messaging_api_settings').update({
+          last_recovery_status: 'completed',
+          last_recovery_finished_at: new Date().toISOString(),
+        }).eq('id', settings.id);
+        return new Response(
+          JSON.stringify({ success: true, message: 'Boleto recovery disabled', skipped: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const { data: tx } = await supabase
         .from('transactions')
         .select('*')

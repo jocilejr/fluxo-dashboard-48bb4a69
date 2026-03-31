@@ -612,6 +612,25 @@ Deno.serve(async (req) => {
       }).catch(err => console.error('[InstantRecovery] Background error:', err));
     }
 
+    // ===== INSTANT RECOVERY FOR BOLETO =====
+    // Only for new boleto transactions with pending/gerado status (not pago)
+    if (payload.type === 'boleto' && status !== 'pago') {
+      console.log('[webhook-receiver] Boleto pending transaction, triggering instant boleto recovery...');
+      
+      // Fire-and-forget call to auto-recovery
+      fetch(`${supabaseUrl}/functions/v1/auto-recovery`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          type: 'boleto',
+          transactionId: data.id,
+        }),
+      }).catch(err => console.error('[BoletoInstantRecovery] Background error:', err));
+    }
+
     return new Response(
       JSON.stringify({ success: true, action: 'created', transaction_id: data.id }),
       { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
