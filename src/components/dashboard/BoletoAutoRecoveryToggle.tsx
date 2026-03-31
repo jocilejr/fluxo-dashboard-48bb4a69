@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,21 @@ export function BoletoAutoRecoveryToggle() {
       return (status === 'running' || status === 'paused') ? 3000 : false;
     },
   });
+
+  // Realtime subscription for instant UI updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('messaging-settings-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messaging_api_settings' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["messaging-api-settings"] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   const updateMutation = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {

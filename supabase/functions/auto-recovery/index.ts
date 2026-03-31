@@ -94,6 +94,11 @@ Deno.serve(async (req) => {
 
     const isSingleItem = !!specificTransactionId || !!specificAbandonedEventId;
     if (!forceRun && !isSingleItem && settings.working_hours_enabled && !isWithinWorkingHours(settings.working_hours_start, settings.working_hours_end)) {
+      await supabase.from('messaging_api_settings').update({
+        last_recovery_status: 'completed',
+        last_recovery_finished_at: new Date().toISOString(),
+        last_recovery_error: null,
+      }).eq('id', settings.id);
       return new Response(
         JSON.stringify({ success: true, message: 'Fora do horário de funcionamento', skipped: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -115,6 +120,11 @@ Deno.serve(async (req) => {
 
     const remainingLimit = settings.daily_limit - (todayCount || 0);
     if (remainingLimit <= 0 && !forceRun && !isSingleItem) {
+      await supabase.from('messaging_api_settings').update({
+        last_recovery_status: 'completed',
+        last_recovery_finished_at: new Date().toISOString(),
+        last_recovery_error: 'Limite diário atingido',
+      }).eq('id', settings.id);
       return new Response(
         JSON.stringify({ success: true, message: 'Limite diário atingido', limitReached: true }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -158,9 +168,15 @@ Deno.serve(async (req) => {
     };
 
     // === Pause / Stop control ===
-    // Returns 'running' | 'paused' | 'stopped'
-    // If paused, polls every 3s until resumed or stopped
+    let _lastControlCheck = 0;
+    const CONTROL_CHECK_INTERVAL_MS = 5000; // Check at most every 5s
+
     async function checkControlStatus(): Promise<'running' | 'stopped'> {
+      // Throttle: only actually query DB every 5 seconds
+      const now = Date.now();
+      if (now - _lastControlCheck < CONTROL_CHECK_INTERVAL_MS) return 'running';
+      _lastControlCheck = now;
+
       while (true) {
         const { data: current } = await supabase
           .from('messaging_api_settings')
@@ -170,7 +186,6 @@ Deno.serve(async (req) => {
         const status = current?.last_recovery_status;
         if (status === 'stopped') return 'stopped';
         if (status !== 'paused') return 'running';
-        // paused — wait 3s then check again
         console.log('[auto-recovery] Paused, waiting...');
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
@@ -186,15 +201,6 @@ Deno.serve(async (req) => {
       ruleId?: string
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
-
-      // Check pause/stop before each message (skip for single-item sends)
-      if (!isSingleItem) {
-        const controlStatus = await checkControlStatus();
-        if (controlStatus === 'stopped') {
-          console.log('[auto-recovery] Stopped by user');
-          return false;
-        }
-      }
 
       try {
         const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
@@ -403,11 +409,7 @@ Deno.serve(async (req) => {
           let userStopped = false;
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
-            // Check stop signal
-            if (!isSingleItem) {
-              const cs = await checkControlStatus();
-              if (cs === 'stopped') { userStopped = true; break; }
-            }
+            if (userStopped) break;
 
             // Dedup moved below after rule match
 
@@ -469,6 +471,12 @@ Deno.serve(async (req) => {
               if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
                 boletoMedia.push({ media_url: boletoUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
               }
+            }
+
+            // Check pause/stop before sending
+            if (!isSingleItem) {
+              const cs = await checkControlStatus();
+              if (cs === 'stopped') { userStopped = true; break; }
             }
 
             // Send with ruleId
