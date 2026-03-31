@@ -489,6 +489,31 @@ Deno.serve(async (req) => {
               await new Promise(resolve => setTimeout(resolve, 10000));
             }
           }
+
+          // Register contact in boleto_recovery_contacts so the icon shows up
+          if (messagesSent > 0) {
+            try {
+              // Get the auth user id (use service role to get any admin user for the contact record)
+              const { data: adminRole } = await supabase
+                .from('user_roles')
+                .select('user_id')
+                .eq('role', 'admin')
+                .limit(1)
+                .maybeSingle();
+
+              const userId = adminRole?.user_id || '00000000-0000-0000-0000-000000000000';
+
+              await supabase.from('boleto_recovery_contacts').insert({
+                transaction_id: tx.id,
+                user_id: userId,
+                contact_method: 'whatsapp_auto',
+                notes: 'Envio automático imediato via template',
+              });
+              console.log('[boleto-immediate] Recovery contact registered for transaction', tx.id);
+            } catch (contactErr) {
+              console.error('[boleto-immediate] Failed to register contact:', contactErr);
+            }
+          }
         } else {
           console.log('[boleto-immediate] No template configured, skipping');
           stats.boleto.skipped++;
