@@ -508,7 +508,7 @@ const AutoRecuperacao = () => {
             badgeLabel="Tempo Real"
             badgeIcon={Radio}
             enabled={settings.pix_card_recovery_enabled}
-            onToggle={(v) => setSettings({ ...settings, pix_card_recovery_enabled: v })}
+            onToggle={(v) => { const updated = { ...settings, pix_card_recovery_enabled: v }; setSettings(updated); saveMutation.mutate(updated); }}
             instanceName={settings.pix_card_instance_name}
             message={settings.auto_pix_card_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_pix_card_message: v })}
