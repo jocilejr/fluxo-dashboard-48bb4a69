@@ -1,33 +1,69 @@
 
 
-## Corrigir header de autenticação no envio de mensagens
+## Envio de Mídia na Auto Recuperação
 
-### Problema
-A edge function `send-external-message` usa `Authorization: Bearer` para autenticar na API externa, mas a API do Chatbot Simplificado espera o header `X-API-Key`. Isso causa rejeição da requisição (retorna HTML), que é a causa raiz de todos os erros de envio.
+### Objetivo
+Permitir que o auto-recovery envie mídias (imagem do boleto, PDF) junto com a mensagem de texto, usando o endpoint separado `/api/platform/send-media` da API externa.
 
-Prova: `fetch-instances` (que funciona corretamente) usa `X-API-Key`.
+### Como funciona hoje
+- `send-external-message` envia apenas texto via `POST /api/platform/send-message`
+- Boletos têm `boleto_url` armazenado em `transactions.metadata.boleto_url`
+- A conversão PDF→imagem já existe no frontend (`src/lib/pdfToImage.ts`), mas não no backend
 
-### Correção
+### Alterações
 
+#### 1. Expandir `send-external-message` para suportar mídia
 **Arquivo:** `supabase/functions/send-external-message/index.ts`
 
-Linha 104-108 — trocar:
-```ts
-const headers: Record<string, string> = {
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-  'Authorization': `Bearer ${settings.api_key}`,
-};
+- Adicionar campo opcional `mediaAttachments` no request:
+  ```ts
+  mediaAttachments?: Array<{
+    media_url: string;
+    type: 'image' | 'document';
+    caption?: string;
+  }>;
+  ```
+- Após enviar a mensagem de texto com sucesso, enviar cada mídia via `POST /api/platform/send-media` com payload:
+  ```json
+  { "phone": "...", "media_url": "...", "type": "document", "caption": "Boleto", "instance": "..." }
+  ```
+- Registrar no `message_log` se as mídias foram enviadas com sucesso
+
+#### 2. Atualizar `auto-recovery` para anexar mídia nos boletos
+**Arquivo:** `supabase/functions/auto-recovery/index.ts`
+
+- Na seção de recuperação de boleto, buscar `metadata.boleto_url` da transação
+- Se existir, montar o array `mediaAttachments` com:
+  - PDF do boleto (`type: 'document'`)
+- Passar `mediaAttachments` para `send-external-message`
+
+#### 3. Adicionar configuração de mídia na UI (opcional por tipo)
+**Arquivo:** `src/pages/AutoRecuperacao.tsx`
+
+- Na aba Boleto, adicionar toggle "Enviar PDF do boleto junto com a mensagem"
+- Salvar como nova coluna `boleto_send_pdf` em `messaging_api_settings`
+
+#### 4. Migração de banco
+- Adicionar coluna `boleto_send_pdf boolean DEFAULT true` em `messaging_api_settings`
+
+### Fluxo de envio (boleto)
+```text
+auto-recovery
+  ├─ Monta mensagem de texto
+  ├─ Verifica se boleto tem boleto_url no metadata
+  ├─ Chama send-external-message com:
+  │   ├─ message (texto)
+  │   └─ mediaAttachments: [{media_url: boleto_url, type: 'document', caption: 'Boleto'}]
+  │
+send-external-message
+  ├─ POST /api/platform/send-message (texto)
+  └─ Para cada mídia:
+      └─ POST /api/platform/send-media (arquivo)
 ```
 
-Por:
-```ts
-const headers: Record<string, string> = {
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-  'X-API-Key': settings.api_key,
-};
-```
-
-Nenhuma outra alteração necessária. A instância já está sendo passada corretamente no payload (`instanceName` vindo do `auto-recovery` → campo `instance` no body).
+### Arquivos alterados
+- `supabase/functions/send-external-message/index.ts` — suporte a envio de mídia
+- `supabase/functions/auto-recovery/index.ts` — anexar boleto_url como mídia
+- `src/pages/AutoRecuperacao.tsx` — toggle de envio de PDF
+- Migração SQL — coluna `boleto_send_pdf`
 
