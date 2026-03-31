@@ -1,72 +1,40 @@
 
-## Ajuste de direção (confirmado)
-Você está certo: **não deve existir “contactado” sem regra**.  
-A partir daqui, a lógica fica estritamente assim:
 
-- só entra na recuperação do dia quem tem **regra ativa aplicável hoje**;
-- só conta como contactado quem tem **envio registrado vinculado à regra**;
-- sem regra ativa = não envia, não entra na fila, não entra no card.
+## Usar templates do modal na recuperação automática de boletos
 
-## Diagnóstico do que precisa ser corrigido
-Hoje ainda há dois pontos que permitem distorção:
+### Problema
+A recuperação automática usa a mensagem da **regra** (`boleto_recovery_rules.message` + `media_blocks`), mas o usuário configura templates no modal (`boleto_recovery_templates`) com blocos de texto/PDF/imagem. Esses dois sistemas estão desconectados.
 
-1. `message_log` de boleto ainda não guarda vínculo obrigatório com a regra (`rule_id` não está sendo preenchido no envio).
-2. ação manual de “Contactado” grava em `boleto_recovery_contacts`, mas não alimenta `message_log`, então a fila/contagem pode ficar inconsistente.
+### Solução
+Fazer o `auto-recovery` carregar o template padrão (ou o primeiro disponível) da tabela `boleto_recovery_templates` e usá-lo para compor a mensagem e os media attachments, em vez de usar o `message` da regra.
 
-## Plano de implementação (revisado)
+### Mudanças
 
-### 1) Tornar `rule_id` obrigatório no fluxo de envio de boleto
-**Arquivos:**
-- `supabase/functions/auto-recovery/index.ts`
-- `supabase/functions/send-external-message/index.ts`
+**1) `supabase/functions/auto-recovery/index.ts`**
+- No início do bloco de boleto, carregar o template padrão de `boleto_recovery_templates` (onde `is_default = true`, ou o primeiro se nenhum for default)
+- Ao processar cada boleto com regra casada, iterar pelos `blocks` do template:
+  - Bloco `text`: aplicar `formatMessage()` com as variáveis (`{nome}`, `{primeiro_nome}`, `{valor}`, `{vencimento}`, `{saudação}`, `{codigo_barras}`) e usar como mensagem principal
+  - Bloco `pdf`: adicionar media attachment tipo `document` com o `boleto_url` do metadata
+  - Bloco `image`: adicionar media attachment tipo `image` com o `boleto_url`
+- Remover o uso de `matchedRule.message` e `matchedRule.media_blocks` para boletos
+- Se não houver template configurado, usar fallback com a mensagem da regra (comportamento atual)
 
-**Mudanças:**
-- `auto-recovery` passa `ruleId` ao chamar `send-external-message` (sempre `matchedRule.id`).
-- `send-external-message` aceita `ruleId` no payload e grava em `message_log.rule_id`.
-- Se `messageType === 'boleto'` e `ruleId` faltar: rejeitar envio (erro controlado).  
-Isso elimina envio de boleto “sem regra”.
+**2) `src/hooks/useBoletoRecovery.ts`**
+- Na composição de `formattedMessage` para exibição na fila, também usar o template padrão da `boleto_recovery_templates` em vez da mensagem da regra
+- Carregar o template padrão como query adicional e usar os blocos de texto para montar a mensagem formatada
 
-### 2) Deduplicação e contagem por chave de regra (não só transação)
-**Arquivo:**
-- `supabase/functions/auto-recovery/index.ts`
+### Fluxo resultante
+```text
+Template padrão (modal) → blocos [TXT, IMG, PDF]
+                              ↓
+auto-recovery pega template → para cada boleto:
+  - TXT → formata variáveis → envia como texto
+  - PDF → anexa boleto_url como document
+  - IMG → anexa boleto_url como image
+```
 
-**Mudanças:**
-- carregar logs do dia com `transaction_id, rule_id, phone`;
-- dedup por `transaction_id + rule_id` (além de limite por pessoa/dia);
-- manter envio apenas quando houver regra ativa casada.
+### O que NÃO muda
+- A régua de regras continua controlando **quando** enviar (timing)
+- O template controla **o que** enviar (conteúdo)
+- Deduplicação, controle de pausa/stop, limites diários permanecem iguais
 
-### 3) Frontend contar apenas “contactados com regra aplicável hoje”
-**Arquivo:**
-- `src/hooks/useBoletoRecovery.ts`
-
-**Mudanças:**
-- Query de logs do dia retorna `transaction_id, rule_id`;
-- montar set por chave `txId:ruleId`;
-- `todayBoletos` = **somente** boletos com `applicableRule !== null`;
-- `contactedTodayBoletos` = subset de `todayBoletos` com log da mesma regra;
-- `stats` calculadas só desse conjunto (sem incluir nenhum “enviado sem regra”).
-
-### 4) Ajustar marcação manual para refletir o mesmo critério
-**Arquivos:**
-- `src/hooks/useBoletoRecovery.ts`
-- `src/components/dashboard/BoletoRecoveryQueue.tsx` (uso)
-  
-**Mudanças:**
-- ao “Marcar Contactado” na fila manual, registrar também evento de envio em `message_log` com:
-  - `message_type='boleto'`
-  - `status='sent'`
-  - `transaction_id`
-  - `rule_id` da regra aplicada
-- `boleto_recovery_contacts` pode continuar como histórico auxiliar, mas não será fonte de contagem principal.
-
-### 5) Regras de proteção de dados (hardening)
-**Banco (nova migration):**
-- já existe coluna `rule_id`; complementar com garantia de consistência futura:
-  - validação para impedir novos `message_log` de boleto com `rule_id` nulo (via trigger de validação para INSERT/UPDATE).
-- não mexer em dados antigos se você quer “deixar o erro passado pra lá”.
-
-## Resultado esperado
-- Zero “contactado sem regra” na tela.
-- Fila diária mostra apenas quem realmente deve ser contatado pela régua ativa.
-- Card “Contactados” e “Pendentes” batem com a operação real.
-- Reexecução no mesmo dia não reenfileira indevidamente o mesmo boleto/regra.
