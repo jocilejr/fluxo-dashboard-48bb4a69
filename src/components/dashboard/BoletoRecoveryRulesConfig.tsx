@@ -286,7 +286,7 @@ export function BoletoRecoveryRulesConfig() {
                       <Label>Tipo</Label>
                       <Select
                         value={editingRule.rule_type}
-                        onValueChange={(v) => setEditingRule({ ...editingRule, rule_type: v as any, ...(v === 'immediate' ? { days: 0 } : {}) })}
+                        onValueChange={(v) => setEditingRule({ ...editingRule, rule_type: v as any })}
                       >
                         <SelectTrigger>
                           <SelectValue />
