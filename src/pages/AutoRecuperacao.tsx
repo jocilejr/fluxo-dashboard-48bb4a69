@@ -410,11 +410,6 @@ const AutoRecuperacao = () => {
               </div>
             </div>
 
-            <Button size="sm" variant="outline" onClick={() => runAutoRecovery(type)} disabled={!apiConfigured} className="w-full">
-              <Send className="h-3.5 w-3.5 mr-2" />
-              Executar agora
-            </Button>
-          </CardContent>
         </Card>
 
         {/* Right: Phone mockup preview */}
