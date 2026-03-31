@@ -447,10 +447,6 @@ const AutoRecuperacao = () => {
             <p className="text-xs text-muted-foreground">Mensagens automáticas de recuperação de vendas</p>
           </div>
         </div>
-        <Button onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending} size="sm" variant="default">
-          {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
-          Salvar
-        </Button>
       </div>
 
       {!apiConfigured && (
