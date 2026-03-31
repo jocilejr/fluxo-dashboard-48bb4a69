@@ -338,8 +338,9 @@ Deno.serve(async (req) => {
           .not('customer_phone', 'is', null);
 
         if (boletos) {
-          // Track phones already contacted today to send max 1 message per person per day
-          const phonesContactedToday = new Set<string>();
+          const maxPerPersonPerDay = settings.max_messages_per_person_per_day ?? 1;
+          // Track how many messages each phone received today
+          const phonesContactedTodayCount = new Map<string, number>();
 
           // Pre-load phones that already received a boleto message today
           const todayBrazil = getBrazilDate();
@@ -353,17 +354,20 @@ Deno.serve(async (req) => {
           if (todayLogs) {
             for (const log of todayLogs) {
               const last8 = log.phone.replace(/\D/g, '').slice(-8);
-              if (last8.length === 8) phonesContactedToday.add(last8);
+              if (last8.length === 8) {
+                phonesContactedTodayCount.set(last8, (phonesContactedTodayCount.get(last8) || 0) + 1);
+              }
             }
           }
 
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
 
-            // Deduplicate: max 1 boleto message per person per day (using last 8 digits)
+            // Deduplicate: max N boleto messages per person per day (using last 8 digits)
             const boletoPhoneNorm = boleto.customer_phone!.replace(/\D/g, '');
             const boletophone8 = boletoPhoneNorm.slice(-8);
-            if (boletophone8.length === 8 && phonesContactedToday.has(boletophone8)) {
+            const currentCount = boletophone8.length === 8 ? (phonesContactedTodayCount.get(boletophone8) || 0) : 0;
+            if (boletophone8.length === 8 && currentCount >= maxPerPersonPerDay) {
               stats.boleto.skipped++;
               continue;
             }
@@ -437,8 +441,10 @@ Deno.serve(async (req) => {
 
                 await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
 
-                // Mark this phone as contacted today
-                if (boletophone8.length === 8) phonesContactedToday.add(boletophone8);
+                // Increment contact count for this phone today
+                if (boletophone8.length === 8) {
+                  phonesContactedTodayCount.set(boletophone8, (phonesContactedTodayCount.get(boletophone8) || 0) + 1);
+                }
 
                 await supabase.from('boleto_recovery_contacts').insert({
                   transaction_id: boleto.id,

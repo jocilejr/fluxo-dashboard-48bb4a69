@@ -1233,6 +1233,7 @@ export type Database = {
           delay_between_messages: number
           id: string
           is_active: boolean
+          max_messages_per_person_per_day: number
           pix_card_instance_name: string | null
           pix_card_recovery_enabled: boolean
           server_url: string
@@ -1261,6 +1262,7 @@ export type Database = {
           delay_between_messages?: number
           id?: string
           is_active?: boolean
+          max_messages_per_person_per_day?: number
           pix_card_instance_name?: string | null
           pix_card_recovery_enabled?: boolean
           server_url?: string
@@ -1289,6 +1291,7 @@ export type Database = {
           delay_between_messages?: number
           id?: string
           is_active?: boolean
+          max_messages_per_person_per_day?: number
           pix_card_instance_name?: string | null
           pix_card_recovery_enabled?: boolean
           server_url?: string

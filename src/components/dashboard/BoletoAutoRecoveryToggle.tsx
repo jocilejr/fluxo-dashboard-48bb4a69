@@ -22,6 +22,7 @@ interface MessagingSettings {
   delay_between_messages: number;
   batch_size: number;
   batch_pause_seconds: number;
+  max_messages_per_person_per_day: number;
   [key: string]: unknown;
 }
 
@@ -63,6 +64,7 @@ export function BoletoAutoRecoveryToggle() {
   const delayBetween = settings?.delay_between_messages ?? 5;
   const batchSize = settings?.batch_size ?? 10;
   const batchPause = settings?.batch_pause_seconds ?? 30;
+  const maxPerPersonPerDay = settings?.max_messages_per_person_per_day ?? 1;
 
   if (isLoading) return null;
 
@@ -216,8 +218,24 @@ export function BoletoAutoRecoveryToggle() {
                       />
                     </div>
 
+                    {/* Max per person per day */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Máx. mensagens por pessoa/dia</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={maxPerPersonPerDay}
+                        onChange={(e) => {
+                          const val = Math.min(10, Math.max(1, Number(e.target.value)));
+                          updateMutation.mutate({ max_messages_per_person_per_day: val });
+                        }}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
                     <p className="text-[10px] text-muted-foreground">
-                      Após enviar {batchSize} mensagens, aguarda {batchPause}s antes de continuar.
+                      Após enviar {batchSize} msgs, aguarda {batchPause}s. Máx. {maxPerPersonPerDay} msg(s)/pessoa/dia.
                     </p>
                   </div>
                 </PopoverContent>
