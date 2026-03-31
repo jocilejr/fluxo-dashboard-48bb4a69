@@ -123,13 +123,13 @@ Deno.serve(async (req) => {
     const boletoSendHour = settings.boleto_send_hour ?? 9;
     const currentBrazilHour = getBrazilDate().getHours();
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayBrazilForLimit = getBrazilDate();
+    todayBrazilForLimit.setHours(0, 0, 0, 0);
     
     const { count: todayCount } = await supabase
       .from('message_log')
       .select('*', { count: 'exact', head: true })
-      .gte('created_at', todayStart.toISOString())
+      .gte('created_at', todayBrazilForLimit.toISOString())
       .eq('status', 'sent');
 
     const remainingLimit = settings.daily_limit - (todayCount || 0);
@@ -499,8 +499,21 @@ Deno.serve(async (req) => {
 
             if (!earlyMatchedRule) continue;
 
+            // Use already-computed values
+            const daysSinceGen = daysSinceGenEarly;
+            const dueDate = dueDateEarly;
+            const daysUntilDue = daysUntilDueEarly;
+            const matchedRule = earlyMatchedRule;
+
+            // Dedup 1: already sent/duplicated today for this transaction + rule combo
+            const dedupKey = `${boleto.id}:${matchedRule.id}`;
+            if (sentTodayKeys.has(dedupKey)) {
+              stats.boleto.skipped++;
+              continue;
+            }
+
+            // Dedup 2: phone daily limit — mark as duplicate only if not already processed
             if (phone8.length === 8 && (phoneDailyCount.get(phone8) || 0) >= maxPerPersonPerDay) {
-              // Register as duplicate in message_log
               const normalizedPhone = phoneNorm.startsWith('55') ? phoneNorm : `55${phoneNorm}`;
               await supabase.from('message_log').insert({
                 phone: normalizedPhone,
@@ -508,23 +521,11 @@ Deno.serve(async (req) => {
                 message_type: 'boleto',
                 status: 'duplicate',
                 transaction_id: boleto.id,
-                rule_id: earlyMatchedRule.id,
+                rule_id: matchedRule.id,
                 sent_at: new Date().toISOString(),
               });
+              sentTodayKeys.add(dedupKey); // prevent re-creating on next continuation
               stats.boleto.duplicates++;
-              continue;
-            }
-
-            // Use already-computed values
-            const daysSinceGen = daysSinceGenEarly;
-            const dueDate = dueDateEarly;
-            const daysUntilDue = daysUntilDueEarly;
-            const matchedRule = earlyMatchedRule;
-
-            // Dedup: already sent today for this transaction + rule combo
-            const dedupKey = `${boleto.id}:${matchedRule.id}`;
-            if (sentTodayKeys.has(dedupKey)) {
-              stats.boleto.skipped++;
               continue;
             }
 

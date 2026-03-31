@@ -22,8 +22,8 @@ export function BoletoRecoveryHeroCard({
   onStartRecovery,
   onOpenSettings,
 }: BoletoRecoveryHeroCardProps) {
-  const resolved = contactedToday + duplicatesToday;
-  const progress = totalToday > 0 ? (resolved / totalToday) * 100 : 0;
+  // contactedToday already includes duplicates (from hook), don't double-count
+  const progress = totalToday > 0 ? Math.min((contactedToday / totalToday) * 100, 100) : 0;
 
   const formatCurrency = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -62,7 +62,7 @@ export function BoletoRecoveryHeroCard({
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 <div>
                   <p className="text-xs text-muted-foreground">Contactados</p>
-                  <p className="font-semibold text-foreground">{contactedToday + duplicatesToday} / {totalToday}</p>
+                  <p className="font-semibold text-foreground">{contactedToday} / {totalToday}</p>
                 </div>
               </div>
               {duplicatesToday > 0 && (
