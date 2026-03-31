@@ -453,7 +453,9 @@ Deno.serve(async (req) => {
       if (payload.customer_document) updateFields.customer_document = payload.customer_document;
       if (payload.phone) {
         updateFields.customer_phone = payload.phone;
-        updateFields.normalized_phone = payload.phone.replace(/\D/g, '');
+        let pNorm = payload.phone.replace(/\D/g, '');
+        if (pNorm.startsWith('0')) pNorm = pNorm.slice(1);
+        updateFields.normalized_phone = pNorm;
       }
       if (payload.metadata) updateFields.metadata = payload.metadata;
 
