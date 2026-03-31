@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       const title = reminder.title || '';
       const dueDate = reminder.due_date || reminder.dueDate || null;
       const contactName = reminder.contact_name || '';
+      const instanceName = reminder.instance_name || reminder.instanceName || null;
 
       if (!title || !dueDate) {
         skipped++;
