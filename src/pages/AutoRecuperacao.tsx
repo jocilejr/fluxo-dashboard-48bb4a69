@@ -564,21 +564,6 @@ const AutoRecuperacao = () => {
                 <Card className="border-border/40">
                   <div className="flex items-center justify-between px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <Label className="text-sm font-medium">Enviar PDF do boleto</Label>
-                        <p className="text-[10px] text-muted-foreground">Envia o arquivo PDF do boleto junto com a mensagem (quando disponível)</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={settings.boleto_send_pdf}
-                      onCheckedChange={(checked) => setSettings({ ...settings, boleto_send_pdf: checked })}
-                    />
-                  </div>
-                </Card>
-                <Card className="border-border/40">
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <div>
                         <Label className="text-sm font-medium">Horário de envio</Label>
