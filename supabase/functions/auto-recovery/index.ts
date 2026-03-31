@@ -437,12 +437,12 @@ Deno.serve(async (req) => {
               }
             }
 
-            // Send
-            const sent = await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
+            // Send with ruleId
+            const sent = await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined, matchedRule.id);
 
             if (sent) {
               // Update lookups
-              sentTodayTxIds.add(boleto.id);
+              sentTodayKeys.add(dedupKey);
               if (phone8.length === 8) {
                 phoneDailyCount.set(phone8, (phoneDailyCount.get(phone8) || 0) + 1);
               }
