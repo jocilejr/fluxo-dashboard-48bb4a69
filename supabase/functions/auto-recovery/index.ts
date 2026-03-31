@@ -400,6 +400,13 @@ Deno.serve(async (req) => {
 
             if (!matchedRule) continue;
 
+            // Dedup: already sent today for this transaction + rule combo
+            const dedupKey = `${boleto.id}:${matchedRule.id}`;
+            if (sentTodayKeys.has(dedupKey)) {
+              stats.boleto.skipped++;
+              continue;
+            }
+
             console.log(`[boleto-recovery] ${boleto.id}: daysSinceGen=${daysSinceGen}, daysUntilDue=${daysUntilDue}, rule=${matchedRule.name}`);
 
             // Format message using rule template
