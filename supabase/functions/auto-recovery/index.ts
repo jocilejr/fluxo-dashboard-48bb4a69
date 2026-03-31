@@ -294,13 +294,6 @@ Deno.serve(async (req) => {
 
     // ===== SINGLE BOLETO TRANSACTION (immediate send) =====
     if (specificTransactionId && specificType === 'boleto') {
-      if (!settings.boleto_recovery_enabled) {
-        return new Response(
-          JSON.stringify({ success: true, message: 'Boleto recovery disabled', skipped: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       const { data: tx } = await supabase
         .from('transactions')
         .select('*')
@@ -308,40 +301,88 @@ Deno.serve(async (req) => {
         .single();
 
       if (tx && tx.customer_phone) {
-        const firstName = tx.customer_name?.split(' ')[0] || 'Cliente';
-        const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount);
+        // Load default template from boleto_recovery_templates
+        let templateData: { blocks: any[] } | null = null;
+        const { data: defaultTpl } = await supabase
+          .from('boleto_recovery_templates')
+          .select('*')
+          .eq('is_default', true)
+          .maybeSingle();
 
-        const message = formatMessage(autoMessages.boleto, {
-          nome: tx.customer_name || 'Cliente',
-          primeiro_nome: firstName,
-          valor: formattedValue,
-          produto: tx.description || 'Produto',
-          saudação: getGreeting(),
-          vencimento: '',
-          codigo_barras: tx.external_id || '',
-        });
-
-        // Use boleto_immediate to bypass rule_id validation trigger
-        const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseServiceKey}`
-          },
-          body: JSON.stringify({
-            phone: tx.customer_phone,
-            message,
-            messageType: 'boleto_immediate',
-            transactionId: tx.id,
-            instanceName: instanceMap.boleto,
-          })
-        });
-        const result = await response.json();
-        if (result.success) {
-          messagesSent++;
-          stats.boleto.sent++;
+        if (defaultTpl) {
+          templateData = { blocks: Array.isArray(defaultTpl.blocks) ? defaultTpl.blocks : [] };
         } else {
-          stats.boleto.failed++;
+          // Fallback to first template
+          const { data: anyTpl } = await supabase
+            .from('boleto_recovery_templates')
+            .select('*')
+            .limit(1)
+            .maybeSingle();
+          if (anyTpl) {
+            templateData = { blocks: Array.isArray(anyTpl.blocks) ? anyTpl.blocks : [] };
+          }
+        }
+
+        if (templateData && templateData.blocks.length > 0) {
+          const firstName = tx.customer_name?.split(' ')[0] || 'Cliente';
+          const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount);
+          const metadata = tx.metadata as Record<string, unknown> | null;
+          const boletoUrl = metadata?.boleto_url as string | undefined;
+
+          const templateVars: Record<string, string> = {
+            nome: tx.customer_name || 'Cliente',
+            primeiro_nome: firstName,
+            valor: formattedValue,
+            produto: tx.description || 'Produto',
+            saudação: getGreeting(),
+            vencimento: '',
+            codigo_barras: tx.external_id || '',
+          };
+
+          // Process each block from the template
+          const textBlocks = templateData.blocks.filter((b: any) => b.type === 'text');
+          const mediaBlocks = templateData.blocks.filter((b: any) => b.type === 'pdf' || b.type === 'image');
+
+          // Build text message from all text blocks
+          const textMessage = textBlocks.map((b: any) => formatMessage(b.content || '', templateVars)).join('\n');
+
+          // Build media attachments
+          const mediaAttachments: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
+          for (const block of mediaBlocks) {
+            if (block.type === 'pdf' && boletoUrl) {
+              mediaAttachments.push({ media_url: boletoUrl, type: 'document', caption: 'Boleto' });
+            } else if (block.type === 'image' && boletoUrl) {
+              mediaAttachments.push({ media_url: boletoUrl, type: 'image', caption: 'Boleto' });
+            }
+          }
+
+          if (textMessage) {
+            const response = await fetch(`${supabaseUrl}/functions/v1/send-external-message`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`
+              },
+              body: JSON.stringify({
+                phone: tx.customer_phone,
+                message: textMessage,
+                messageType: 'boleto_immediate',
+                transactionId: tx.id,
+                instanceName: instanceMap.boleto,
+                mediaAttachments: mediaAttachments.length > 0 ? mediaAttachments : undefined,
+              })
+            });
+            const result = await response.json();
+            if (result.success) {
+              messagesSent++;
+              stats.boleto.sent++;
+            } else {
+              stats.boleto.failed++;
+            }
+          }
+        } else {
+          console.log('[boleto-immediate] No template configured, skipping');
+          stats.boleto.skipped++;
         }
       }
 
