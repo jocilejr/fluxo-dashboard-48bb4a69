@@ -1,23 +1,33 @@
 
 
-## Plano: Corrigir status "pendente" que nunca atualiza
+## Corrigir header de autenticação no envio de mensagens
 
 ### Problema
-A API externa (`chatbotsimplificado.com`) retornou HTML em vez de JSON (provavelmente uma página de erro). A linha `await sendResponse.json()` lança uma exceção `SyntaxError`, que pula todo o bloco de atualização do `message_log`. Resultado: o status fica preso em "pending" para sempre.
+A edge function `send-external-message` usa `Authorization: Bearer` para autenticar na API externa, mas a API do Chatbot Simplificado espera o header `X-API-Key`. Isso causa rejeição da requisição (retorna HTML), que é a causa raiz de todos os erros de envio.
 
-### Causa raiz
-`send-external-message/index.ts` linha 118: `const sendData = await sendResponse.json()` — sem tratamento para respostas não-JSON.
+Prova: `fetch-instances` (que funciona corretamente) usa `X-API-Key`.
 
 ### Correção
 
-1. **Envolver o parse da resposta em try/catch** em `supabase/functions/send-external-message/index.ts`:
-   - Tentar `sendResponse.json()` primeiro
-   - Se falhar (HTML, texto, etc.), capturar via `sendResponse.text()` e usar como erro
-   - Garantir que o `message_log` seja sempre atualizado para `'failed'` com a mensagem de erro real
-   - O fluxo nunca mais ficará preso em "pending"
+**Arquivo:** `supabase/functions/send-external-message/index.ts`
 
-2. **Adicionar header `Accept: application/json`** na requisição à API externa para sinalizar que esperamos JSON.
+Linha 104-108 — trocar:
+```ts
+const headers: Record<string, string> = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'Authorization': `Bearer ${settings.api_key}`,
+};
+```
 
-### Arquivo alterado
-- `supabase/functions/send-external-message/index.ts`
+Por:
+```ts
+const headers: Record<string, string> = {
+  'Content-Type': 'application/json',
+  'Accept': 'application/json',
+  'X-API-Key': settings.api_key,
+};
+```
+
+Nenhuma outra alteração necessária. A instância já está sendo passada corretamente no payload (`instanceName` vindo do `auto-recovery` → campo `instance` no body).
 
