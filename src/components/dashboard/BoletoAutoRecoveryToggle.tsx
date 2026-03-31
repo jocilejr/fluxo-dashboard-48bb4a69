@@ -4,14 +4,13 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Circle, X, Clock, Zap, Settings, Play, Loader2, CheckCircle2, AlertCircle, PauseCircle, Pause, Square, RotateCcw, FileText } from "lucide-react";
+import { Circle, X, Clock, Zap, Settings, Play, Loader2, CheckCircle2, AlertCircle, PauseCircle, Pause, Square, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InstanceSelectorModal } from "@/components/recovery/InstanceSelectorModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface MessagingSettings {
   id?: string;
@@ -37,42 +36,6 @@ export function BoletoAutoRecoveryToggle() {
   const queryClient = useQueryClient();
   const [instanceModalOpen, setInstanceModalOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
-
-  // Fetch boleto recovery templates
-  const { data: templates } = useQuery({
-    queryKey: ["boleto-recovery-templates-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("boleto_recovery_templates")
-        .select("id, name, is_default")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const defaultTemplate = templates?.find((t) => t.is_default);
-  const selectedTemplateId = defaultTemplate?.id || "";
-
-  const setDefaultTemplate = async (templateId: string) => {
-    try {
-      // Remove default from all
-      await supabase
-        .from("boleto_recovery_templates")
-        .update({ is_default: false })
-        .neq("id", templateId);
-      // Set new default
-      const { error } = await supabase
-        .from("boleto_recovery_templates")
-        .update({ is_default: true })
-        .eq("id", templateId);
-      if (error) throw error;
-      toast.success("Template de boleto atualizado!");
-      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-templates-list"] });
-    } catch {
-      toast.error("Erro ao selecionar template");
-    }
-  };
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["messaging-api-settings"],
@@ -244,25 +207,6 @@ export function BoletoAutoRecoveryToggle() {
               )}
 
               {/* Hour selector */}
-
-              {/* Template selector */}
-              {templates && templates.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <Select value={selectedTemplateId} onValueChange={setDefaultTemplate}>
-                    <SelectTrigger className="h-7 text-xs w-[140px] bg-secondary/30 border-border/30">
-                      <SelectValue placeholder="Template" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templates.map((t) => (
-                        <SelectItem key={t.id} value={t.id} className="text-xs">
-                          {t.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               <div className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-muted-foreground" />

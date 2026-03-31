@@ -372,6 +372,12 @@ export function BoletoRecoveryModal({ open, onOpenChange }: BoletoRecoveryModalP
                   </p>
                 )}
               </div>
+              <div className="mt-3 pt-3 border-t border-border/30">
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  <Star className="h-3 w-3 inline text-warning fill-warning mr-1" />
+                  O template padrão (★) será usado no envio automático de boletos
+                </p>
+              </div>
             </ScrollArea>
           </div>
 
