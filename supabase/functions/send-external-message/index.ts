@@ -110,6 +110,36 @@ Deno.serve(async (req) => {
 
     logEntryId = logEntry?.id ?? null;
 
+    // === QUEUE: Wait for previous messages to finish (avoid simultaneous sends) ===
+    const MAX_WAIT_SECONDS = 60; // max time to wait in queue
+    const SEND_INTERVAL_MS = 15000; // 15s between sends (10-20s range)
+    const startWait = Date.now();
+
+    while (Date.now() - startWait < MAX_WAIT_SECONDS * 1000) {
+      const { data: lastSent } = await supabase
+        .from('message_log')
+        .select('sent_at')
+        .eq('status', 'sent')
+        .not('sent_at', 'is', null)
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (lastSent?.sent_at) {
+        const lastSentTime = new Date(lastSent.sent_at).getTime();
+        const elapsed = Date.now() - lastSentTime;
+        if (elapsed < SEND_INTERVAL_MS) {
+          const waitTime = SEND_INTERVAL_MS - elapsed + Math.floor(Math.random() * 5000); // 15-20s total
+          console.log(`[Queue] Waiting ${Math.round(waitTime / 1000)}s before sending (last send ${Math.round(elapsed / 1000)}s ago)`);
+          await new Promise(resolve => setTimeout(resolve, Math.min(waitTime, 20000)));
+          continue; // re-check after waiting
+        }
+      }
+      break; // no recent send, proceed
+    }
+
+    console.log('[Queue] Proceeding with send');
+
     const baseUrl = settings.server_url.replace(/\/$/, '');
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
