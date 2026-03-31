@@ -139,7 +139,8 @@ Deno.serve(async (req) => {
       message: string,
       type: 'boleto' | 'pix_card' | 'abandoned',
       transactionId?: string,
-      abandonedEventId?: string
+      abandonedEventId?: string,
+      mediaAttachments?: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }>
     ): Promise<boolean> {
       if (messagesSent >= remainingLimit && !forceRun && !isSingleItem) return false;
 
@@ -157,6 +158,7 @@ Deno.serve(async (req) => {
             transactionId,
             abandonedEventId,
             instanceName: instanceMap[type],
+            mediaAttachments,
           })
         });
 
@@ -326,7 +328,21 @@ Deno.serve(async (req) => {
                   saudação: getGreeting()
                 });
 
-                await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id);
+                // Build media attachments for boleto if PDF URL available and setting enabled
+                const boletoSendPdf = settings.boleto_send_pdf !== false; // default true
+                const metadata = boleto.metadata as Record<string, unknown> | null;
+                const boletoUrl = metadata?.boleto_url as string | undefined;
+                const boletoMedia: Array<{ media_url: string; type: 'image' | 'document'; caption?: string }> = [];
+                
+                if (boletoSendPdf && boletoUrl) {
+                  boletoMedia.push({
+                    media_url: boletoUrl,
+                    type: 'document',
+                    caption: `Boleto - ${boleto.description || 'Produto'}`
+                  });
+                }
+
+                await sendMessage(boleto.customer_phone!, message, 'boleto', boleto.id, undefined, boletoMedia.length > 0 ? boletoMedia : undefined);
 
                 await supabase.from('boleto_recovery_contacts').insert({
                   transaction_id: boleto.id,

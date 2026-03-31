@@ -39,6 +39,7 @@ interface MessagingSettings {
   auto_abandoned_message: string;
   auto_boleto_message: string;
   boleto_send_hour: number;
+  boleto_send_pdf: boolean;
 }
 
 const defaultSettings: MessagingSettings = {
@@ -63,6 +64,7 @@ const defaultSettings: MessagingSettings = {
   auto_abandoned_message: "Olá {primeiro_nome}! Vi que você demonstrou interesse em nossos produtos. Posso ajudar você a finalizar sua compra?",
   auto_boleto_message: "{saudação}, {primeiro_nome}! Seu boleto de {valor} referente a {produto} vence em {vencimento}. Não deixe passar!",
   boleto_send_hour: 9,
+  boleto_send_pdf: true,
 };
 
 const VARIABLES_INFO = [
@@ -384,6 +386,7 @@ const AutoRecuperacao = () => {
         auto_abandoned_message: newSettings.auto_abandoned_message,
         auto_boleto_message: newSettings.auto_boleto_message,
         boleto_send_hour: newSettings.boleto_send_hour,
+        boleto_send_pdf: newSettings.boleto_send_pdf,
       };
 
       if (newSettings.id) {
@@ -560,28 +563,45 @@ const AutoRecuperacao = () => {
             onSave={() => saveMutation.mutate(settings)}
             isSaving={saveMutation.isPending}
             extraSettings={
-              <Card className="border-border/40">
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <Label className="text-sm font-medium">Horário de envio</Label>
-                      <p className="text-[10px] text-muted-foreground">Define a hora do disparo diário automático</p>
+              <div className="space-y-3">
+                <Card className="border-border/40">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <Label className="text-sm font-medium">Enviar PDF do boleto</Label>
+                        <p className="text-[10px] text-muted-foreground">Envia o arquivo PDF do boleto junto com a mensagem (quando disponível)</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={settings.boleto_send_pdf}
+                      onCheckedChange={(checked) => setSettings({ ...settings, boleto_send_pdf: checked })}
+                    />
+                  </div>
+                </Card>
+                <Card className="border-border/40">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <Label className="text-sm font-medium">Horário de envio</Label>
+                        <p className="text-[10px] text-muted-foreground">Define a hora do disparo diário automático</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={settings.boleto_send_hour}
+                        onChange={(e) => setSettings({ ...settings, boleto_send_hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
+                        className="bg-secondary/30 border-border/30 h-9 text-sm w-20 text-center"
+                      />
+                      <span className="text-sm text-muted-foreground">h</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={settings.boleto_send_hour}
-                      onChange={(e) => setSettings({ ...settings, boleto_send_hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
-                      className="bg-secondary/30 border-border/30 h-9 text-sm w-20 text-center"
-                    />
-                    <span className="text-sm text-muted-foreground">h</span>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              </div>
             }
           />
         </TabsContent>

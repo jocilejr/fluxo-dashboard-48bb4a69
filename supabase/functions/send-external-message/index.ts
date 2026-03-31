@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface MediaAttachment {
+  media_url: string;
+  type: 'image' | 'video' | 'audio' | 'document';
+  caption?: string;
+}
+
 interface SendMessageRequest {
   phone: string;
   message: string;
@@ -14,6 +20,7 @@ interface SendMessageRequest {
   customerName?: string;
   amount?: number;
   instanceName?: string;
+  mediaAttachments?: MediaAttachment[];
 }
 
 function getErrorMessage(value: unknown, fallback: string): string {
@@ -33,7 +40,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { phone, message, transactionId, abandonedEventId, messageType, instanceName }: SendMessageRequest = await req.json();
+    const { phone, message, transactionId, abandonedEventId, messageType, instanceName, mediaAttachments }: SendMessageRequest = await req.json();
 
     console.log(`Sending message to ${phone} via API externa`);
 
@@ -107,6 +114,7 @@ Deno.serve(async (req) => {
       'X-API-Key': settings.api_key,
     };
 
+    // === SEND TEXT MESSAGE ===
     const sendPayload = {
       phone: normalizedPhone,
       message,
@@ -157,6 +165,49 @@ Deno.serve(async (req) => {
 
     console.log('Send message API response:', JSON.stringify(sendData));
 
+    // === SEND MEDIA ATTACHMENTS (after text succeeds) ===
+    const mediaResults: Array<{ type: string; success: boolean; error?: string }> = [];
+
+    if (sendResponse.ok && mediaAttachments && mediaAttachments.length > 0) {
+      for (const media of mediaAttachments) {
+        try {
+          console.log(`Sending media (${media.type}) to ${normalizedPhone}: ${media.media_url}`);
+          const mediaPayload = {
+            phone: normalizedPhone,
+            media_url: media.media_url,
+            type: media.type,
+            caption: media.caption || '',
+            instance,
+          };
+
+          const mediaResponse = await fetch(`${baseUrl}/api/platform/send-media`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(mediaPayload),
+          });
+
+          const mediaRaw = await mediaResponse.text();
+          let mediaData: Record<string, unknown> = {};
+          try {
+            mediaData = JSON.parse(mediaRaw);
+          } catch {
+            mediaData = { raw: mediaRaw.substring(0, 300) };
+          }
+
+          if (mediaResponse.ok) {
+            console.log(`Media ${media.type} sent successfully`);
+            mediaResults.push({ type: media.type, success: true });
+          } else {
+            console.error(`Media ${media.type} failed:`, mediaData);
+            mediaResults.push({ type: media.type, success: false, error: `HTTP ${mediaResponse.status}` });
+          }
+        } catch (mediaError) {
+          console.error(`Error sending media ${media.type}:`, mediaError);
+          mediaResults.push({ type: media.type, success: false, error: mediaError instanceof Error ? mediaError.message : 'Unknown' });
+        }
+      }
+    }
+
     if (logEntryId) {
       const attemptedAt = new Date().toISOString();
       const externalMessageId = sendData.id == null ? null : String(sendData.id);
@@ -168,7 +219,7 @@ Deno.serve(async (req) => {
       const updateData: Record<string, unknown> = sendResponse.ok
         ? {
             status: 'sent',
-            external_response: sendData,
+            external_response: { ...sendData, mediaResults: mediaResults.length > 0 ? mediaResults : undefined },
             sent_at: attemptedAt,
             external_message_id: externalMessageId,
           }
@@ -202,6 +253,7 @@ Deno.serve(async (req) => {
         success: true,
         messageId: sendData.id ?? null,
         response: sendData,
+        mediaResults: mediaResults.length > 0 ? mediaResults : undefined,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
