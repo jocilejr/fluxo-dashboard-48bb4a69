@@ -682,7 +682,12 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                 </td>
               </tr>
             ) : (
-              filteredTransactions.slice(0, visibleCount).map((transaction, index) => (
+              filteredTransactions.slice(0, visibleCount).map((transaction, index) => {
+                const displayPhone = transaction.type === "boleto" && transaction.status === "gerado"
+                  ? ((transaction as Transaction & { normalized_phone?: string | null }).normalized_phone || transaction.customer_phone)
+                  : transaction.customer_phone;
+
+                return (
                 <tr 
                   key={transaction.id} 
                   className={cn(
@@ -725,7 +730,7 @@ export function TransactionsTable({ transactions, isLoading, onDelete, isAdmin =
                   </td>
                   <td className="py-3.5 px-4 hidden xl:table-cell">
                     <span className="text-sm text-muted-foreground">
-                      {transaction.customer_phone || '-'}
+                      {displayPhone || '-'}
                     </span>
                   </td>
                   <td className="py-3.5 px-4">
