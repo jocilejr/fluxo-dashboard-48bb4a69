@@ -68,6 +68,26 @@ export function BoletoAutoRecoveryToggle() {
   const batchPause = settings?.batch_pause_seconds ?? 30;
   const maxPerPersonPerDay = settings?.max_messages_per_person_per_day ?? 1;
 
+  const handleManualRun = async () => {
+    setIsRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("auto-recovery", {
+        body: { forceRun: true, type: "boleto" },
+      });
+      if (error) throw error;
+      const sent = data?.stats?.boleto?.sent ?? 0;
+      const skipped = data?.stats?.boleto?.skipped ?? 0;
+      toast.success(`Recuperação concluída: ${sent} enviada(s), ${skipped} ignorada(s)`);
+      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error("Erro ao executar recuperação manual");
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   if (isLoading) return null;
 
   if (!settings) {
