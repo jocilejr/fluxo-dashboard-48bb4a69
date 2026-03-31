@@ -363,10 +363,11 @@ Deno.serve(async (req) => {
           for (const boleto of boletos) {
             if (messagesSent >= remainingLimit && !forceRun) break;
 
-            // Deduplicate: max 1 boleto message per person per day (using last 8 digits)
+            // Deduplicate: max N boleto messages per person per day (using last 8 digits)
             const boletoPhoneNorm = boleto.customer_phone!.replace(/\D/g, '');
             const boletophone8 = boletoPhoneNorm.slice(-8);
-            if (boletophone8.length === 8 && phonesContactedToday.has(boletophone8)) {
+            const currentCount = boletophone8.length === 8 ? (phonesContactedTodayCount.get(boletophone8) || 0) : 0;
+            if (boletophone8.length === 8 && currentCount >= maxPerPersonPerDay) {
               stats.boleto.skipped++;
               continue;
             }
