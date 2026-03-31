@@ -850,7 +850,8 @@ Deno.serve(async (req) => {
           if (messagesSent >= remainingLimit && !forceRun) break;
           if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
-          const txPhoneNorm = tx.customer_phone!.replace(/\D/g, '');
+          let txPhoneNorm = tx.customer_phone!.replace(/\D/g, '');
+          if (txPhoneNorm.startsWith('0')) txPhoneNorm = txPhoneNorm.slice(1);
           const txPhone8 = txPhoneNorm.slice(-8);
           if (txPhone8.length === 8 && pixCardPhonesContacted.has(txPhone8)) {
             stats.pix_card.skipped++;
