@@ -24,6 +24,11 @@ interface MessagingSettings {
   batch_size: number;
   batch_pause_seconds: number;
   max_messages_per_person_per_day: number;
+  last_recovery_status: string;
+  last_recovery_started_at: string | null;
+  last_recovery_finished_at: string | null;
+  last_recovery_stats: { boleto?: { sent: number; failed: number; skipped: number }; pix_card?: { sent: number; failed: number; skipped: number }; abandoned?: { sent: number; failed: number; skipped: number } } | null;
+  last_recovery_error: string | null;
   [key: string]: unknown;
 }
 
