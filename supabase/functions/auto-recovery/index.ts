@@ -120,6 +120,9 @@ Deno.serve(async (req) => {
     };
 
     let messagesSent = 0;
+    let batchCounter = 0;
+    const batchSize = settings.batch_size ?? 10;
+    const batchPauseSeconds = settings.batch_pause_seconds ?? 30;
 
     const instanceMap: Record<string, string | null> = {
       boleto: settings.boleto_instance_name || null,

@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Circle, X, Clock, Zap } from "lucide-react";
+import { Circle, X, Clock, Zap, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InstanceSelectorModal } from "@/components/recovery/InstanceSelectorModal";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 
 interface MessagingSettings {
   id?: string;
@@ -18,6 +19,9 @@ interface MessagingSettings {
   boleto_recovery_enabled: boolean;
   boleto_instance_name: string | null;
   boleto_send_hour: number;
+  delay_between_messages: number;
+  batch_size: number;
+  batch_pause_seconds: number;
   [key: string]: unknown;
 }
 
@@ -56,6 +60,9 @@ export function BoletoAutoRecoveryToggle() {
   const enabled = settings?.boleto_recovery_enabled ?? false;
   const instanceName = settings?.boleto_instance_name ?? null;
   const sendHour = settings?.boleto_send_hour ?? 9;
+  const delayBetween = settings?.delay_between_messages ?? 5;
+  const batchSize = settings?.batch_size ?? 10;
+  const batchPause = settings?.batch_pause_seconds ?? 30;
 
   if (isLoading) return null;
 
@@ -106,7 +113,7 @@ export function BoletoAutoRecoveryToggle() {
             </div>
           </div>
 
-          {/* Right: instance + hour */}
+          {/* Right: instance + hour + settings */}
           {enabled && (
             <div className="flex items-center gap-3 flex-wrap">
               {/* Instance chip */}
@@ -147,6 +154,74 @@ export function BoletoAutoRecoveryToggle() {
                 />
                 <span className="text-xs text-muted-foreground">h</span>
               </div>
+
+              {/* Settings popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="p-1.5 rounded-md hover:bg-secondary/50 transition-colors text-muted-foreground hover:text-foreground">
+                    <Settings className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72" align="end">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium mb-3">Ritmo de envio</p>
+                    </div>
+
+                    {/* Delay between messages */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Delay entre mensagens (segundos)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={300}
+                        value={delayBetween}
+                        onChange={(e) => {
+                          const val = Math.min(300, Math.max(0, Number(e.target.value)));
+                          updateMutation.mutate({ delay_between_messages: val });
+                        }}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
+                    {/* Batch size */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">A cada X mensagens, pausar</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={batchSize}
+                        onChange={(e) => {
+                          const val = Math.min(100, Math.max(1, Number(e.target.value)));
+                          updateMutation.mutate({ batch_size: val });
+                        }}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
+                    {/* Batch pause */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Pausa do lote (segundos)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={600}
+                        value={batchPause}
+                        onChange={(e) => {
+                          const val = Math.min(600, Math.max(0, Number(e.target.value)));
+                          updateMutation.mutate({ batch_pause_seconds: val });
+                        }}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
+                    <p className="text-[10px] text-muted-foreground">
+                      Após enviar {batchSize} mensagens, aguarda {batchPause}s antes de continuar.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           )}
         </div>
