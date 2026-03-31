@@ -132,6 +132,28 @@ export function useBoletoRecovery() {
     },
   });
 
+  // ── Query 5: default template ──
+  const { data: defaultTemplate } = useQuery({
+    queryKey: ["boleto-default-template"],
+    queryFn: async () => {
+      // Try default first
+      const { data: def } = await supabase
+        .from("boleto_recovery_templates")
+        .select("*")
+        .eq("is_default", true)
+        .maybeSingle();
+      if (def) return def;
+      // Fallback to first
+      const { data: first } = await supabase
+        .from("boleto_recovery_templates")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      return first;
+    },
+  });
+
   // ── Build lookup set of contacted transaction:rule keys ──
   const contactedKeys = useMemo(() => {
     const set = new Set<string>();
