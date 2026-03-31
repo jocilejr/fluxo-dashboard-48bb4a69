@@ -317,30 +317,24 @@ const AutoRecuperacao = () => {
   }
 
   const InstanceSelector = ({ type, instanceName }: { type: 'boleto' | 'pix_card' | 'abandoned'; instanceName: string | null }) => (
-    <div className="space-y-1.5">
-      <Label className="text-xs font-medium text-muted-foreground">Instância WhatsApp</Label>
+    <div className="flex items-center gap-2">
+      <Label className="text-xs font-medium text-muted-foreground shrink-0">Instância:</Label>
       {instanceName ? (
-        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-          <Circle className="h-2.5 w-2.5 fill-emerald-500 text-emerald-500 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate">{instanceName}</p>
-            <p className="text-[10px] text-emerald-400">Conectada</p>
-          </div>
-          <button onClick={() => removeInstance(type)} className="text-muted-foreground hover:text-destructive transition-colors">
-            <X className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30">
+          <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 shrink-0" />
+          <span className="text-xs font-medium truncate max-w-[120px]">{instanceName}</span>
+          <button onClick={() => removeInstance(type)} className="text-muted-foreground hover:text-destructive transition-colors ml-0.5">
+            <X className="h-3 w-3" />
           </button>
         </div>
       ) : (
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full h-8 text-xs"
-          onClick={() => setInstanceModal({ open: true, type })}
+        <button
+          onClick={() => apiConfigured && setInstanceModal({ open: true, type })}
           disabled={!apiConfigured}
+          className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline"
         >
-          <Smartphone className="h-3.5 w-3.5 mr-1.5" />
-          {apiConfigured ? "Selecionar instância" : "Configure a API primeiro"}
-        </Button>
+          {apiConfigured ? "Selecionar" : "Configure a API"}
+        </button>
       )}
     </div>
   );
@@ -416,10 +410,6 @@ const AutoRecuperacao = () => {
               </div>
             </div>
 
-            <Button size="sm" variant="outline" onClick={() => runAutoRecovery(type)} disabled={!apiConfigured} className="w-full">
-              <Send className="h-3.5 w-3.5 mr-2" />
-              Executar agora
-            </Button>
           </CardContent>
         </Card>
 
