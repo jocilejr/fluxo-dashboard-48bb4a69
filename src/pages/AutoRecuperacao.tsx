@@ -510,6 +510,8 @@ const AutoRecuperacao = () => {
             apiConfigured={apiConfigured}
             onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
             onRemoveInstance={removeInstance}
+            onSave={() => saveMutation.mutate(settings)}
+            isSaving={saveMutation.isPending}
           />
         </TabsContent>
 
@@ -528,6 +530,8 @@ const AutoRecuperacao = () => {
             apiConfigured={apiConfigured}
             onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
             onRemoveInstance={removeInstance}
+            onSave={() => saveMutation.mutate(settings)}
+            isSaving={saveMutation.isPending}
           />
         </TabsContent>
 
@@ -544,9 +548,12 @@ const AutoRecuperacao = () => {
             message={settings.auto_boleto_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_boleto_message: v })}
             showBoletoRules
+            hideMessage
             apiConfigured={apiConfigured}
             onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
             onRemoveInstance={removeInstance}
+            onSave={() => saveMutation.mutate(settings)}
+            isSaving={saveMutation.isPending}
             extraSettings={
               <Card className="border-border/40">
                 <div className="flex items-center justify-between px-4 py-3">
@@ -558,6 +565,20 @@ const AutoRecuperacao = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={settings.boleto_send_hour}
+                      onChange={(e) => setSettings({ ...settings, boleto_send_hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
+                      className="bg-secondary/30 border-border/30 h-9 text-sm w-20 text-center"
+                    />
+                    <span className="text-sm text-muted-foreground">h</span>
+                  </div>
+                </div>
+              </Card>
+            }
+          />
                     <Input
                       type="number"
                       min={0}
