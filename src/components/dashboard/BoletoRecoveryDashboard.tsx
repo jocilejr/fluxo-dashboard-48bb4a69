@@ -87,8 +87,9 @@ export function BoletoRecoveryDashboard() {
       <BoletoRecoveryHeroCard
         totalToday={stats.totalToday}
         todayValue={stats.todayValue}
-        contactedToday={stats.contactedToday}
+        sentToday={stats.sentToday}
         duplicatesToday={stats.duplicatesToday}
+        resolvedToday={stats.resolvedToday}
         pendingToday={stats.pendingToday}
         onStartRecovery={() => setQueueOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}

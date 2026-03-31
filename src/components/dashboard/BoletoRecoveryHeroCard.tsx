@@ -1,13 +1,14 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Settings, Play, CheckCircle2, Clock, DollarSign, Copy } from "lucide-react";
+import { Settings, Play, CheckCircle2, Clock, DollarSign, Copy, Send } from "lucide-react";
 
 interface BoletoRecoveryHeroCardProps {
   totalToday: number;
   todayValue: number;
-  contactedToday: number;
+  sentToday: number;
   duplicatesToday: number;
+  resolvedToday: number;
   pendingToday: number;
   onStartRecovery: () => void;
   onOpenSettings: () => void;
@@ -16,14 +17,14 @@ interface BoletoRecoveryHeroCardProps {
 export function BoletoRecoveryHeroCard({
   totalToday,
   todayValue,
-  contactedToday,
+  sentToday,
   duplicatesToday,
+  resolvedToday,
   pendingToday,
   onStartRecovery,
   onOpenSettings,
 }: BoletoRecoveryHeroCardProps) {
-  // contactedToday already includes duplicates (from hook), don't double-count
-  const progress = totalToday > 0 ? Math.min((contactedToday / totalToday) * 100, 100) : 0;
+  const progress = totalToday > 0 ? Math.min((resolvedToday / totalToday) * 100, 100) : 0;
 
   const formatCurrency = (value: number) =>
     value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -59,10 +60,10 @@ export function BoletoRecoveryHeroCard({
                 </div>
               </div>
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/50 border border-border/50">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <Send className="h-4 w-4 text-emerald-500" />
                 <div>
-                  <p className="text-xs text-muted-foreground">Contactados</p>
-                  <p className="font-semibold text-foreground">{contactedToday} / {totalToday}</p>
+                  <p className="text-xs text-muted-foreground">Enviados</p>
+                  <p className="font-semibold text-foreground">{sentToday}</p>
                 </div>
               </div>
               {duplicatesToday > 0 && (
@@ -74,6 +75,13 @@ export function BoletoRecoveryHeroCard({
                   </div>
                 </div>
               )}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background/50 border border-border/50">
+                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Resolvidos</p>
+                  <p className="font-semibold text-foreground">{resolvedToday} / {totalToday}</p>
+                </div>
+              </div>
             </div>
 
             {totalToday > 0 && (
