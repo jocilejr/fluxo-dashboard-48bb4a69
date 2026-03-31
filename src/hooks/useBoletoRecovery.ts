@@ -84,6 +84,7 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
         { event: '*', schema: 'public', table: 'message_log' },
         () => {
           queryClient.invalidateQueries({ queryKey: ["boleto-recovery-contacts"] });
+          queryClient.invalidateQueries({ queryKey: ["boleto-sent-messages-today"] });
           queryClient.invalidateQueries({ queryKey: ["unpaid-boletos"] });
         }
       )
