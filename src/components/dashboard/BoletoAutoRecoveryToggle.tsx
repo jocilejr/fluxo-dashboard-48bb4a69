@@ -47,6 +47,10 @@ export function BoletoAutoRecoveryToggle() {
       if (error) throw error;
       return data as MessagingSettings | null;
     },
+    refetchInterval: (query) => {
+      const status = query.state.data?.last_recovery_status;
+      return status === 'running' ? 3000 : false;
+    },
   });
 
   const updateMutation = useMutation({
