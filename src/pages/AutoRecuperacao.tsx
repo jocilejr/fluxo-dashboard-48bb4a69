@@ -7,12 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, FileText, Settings, CheckCheck, Camera, Smile, Mic, ArrowLeft, MoreVertical, Phone, Video, ScrollText } from "lucide-react";
+import { Loader2, X, Circle, Zap, Clock, Radio, Save, CreditCard, ShoppingCart, Settings, CheckCheck, Camera, Smile, Mic, ArrowLeft, MoreVertical, Phone, Video, ScrollText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InstanceSelectorModal } from "@/components/recovery/InstanceSelectorModal";
-import { BoletoRecoveryRulesConfig } from "@/components/dashboard/BoletoRecoveryRulesConfig";
 import { getGreeting } from "@/lib/greeting";
 import { RecoveryLogsTab } from "@/components/dashboard/RecoveryLogsTab";
 
@@ -314,7 +313,7 @@ const RecoveryTabContent = ({
     </Card>
 
     {extraSettings}
-    {showBoletoRules && <BoletoRecoveryRulesConfig />}
+    
   </div>
 );
 
@@ -474,7 +473,7 @@ const AutoRecuperacao = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="pix_card" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pix_card" className="gap-1.5">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">PIX / Cartão</span>
@@ -484,10 +483,6 @@ const AutoRecuperacao = () => {
             <ShoppingCart className="h-4 w-4" />
             <span className="hidden sm:inline">Abandonos</span>
             <span className="sm:hidden">Aband.</span>
-          </TabsTrigger>
-          <TabsTrigger value="boleto" className="gap-1.5">
-            <FileText className="h-4 w-4" />
-            Boleto
           </TabsTrigger>
           <TabsTrigger value="logs" className="gap-1.5">
             <ScrollText className="h-4 w-4" />
@@ -537,54 +532,6 @@ const AutoRecuperacao = () => {
             onRemoveInstance={removeInstance}
             onSave={() => saveMutation.mutate(settings)}
             isSaving={saveMutation.isPending}
-          />
-        </TabsContent>
-
-        <TabsContent value="boleto">
-          <RecoveryTabContent
-            type="boleto"
-            title="Boleto"
-            description={`Executa diariamente às ${settings.boleto_send_hour}h, seguindo a régua de cobrança.`}
-            badgeLabel={`Diário ${settings.boleto_send_hour}h`}
-            badgeIcon={Clock}
-            enabled={settings.boleto_recovery_enabled}
-            onToggle={(v) => { const updated = { ...settings, boleto_recovery_enabled: v }; setSettings(updated); saveMutation.mutate(updated); }}
-            instanceName={settings.boleto_instance_name}
-            message={settings.auto_boleto_message}
-            onMessageChange={(v) => setSettings({ ...settings, auto_boleto_message: v })}
-            showBoletoRules
-            hideMessage
-            apiConfigured={apiConfigured}
-            onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
-            onRemoveInstance={removeInstance}
-            onSave={() => saveMutation.mutate(settings)}
-            isSaving={saveMutation.isPending}
-            extraSettings={
-              <div className="space-y-3">
-                <Card className="border-border/40">
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <Label className="text-sm font-medium">Horário de envio</Label>
-                        <p className="text-[10px] text-muted-foreground">Define a hora do disparo diário automático</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={23}
-                        value={settings.boleto_send_hour}
-                        onChange={(e) => setSettings({ ...settings, boleto_send_hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
-                        className="bg-secondary/30 border-border/30 h-9 text-sm w-20 text-center"
-                      />
-                      <span className="text-sm text-muted-foreground">h</span>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            }
           />
         </TabsContent>
 
