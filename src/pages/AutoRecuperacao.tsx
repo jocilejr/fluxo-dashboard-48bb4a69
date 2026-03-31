@@ -202,6 +202,9 @@ const RecoveryTabContent = ({
   apiConfigured,
   onSelectInstance,
   onRemoveInstance,
+  hideMessage,
+  onSave,
+  isSaving,
 }: {
   type: 'boleto' | 'pix_card' | 'abandoned';
   title: string;
@@ -218,6 +221,9 @@ const RecoveryTabContent = ({
   apiConfigured: boolean;
   onSelectInstance: (type: 'boleto' | 'pix_card' | 'abandoned') => void;
   onRemoveInstance: (type: 'boleto' | 'pix_card' | 'abandoned') => void;
+  hideMessage?: boolean;
+  onSave?: () => void;
+  isSaving?: boolean;
 }) => (
   <div className="space-y-4">
     <Card className="border-border/40">
@@ -255,44 +261,55 @@ const RecoveryTabContent = ({
         </div>
       </div>
 
-      {/* Two-column: editor + preview */}
-      <CardContent className="p-4">
-        <div className="grid md:grid-cols-[1fr,320px] gap-4">
-          {/* Left: editor */}
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-muted-foreground">Mensagem automática</Label>
-              <Textarea
-                value={message}
-                onChange={(e) => onMessageChange(e.target.value)}
-                placeholder="Digite a mensagem..."
-                className="min-h-[200px] text-sm bg-secondary/20 border-border/30 resize-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground">Variáveis disponíveis</Label>
-              <div className="flex flex-wrap gap-1">
-                {VARIABLES_INFO.map((v) => (
-                  <button
-                    key={v.var}
-                    type="button"
-                    onClick={() => onMessageChange(message + v.var)}
-                    className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
-                  >
-                    {v.var}
-                  </button>
-                ))}
+      {/* Two-column: editor + preview (hidden for boleto) */}
+      {!hideMessage && (
+        <CardContent className="p-4">
+          <div className="grid md:grid-cols-[1fr,320px] gap-4">
+            {/* Left: editor */}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Mensagem automática</Label>
+                <Textarea
+                  value={message}
+                  onChange={(e) => onMessageChange(e.target.value)}
+                  placeholder="Digite a mensagem..."
+                  className="min-h-[200px] text-sm bg-secondary/20 border-border/30 resize-none"
+                />
               </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Variáveis disponíveis</Label>
+                <div className="flex flex-wrap gap-1">
+                  {VARIABLES_INFO.map((v) => (
+                    <button
+                      key={v.var}
+                      type="button"
+                      onClick={() => onMessageChange(message + v.var)}
+                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      {v.var}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Save button below editor */}
+              {onSave && (
+                <div className="pt-2">
+                  <Button onClick={onSave} disabled={isSaving} size="sm" variant="default">
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+                    Salvar
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Right: WhatsApp panel preview */}
+            <div className="flex flex-col">
+              <Label className="text-xs font-medium text-muted-foreground mb-1.5">Preview</Label>
+              <WhatsAppPanelPreview message={message} />
             </div>
           </div>
-
-          {/* Right: WhatsApp panel preview */}
-          <div className="flex flex-col">
-            <Label className="text-xs font-medium text-muted-foreground mb-1.5">Preview</Label>
-            <WhatsAppPanelPreview message={message} />
-          </div>
-        </div>
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
 
     {extraSettings}
@@ -430,10 +447,6 @@ const AutoRecuperacao = () => {
             <p className="text-xs text-muted-foreground">Mensagens automáticas de recuperação de vendas</p>
           </div>
         </div>
-        <Button onClick={() => saveMutation.mutate(settings)} disabled={saveMutation.isPending} size="sm" variant="default">
-          {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
-          Salvar
-        </Button>
       </div>
 
       {!apiConfigured && (
@@ -497,6 +510,8 @@ const AutoRecuperacao = () => {
             apiConfigured={apiConfigured}
             onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
             onRemoveInstance={removeInstance}
+            onSave={() => saveMutation.mutate(settings)}
+            isSaving={saveMutation.isPending}
           />
         </TabsContent>
 
@@ -515,6 +530,8 @@ const AutoRecuperacao = () => {
             apiConfigured={apiConfigured}
             onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
             onRemoveInstance={removeInstance}
+            onSave={() => saveMutation.mutate(settings)}
+            isSaving={saveMutation.isPending}
           />
         </TabsContent>
 
@@ -531,9 +548,12 @@ const AutoRecuperacao = () => {
             message={settings.auto_boleto_message}
             onMessageChange={(v) => setSettings({ ...settings, auto_boleto_message: v })}
             showBoletoRules
+            hideMessage
             apiConfigured={apiConfigured}
             onSelectInstance={(t) => setInstanceModal({ open: true, type: t })}
             onRemoveInstance={removeInstance}
+            onSave={() => saveMutation.mutate(settings)}
+            isSaving={saveMutation.isPending}
             extraSettings={
               <Card className="border-border/40">
                 <div className="flex items-center justify-between px-4 py-3">
