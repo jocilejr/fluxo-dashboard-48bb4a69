@@ -31,7 +31,9 @@ interface PushSubscription {
 
 function normalizePhone(phone?: string): string | undefined {
   if (!phone) return undefined;
-  return phone.replace(/^\+/, '').replace(/\D/g, '');
+  let digits = phone.replace(/^\+/, '').replace(/\D/g, '');
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  return digits;
 }
 
 function normalizeExternalId(externalId?: string): string | undefined {

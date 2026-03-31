@@ -905,7 +905,8 @@ Deno.serve(async (req) => {
           if (messagesSent >= remainingLimit && !forceRun) break;
           if (!isSingleItem) { const cs = await checkControlStatus(); if (cs === 'stopped') break; }
 
-          const evPhoneNorm = event.customer_phone!.replace(/\D/g, '');
+          let evPhoneNorm = event.customer_phone!.replace(/\D/g, '');
+          if (evPhoneNorm.startsWith('0')) evPhoneNorm = evPhoneNorm.slice(1);
           const evPhone8 = evPhoneNorm.slice(-8);
           if (evPhone8.length === 8 && abandonedPhonesContacted.has(evPhone8)) {
             stats.abandoned.skipped++;

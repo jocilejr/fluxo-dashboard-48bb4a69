@@ -40,6 +40,9 @@ export function generatePhoneVariations(phone: string | null | undefined): strin
   // Remove all non-digit characters
   let digits = phone.replace(/\D/g, '');
   
+  // Remove leading zero if present
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  
   if (digits.length < 8) return [];
   
   const variations: Set<string> = new Set();

@@ -626,7 +626,8 @@ Deno.serve(async (req) => {
         );
       }
 
-      const normPhone = phone ? phone.replace(/\D/g, '') : null;
+      let normPhone = phone ? phone.replace(/\D/g, '') : null;
+      if (normPhone?.startsWith('0')) normPhone = normPhone.slice(1);
 
       const { data: newTx, error: insertError } = await supabase
         .from('transactions')

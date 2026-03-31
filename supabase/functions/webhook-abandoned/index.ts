@@ -27,7 +27,9 @@ interface AbandonedEventPayload {
 
 function normalizePhone(phone: string | undefined): string | null {
   if (!phone) return null;
-  return phone.replace(/^\+/, '').replace(/\D/g, '');
+  let digits = phone.replace(/^\+/, '').replace(/\D/g, '');
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  return digits;
 }
 
 function getBrazilDate(): Date {

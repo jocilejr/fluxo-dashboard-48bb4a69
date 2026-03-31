@@ -26,7 +26,8 @@ serve(async (req) => {
     }
 
     // Normalize phone number (remove non-digits)
-    const normalizedPhone = phone.replace(/\D/g, "");
+    let normalizedPhone = phone.replace(/\D/g, "");
+    if (normalizedPhone.startsWith('0')) normalizedPhone = normalizedPhone.slice(1);
 
     console.log(`[delivery-access] Processing access for slug: ${slug}, phone: ${normalizedPhone}`);
 
