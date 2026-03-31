@@ -579,20 +579,6 @@ const AutoRecuperacao = () => {
               </Card>
             }
           />
-                    <Input
-                      type="number"
-                      min={0}
-                      max={23}
-                      value={settings.boleto_send_hour}
-                      onChange={(e) => setSettings({ ...settings, boleto_send_hour: Math.min(23, Math.max(0, Number(e.target.value))) })}
-                      className="bg-secondary/30 border-border/30 h-9 text-sm w-20 text-center"
-                    />
-                    <span className="text-sm text-muted-foreground">h</span>
-                  </div>
-                </div>
-              </Card>
-            }
-          />
         </TabsContent>
 
         <TabsContent value="settings">
