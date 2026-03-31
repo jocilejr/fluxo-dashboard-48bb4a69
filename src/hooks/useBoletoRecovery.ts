@@ -318,15 +318,29 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
     });
   }, [transactions, settings, rules, contacts, todaySentMessages]);
 
-  // Filter boletos that match any rule today (for total count including contacted)
+  // Filter boletos that match any rule today OR were already sent today (for total count)
   const boletosMatchingRulesToday = useMemo(() => {
-    if (!rules || rules.length === 0) return [];
-    
     const today = getTodayStartInBrazil();
     const expirationDays = settings?.default_expiration_days || 3;
     
+    // Set of transaction IDs already sent today via message_log
+    const sentTodayTxIds = new Set(
+      todaySentMessages?.map((m) => m.transaction_id).filter(Boolean) || []
+    );
+    
     return processedBoletos.filter((boleto) => {
-      // Use same Brazil timezone calculation as processedBoletos
+      // Include if already sent today (even if rules don't match frontend calculation)
+      if (sentTodayTxIds.has(boleto.id)) return true;
+      
+      // Also include if contacted today via boleto_recovery_contacts
+      const contactedTodayViaContacts = boleto.contacts.some((c) => 
+        isTodayInBrazil(new Date(c.contacted_at))
+      );
+      if (contactedTodayViaContacts) return true;
+      
+      // Include if any rule matches this boleto today
+      if (!rules || rules.length === 0) return false;
+      
       const createdAt = new Date(boleto.created_at);
       const createdAtInBrazil = toZonedTime(createdAt, BRAZIL_TIMEZONE);
       const createdAtDayStart = startOfDay(createdAtInBrazil);
@@ -336,19 +350,14 @@ export function useBoletoRecovery(transactionsFromProp?: Transaction[]) {
       const daysSinceGeneration = differenceInDays(today, createdAtDayStart);
       const isOverdue = isBefore(dueDate, today);
       
-      // Check if any rule matches this boleto today
       return rules.some((rule) => {
-        if (rule.rule_type === "days_after_generation" && daysSinceGeneration === rule.days) {
-          return true;
-        } else if (rule.rule_type === "days_before_due" && daysUntilDue === rule.days) {
-          return true;
-        } else if (rule.rule_type === "days_after_due" && isOverdue && Math.abs(daysUntilDue) === rule.days) {
-          return true;
-        }
+        if (rule.rule_type === "days_after_generation" && daysSinceGeneration === rule.days) return true;
+        if (rule.rule_type === "days_before_due" && daysUntilDue === rule.days) return true;
+        if (rule.rule_type === "days_after_due" && isOverdue && Math.abs(daysUntilDue) === rule.days) return true;
         return false;
       });
     });
-  }, [processedBoletos, rules, settings]);
+  }, [processedBoletos, rules, settings, todaySentMessages, contacts]);
 
   // Boletos that need to be contacted today (not yet contacted)
   const todayBoletos = useMemo(
