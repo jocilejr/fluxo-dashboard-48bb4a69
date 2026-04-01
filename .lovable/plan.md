@@ -2,44 +2,30 @@
 
 ## Problema
 
-Na recuperação diária (régua de cobrança), quando a regra tem o bloco de **imagem** habilitado, o sistema envia a URL do PDF diretamente com `type: 'image'`. O WhatsApp não renderiza PDFs como imagem. A função `convertPdfToImageUrl()` já existe no código mas só é chamada no envio imediato.
+O seletor de template está no componente `BoletoAutoRecoveryToggle` da página **Recuperação**, mas deveria estar no `AutoRecoveryToggleBar` da aba **Boletos Gerados** na página **Transações**. O template é usado para o envio imediato (ao receber webhook), não para o follow-up diário.
 
-## Solução
+## Plano
 
-No arquivo `supabase/functions/auto-recovery/index.ts`, na seção "BATCH: BOLETO recovery (drip/follow-up)" (linhas ~792-801), antes de montar o array `boletoMedia`, converter o PDF em imagem usando `convertPdfToImageUrl()` quando o bloco de imagem estiver habilitado.
+### 1. Adicionar seletor de template ao `AutoRecoveryToggleBar` (só para tipo `boleto`)
 
-### Alteração
+Arquivo: `src/components/dashboard/AutoRecoveryToggleBar.tsx`
 
-Arquivo: `supabase/functions/auto-recovery/index.ts`
+- Buscar templates de `boleto_recovery_templates` (query existente em outros componentes)
+- Adicionar um `<Select>` para escolher o template padrão (quando `type === "boleto"`)
+- Mutation para definir `is_default` no template selecionado
 
-Na seção de construção de mídia da régua diária (~linha 792):
+### 2. Remover seletor de template do `BoletoAutoRecoveryToggle`
 
-1. Verificar se existe bloco de imagem habilitado
-2. Se sim, chamar `convertPdfToImageUrl(boletoUrl, supabase)` para converter
-3. Usar a URL da imagem convertida no `media_url` em vez da URL do PDF
-4. Se a conversão falhar, fazer fallback para envio como documento
+Arquivo: `src/components/dashboard/BoletoAutoRecoveryToggle.tsx`
 
-```text
-Antes (linha ~798):
-  if (mediaBlocks.find(b => b.type === 'image')?.enabled) {
-    boletoMedia.push({ media_url: boletoUrl, type: 'image', ... });
-  }
-
-Depois:
-  if (mediaBlocks.find(b => b.type === 'image')?.enabled) {
-    const imgUrl = await convertPdfToImageUrl(boletoUrl, supabase);
-    if (imgUrl) {
-      boletoMedia.push({ media_url: imgUrl, type: 'image', ... });
-    } else {
-      // Fallback: send as document
-      boletoMedia.push({ media_url: boletoUrl, type: 'document', ... });
-    }
-  }
-```
+- Remover a query de templates
+- Remover a mutation `setDefaultTemplate`
+- Remover o bloco JSX do seletor de template (linhas ~247-267)
 
 ### Arquivos alterados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/auto-recovery/index.ts` | Chamar `convertPdfToImageUrl` na régua diária para blocos de imagem |
+| `src/components/dashboard/AutoRecoveryToggleBar.tsx` | Adicionar seletor de template para tipo boleto |
+| `src/components/dashboard/BoletoAutoRecoveryToggle.tsx` | Remover seletor de template |
 
