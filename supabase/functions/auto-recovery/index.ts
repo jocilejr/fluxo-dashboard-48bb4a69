@@ -79,8 +79,8 @@ async function convertPdfToImageUrl(pdfUrl: string, supabaseClient: ReturnType<t
   }
 }
 
-// Max execution time before self-continuing (120s to stay under 150s limit)
-const MAX_EXEC_MS = 120_000;
+// Max execution time before self-continuing (90s to stay safely under 150s limit, accounting for PDF→IMG conversion)
+const MAX_EXEC_MS = 90_000;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
