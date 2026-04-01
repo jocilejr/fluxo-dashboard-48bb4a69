@@ -79,8 +79,8 @@ async function convertPdfToImageUrl(pdfUrl: string, supabaseClient: ReturnType<t
   }
 }
 
-// Max execution time before self-continuing (120s to stay under 150s limit)
-const MAX_EXEC_MS = 120_000;
+// Max execution time before self-continuing (90s to stay safely under 150s limit, accounting for PDF→IMG conversion)
+const MAX_EXEC_MS = 90_000;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -796,6 +796,12 @@ Deno.serve(async (req) => {
                 boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
               }
               if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
+                // Check timeout BEFORE expensive PDF→IMG conversion to avoid hard kill
+                if (isNearTimeout()) {
+                  console.log(`[boleto-recovery] Near timeout before PDF→IMG at index ${i}, will self-continue...`);
+                  needsContinuation = true;
+                  break;
+                }
                 const imgUrl = await convertPdfToImageUrl(boletoUrl, supabase);
                 if (imgUrl) {
                   boletoMedia.push({ media_url: imgUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
