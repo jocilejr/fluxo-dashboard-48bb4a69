@@ -796,6 +796,12 @@ Deno.serve(async (req) => {
                 boletoMedia.push({ media_url: boletoUrl, type: 'document', caption: `Boleto - ${boleto.description || 'Produto'}` });
               }
               if (mediaBlocks.find((b) => b.type === 'image')?.enabled) {
+                // Check timeout BEFORE expensive PDF→IMG conversion to avoid hard kill
+                if (isNearTimeout()) {
+                  console.log(`[boleto-recovery] Near timeout before PDF→IMG at index ${i}, will self-continue...`);
+                  needsContinuation = true;
+                  break;
+                }
                 const imgUrl = await convertPdfToImageUrl(boletoUrl, supabase);
                 if (imgUrl) {
                   boletoMedia.push({ media_url: imgUrl, type: 'image', caption: `Boleto - ${boleto.description || 'Produto'}` });
