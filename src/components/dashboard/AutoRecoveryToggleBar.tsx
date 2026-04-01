@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Smartphone, Loader2 } from "lucide-react";
+import { Smartphone, Loader2, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InstanceSelectorModal } from "@/components/recovery/InstanceSelectorModal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type RecoveryType = "boleto" | "pix_card" | "abandoned";
 
@@ -46,6 +47,42 @@ export function AutoRecoveryToggleBar({ type, isAdmin }: AutoRecoveryToggleBarPr
       if (error) throw error;
       return data;
     },
+  });
+
+  // Fetch boleto recovery templates (only for boleto type)
+  const { data: templates } = useQuery({
+    queryKey: ["boleto-recovery-templates-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("boleto_recovery_templates")
+        .select("id, name, is_default")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: type === "boleto",
+  });
+
+  const defaultTemplate = templates?.find(t => t.is_default);
+
+  const setDefaultTemplate = useMutation({
+    mutationFn: async (templateId: string) => {
+      await supabase
+        .from("boleto_recovery_templates")
+        .update({ is_default: false })
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+      const { error } = await supabase
+        .from("boleto_recovery_templates")
+        .update({ is_default: true })
+        .eq("id", templateId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-templates-list"] });
+      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-templates"] });
+      toast.success("Template padrão atualizado");
+    },
+    onError: () => toast.error("Erro ao atualizar template"),
   });
 
   const mutation = useMutation({
@@ -94,6 +131,28 @@ export function AutoRecoveryToggleBar({ type, isAdmin }: AutoRecoveryToggleBarPr
 
       {isEnabled && (
         <div className="flex items-center gap-2 ml-auto">
+          {/* Template selector - only for boleto */}
+          {type === "boleto" && templates && templates.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <FileText className="h-3 w-3 text-muted-foreground" />
+              <Select
+                value={defaultTemplate?.id || ""}
+                onValueChange={(val) => setDefaultTemplate.mutate(val)}
+              >
+                <SelectTrigger className="bg-secondary/30 border-border/30 h-7 text-xs w-[140px]">
+                  <SelectValue placeholder="Template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id} className="text-xs">
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {instanceName ? (
             <button
               onClick={() => setInstanceModalOpen(true)}

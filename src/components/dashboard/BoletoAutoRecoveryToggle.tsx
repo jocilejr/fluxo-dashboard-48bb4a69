@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { InstanceSelectorModal } from "@/components/recovery/InstanceSelectorModal";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 interface MessagingSettings {
   id?: string;
