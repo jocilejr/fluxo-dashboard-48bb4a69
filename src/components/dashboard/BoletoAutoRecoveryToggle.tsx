@@ -69,42 +69,8 @@ export function BoletoAutoRecoveryToggle() {
     return () => { supabase.removeChannel(channel); };
   }, [queryClient]);
 
-  // Fetch boleto recovery templates
-  const { data: templates } = useQuery({
-    queryKey: ["boleto-recovery-templates-list"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("boleto_recovery_templates")
-        .select("id, name, is_default")
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
 
-  const defaultTemplate = templates?.find(t => t.is_default);
 
-  const setDefaultTemplate = useMutation({
-    mutationFn: async (templateId: string) => {
-      // Remove is_default from all
-      await supabase
-        .from("boleto_recovery_templates")
-        .update({ is_default: false })
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-      // Set new default
-      const { error } = await supabase
-        .from("boleto_recovery_templates")
-        .update({ is_default: true })
-        .eq("id", templateId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-templates-list"] });
-      queryClient.invalidateQueries({ queryKey: ["boleto-recovery-templates"] });
-      toast.success("Template padrão atualizado");
-    },
-    onError: () => toast.error("Erro ao atualizar template"),
-  });
 
   const updateMutation = useMutation({
     mutationFn: async (patch: Record<string, unknown>) => {
