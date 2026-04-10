@@ -31,8 +31,11 @@ import {
   Check,
   X,
   Unlink,
-  Receipt
+  Receipt,
+  Download,
+  Loader2
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
