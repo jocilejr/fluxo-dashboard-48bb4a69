@@ -652,6 +652,7 @@ export default function Clientes() {
       const { data, error } = await supabase
         .from("customers")
         .select("*")
+        .gt("total_paid", 0)
         .order("last_seen_at", { ascending: false });
 
       if (error) throw error;
