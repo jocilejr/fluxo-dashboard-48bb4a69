@@ -31,8 +31,11 @@ import {
   Check,
   X,
   Unlink,
-  Receipt
+  Receipt,
+  Download,
+  Loader2
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -641,6 +644,56 @@ export default function Clientes() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [paymentFilter, setPaymentFilter] = useState<"all" | "pix" | "boleto" | "cartao">("all");
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportCustomers = async () => {
+    setIsExporting(true);
+    try {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .order("last_seen_at", { ascending: false });
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast.error("Nenhum cliente para exportar");
+        return;
+      }
+
+      const headers = ["nome", "telefone", "email", "documento", "total_transacoes", "total_pago", "total_pendente", "total_abandonos", "pix_payments", "primeiro_contato", "ultimo_contato"];
+      const csvContent = [
+        headers.join(","),
+        ...data.map(c => [
+          c.name ? `"${String(c.name).replace(/"/g, '""')}"` : "",
+          c.display_phone || c.normalized_phone || "",
+          c.email || "",
+          c.document || "",
+          c.total_transactions,
+          c.total_paid,
+          c.total_pending,
+          c.total_abandoned_events,
+          c.pix_payment_count,
+          c.first_seen_at,
+          c.last_seen_at
+        ].join(","))
+      ].join("\n");
+
+      const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `clientes_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`${data.length} clientes exportados`);
+    } catch (error: any) {
+      toast.error("Erro ao exportar: " + error.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const filteredCustomers = useMemo(() => {
     let result = [...customers];
@@ -704,11 +757,24 @@ export default function Clientes() {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
           <p className="text-muted-foreground text-sm">Visualização unificada de todos os leads</p>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportCustomers}
+          disabled={isExporting}
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <Download className="h-4 w-4 mr-2" />
+          )}
+          Exportar CSV
+        </Button>
       </div>
 
       {/* Search and Filters */}
