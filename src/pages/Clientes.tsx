@@ -660,29 +660,35 @@ export default function Clientes() {
         return;
       }
 
-      const headers = ["nome", "telefone", "email", "documento", "total_transacoes", "total_pago", "total_pendente", "total_abandonos", "pix_payments", "primeiro_contato", "ultimo_contato"];
-      const csvContent = [
-        headers.join(","),
-        ...data.map(c => [
-          c.name ? `"${String(c.name).replace(/"/g, '""')}"` : "",
-          c.display_phone || c.normalized_phone || "",
-          c.email || "",
-          c.document || "",
-          c.total_transactions,
-          c.total_paid,
-          c.total_pending,
-          c.total_abandoned_events,
-          c.pix_payment_count,
-          c.first_seen_at,
-          c.last_seen_at
-        ].join(","))
-      ].join("\n");
+      const escapeXml = (val: any) => {
+        if (val === null || val === undefined) return "";
+        return String(val).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      };
 
-      const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+      const rows = data.map(c => `    <Cliente>
+      <Nome>${escapeXml(c.name)}</Nome>
+      <Telefone>${escapeXml(c.display_phone || c.normalized_phone)}</Telefone>
+      <Email>${escapeXml(c.email)}</Email>
+      <Documento>${escapeXml(c.document)}</Documento>
+      <TotalTransacoes>${c.total_transactions}</TotalTransacoes>
+      <TotalPago>${c.total_paid}</TotalPago>
+      <TotalPendente>${c.total_pending}</TotalPendente>
+      <TotalAbandonos>${c.total_abandoned_events}</TotalAbandonos>
+      <PagamentosPix>${c.pix_payment_count}</PagamentosPix>
+      <PrimeiroContato>${escapeXml(c.first_seen_at)}</PrimeiroContato>
+      <UltimoContato>${escapeXml(c.last_seen_at)}</UltimoContato>
+    </Cliente>`).join("\n");
+
+      const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<Clientes total="${data.length}" exportadoEm="${new Date().toISOString()}">
+${rows}
+</Clientes>`;
+
+      const blob = new Blob([xmlContent], { type: "application/xml;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `clientes_${new Date().toISOString().split("T")[0]}.csv`;
+      link.download = `clientes_${new Date().toISOString().split("T")[0]}.xml`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -773,7 +779,7 @@ export default function Clientes() {
           ) : (
             <Download className="h-4 w-4 mr-2" />
           )}
-          Exportar CSV
+          Exportar XML
         </Button>
       </div>
 
