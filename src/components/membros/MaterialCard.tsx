@@ -133,7 +133,19 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
               <ArrowLeft className="h-6 w-6" />
               Voltar
             </Button>
-            <h2 className="text-lg font-bold truncate text-gray-800">{material.title}</h2>
+            <h2 className="text-lg font-bold truncate text-gray-800 flex-1">{material.title}</h2>
+            {material.content_url && (
+              <a
+                href={material.content_url}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
+                title="Baixar arquivo"
+              >
+                <Download className="h-5 w-5 text-gray-600" />
+              </a>
+            )}
           </div>
           {renderPdfViewer()}
         </DialogContent>
@@ -187,7 +199,20 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
             )}
 
             {material.content_type === "image" && material.content_url && (
-              <img src={material.content_url} alt={material.title} className="w-full rounded-xl shadow-sm" />
+              <div>
+                <img src={material.content_url} alt={material.title} className="w-full rounded-xl shadow-sm" />
+                <a
+                  href={material.content_url}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: themeColor }}
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar imagem
+                </a>
+              </div>
             )}
 
             {material.content_type === "video" && material.content_url && (
@@ -225,8 +250,18 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
                   src={material.content_url}
                   controls
                   className="w-full"
-                  controlsList="nodownload"
                 />
+                <a
+                  href={material.content_url}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: themeColor }}
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar áudio
+                </a>
               </div>
             )}
           </div>
