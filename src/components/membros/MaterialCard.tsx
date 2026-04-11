@@ -250,8 +250,18 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
                   src={material.content_url}
                   controls
                   className="w-full"
-                  controlsList="nodownload"
                 />
+                <a
+                  href={material.content_url}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: themeColor }}
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar áudio
+                </a>
               </div>
             )}
           </div>
