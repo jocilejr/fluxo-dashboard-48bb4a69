@@ -482,16 +482,35 @@ function ProductContentEditor({ productId }: { productId: string }) {
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                     {mat.content_url && (
-                      <a
-                        href={mat.content_url}
-                        download
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const res = await fetch(mat.content_url!);
+                            const blob = await res.blob();
+                            const ext = mat.content_type === "pdf" ? ".pdf"
+                              : mat.content_type === "image" ? (mat.content_url!.match(/\.(png|jpg|jpeg|gif|webp)/i)?.[0] || ".jpg")
+                              : mat.content_type === "audio" ? (mat.content_url!.match(/\.(mp3|wav|ogg|m4a)/i)?.[0] || ".mp3")
+                              : mat.content_type === "video" ? (mat.content_url!.match(/\.(mp4|webm|mov)/i)?.[0] || ".mp4")
+                              : "";
+                            const filename = `${mat.title}${ext}`;
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                          } catch {
+                            toast.error("Erro ao baixar arquivo");
+                          }
+                        }}
                         className="text-muted-foreground hover:text-primary p-1"
                         title="Baixar arquivo"
                       >
                         <Download className="h-4 w-4" />
-                      </a>
+                      </button>
                     )}
                     <button onClick={() => openEditMaterial(mat)} className="text-muted-foreground hover:text-primary p-1">
                       <Edit className="h-4 w-4" />
