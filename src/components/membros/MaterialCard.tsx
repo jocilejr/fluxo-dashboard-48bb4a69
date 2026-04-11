@@ -199,18 +199,20 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
             )}
 
             {material.content_type === "image" && material.content_url && (
-              <img src={material.content_url} alt={material.title} className="w-full rounded-xl shadow-sm" />
-              <a
-                href={material.content_url}
-                download
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-                style={{ backgroundColor: themeColor }}
-              >
-                <Download className="h-4 w-4" />
-                Baixar imagem
-              </a>
+              <div>
+                <img src={material.content_url} alt={material.title} className="w-full rounded-xl shadow-sm" />
+                <a
+                  href={material.content_url}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: themeColor }}
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar imagem
+                </a>
+              </div>
             )}
 
             {material.content_type === "video" && material.content_url && (
