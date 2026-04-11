@@ -133,7 +133,19 @@ export default function MaterialCard({ material, themeColor, preloadedPdf, phone
               <ArrowLeft className="h-6 w-6" />
               Voltar
             </Button>
-            <h2 className="text-lg font-bold truncate text-gray-800">{material.title}</h2>
+            <h2 className="text-lg font-bold truncate text-gray-800 flex-1">{material.title}</h2>
+            {material.content_url && (
+              <a
+                href={material.content_url}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
+                title="Baixar arquivo"
+              >
+                <Download className="h-5 w-5 text-gray-600" />
+              </a>
+            )}
           </div>
           {renderPdfViewer()}
         </DialogContent>
