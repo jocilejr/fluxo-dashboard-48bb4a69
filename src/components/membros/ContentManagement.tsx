@@ -481,6 +481,18 @@ function ProductContentEditor({ productId }: { productId: string }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                    {mat.content_url && (
+                      <a
+                        href={mat.content_url}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-primary p-1"
+                        title="Baixar arquivo"
+                      >
+                        <Download className="h-4 w-4" />
+                      </a>
+                    )}
                     <button onClick={() => openEditMaterial(mat)} className="text-muted-foreground hover:text-primary p-1">
                       <Edit className="h-4 w-4" />
                     </button>
